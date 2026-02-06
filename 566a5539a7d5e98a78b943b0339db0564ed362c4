@@ -1,0 +1,268 @@
+{
+  "schema": "chronicle/v1",
+  "commit": "566a5539a7d5e98a78b943b0339db0564ed362c4",
+  "timestamp": "2026-02-06T20:45:06.458840+00:00",
+  "summary": "Replace the async HTTP stack (reqwest, tokio, async-trait, and ~40 transitive crates) with ureq, a blocking HTTP client. The only HTTP usage was a single sequential POST to the Anthropic API with retry logic — no streaming, concurrency, or HTTP/2 needed. Converted the 5-function async chain (main, cli::annotate::run, annotate::run, agent::run_agent_loop, AnthropicProvider::complete) to synchronous. Dependency tree drops from ~372 to ~207 lines.",
+  "context_level": "enhanced",
+  "regions": [
+    {
+      "file": "Cargo.toml",
+      "ast_anchor": {
+        "unit_type": "module",
+        "name": "dependencies"
+      },
+      "lines": {
+        "start": 11,
+        "end": 24
+      },
+      "intent": "Remove reqwest, tokio, and async-trait dependencies; add ureq with json and tls features as the sole HTTP client.",
+      "reasoning": "reqwest pulled in hyper, h2, tower, futures-*, native-tls, and the full tokio runtime for a single blocking HTTP call. ureq is a minimal blocking client that fits the actual usage pattern.",
+      "constraints": [
+        {
+          "text": "ureq v2 is required (v3 has a different API)",
+          "source": "author"
+        },
+        {
+          "text": "The tls feature enables native TLS for HTTPS to api.anthropic.com",
+          "source": "author"
+        }
+      ],
+      "tags": [
+        "dependencies",
+        "simplification"
+      ]
+    },
+    {
+      "file": "src/error.rs",
+      "ast_anchor": {
+        "unit_type": "enum",
+        "name": "ProviderError",
+        "signature": "pub enum ProviderError"
+      },
+      "lines": {
+        "start": 126,
+        "end": 180
+      },
+      "intent": "Change the Http error variant to wrap Box<ureq::Transport> instead of reqwest::Error.",
+      "reasoning": "ureq::Transport is the leaf error type for connection/DNS/timeout failures. Boxed to avoid clippy result_large_err warning (ureq::Transport is 160 bytes). Uses source linkage per snafu conventions.",
+      "constraints": [
+        {
+          "text": "Http variant wraps Box<ureq::Transport> as source, not a message string, to preserve the snafu error hierarchy",
+          "source": "author"
+        }
+      ],
+      "tags": [
+        "error-handling"
+      ]
+    },
+    {
+      "file": "src/provider/mod.rs",
+      "ast_anchor": {
+        "unit_type": "trait",
+        "name": "LlmProvider",
+        "signature": "pub trait LlmProvider: Send + Sync"
+      },
+      "lines": {
+        "start": 9,
+        "end": 14
+      },
+      "intent": "Remove async-trait and make LlmProvider methods synchronous.",
+      "reasoning": "With ureq as a blocking client, there is no async code left in the project. The trait methods complete() and check_auth() become plain fn.",
+      "constraints": [
+        {
+          "text": "LlmProvider still requires Send + Sync for potential multi-threaded usage",
+          "source": "author"
+        }
+      ],
+      "semantic_dependencies": [
+        {
+          "file": "src/provider/anthropic.rs",
+          "anchor": "AnthropicProvider",
+          "nature": "Sole implementor of this trait"
+        }
+      ],
+      "tags": [
+        "async-removal"
+      ]
+    },
+    {
+      "file": "src/provider/anthropic.rs",
+      "ast_anchor": {
+        "unit_type": "impl",
+        "name": "AnthropicProvider",
+        "signature": "impl AnthropicProvider"
+      },
+      "lines": {
+        "start": 21,
+        "end": 29
+      },
+      "intent": "Replace reqwest::Client with ureq::Agent and rewrite HTTP call pattern from async to blocking with match-based error handling.",
+      "reasoning": "ureq uses a match on Ok/Err(Status)/Err(Transport) instead of reqwest status checks after await. Retry logic uses std::thread::sleep instead of tokio::time::sleep.",
+      "constraints": [
+        {
+          "text": "Retry logic handles 429 and 5xx via Err(ureq::Error::Status(code, resp)) branch",
+          "source": "author"
+        },
+        {
+          "text": "Transport errors are boxed and wrapped via snafu .context(HttpSnafu)",
+          "source": "author"
+        },
+        {
+          "text": "resp.into_json() returns io::Error, mapped to ParseResponse variant",
+          "source": "author"
+        }
+      ],
+      "semantic_dependencies": [
+        {
+          "file": "src/error.rs",
+          "anchor": "ProviderError",
+          "nature": "Transport errors wrapped as Box<ureq::Transport> in the Http variant"
+        },
+        {
+          "file": "src/provider/mod.rs",
+          "anchor": "LlmProvider",
+          "nature": "Implements the now-synchronous trait"
+        }
+      ],
+      "tags": [
+        "http",
+        "retry-logic"
+      ]
+    },
+    {
+      "file": "src/agent/mod.rs",
+      "ast_anchor": {
+        "unit_type": "function",
+        "name": "run_agent_loop",
+        "signature": "pub fn run_agent_loop(\n    provider: &dyn LlmProvider,\n    git_ops: &dyn GitOps,\n    context: &AnnotationContext,\n) -> Result<(Vec<RegionAnnotation>, Vec<CrossCuttingConcern>, String), AgentError>"
+      },
+      "lines": {
+        "start": 19,
+        "end": 136
+      },
+      "intent": "Remove async and .await from the agent loop.",
+      "reasoning": "With LlmProvider::complete() now synchronous, the agent loop no longer needs to be async.",
+      "semantic_dependencies": [
+        {
+          "file": "src/provider/mod.rs",
+          "anchor": "LlmProvider::complete",
+          "nature": "Calls complete() which is now synchronous"
+        }
+      ],
+      "tags": [
+        "async-removal"
+      ]
+    },
+    {
+      "file": "src/annotate/mod.rs",
+      "ast_anchor": {
+        "unit_type": "function",
+        "name": "run",
+        "signature": "pub fn run(\n    git_ops: &dyn GitOps,\n    provider: &dyn LlmProvider,\n    commit: &str,\n    _sync: bool,\n) -> Result<Annotation>"
+      },
+      "lines": {
+        "start": 13,
+        "end": 84
+      },
+      "intent": "Remove async and .await from the annotation entry point.",
+      "reasoning": "Calls run_agent_loop which is now synchronous.",
+      "semantic_dependencies": [
+        {
+          "file": "src/agent/mod.rs",
+          "anchor": "run_agent_loop",
+          "nature": "Calls run_agent_loop which is now synchronous"
+        }
+      ],
+      "tags": [
+        "async-removal"
+      ]
+    },
+    {
+      "file": "src/cli/annotate.rs",
+      "ast_anchor": {
+        "unit_type": "function",
+        "name": "run",
+        "signature": "pub fn run(\n    commit: String,\n    sync: bool,\n    live: bool,\n    squash_sources: Option<String>,\n    amend_source: Option<String>,\n) -> Result<()>"
+      },
+      "lines": {
+        "start": 10,
+        "end": 54
+      },
+      "intent": "Remove async and .await from the CLI annotate command handler.",
+      "reasoning": "Calls annotate::run which is now synchronous.",
+      "semantic_dependencies": [
+        {
+          "file": "src/annotate/mod.rs",
+          "anchor": "run",
+          "nature": "Calls annotate::run which is now synchronous"
+        }
+      ],
+      "tags": [
+        "async-removal"
+      ]
+    },
+    {
+      "file": "src/main.rs",
+      "ast_anchor": {
+        "unit_type": "function",
+        "name": "main",
+        "signature": "fn main()"
+      },
+      "lines": {
+        "start": 4,
+        "end": 65
+      },
+      "intent": "Remove #[tokio::main] and make main() synchronous.",
+      "reasoning": "With no async code remaining, the tokio runtime is unnecessary. Plain fn main() suffices.",
+      "semantic_dependencies": [
+        {
+          "file": "src/cli/annotate.rs",
+          "anchor": "run",
+          "nature": "Calls cli::annotate::run which is now synchronous"
+        }
+      ],
+      "tags": [
+        "async-removal"
+      ]
+    }
+  ],
+  "cross_cutting": [
+    {
+      "description": "Async-to-sync conversion: removed async/await from the entire call chain (main, cli::annotate, annotate::run, agent::run_agent_loop, LlmProvider::complete). No async code remains in the project.",
+      "regions": [
+        {
+          "file": "src/main.rs",
+          "anchor": "main"
+        },
+        {
+          "file": "src/cli/annotate.rs",
+          "anchor": "run"
+        },
+        {
+          "file": "src/annotate/mod.rs",
+          "anchor": "run"
+        },
+        {
+          "file": "src/agent/mod.rs",
+          "anchor": "run_agent_loop"
+        },
+        {
+          "file": "src/provider/mod.rs",
+          "anchor": "LlmProvider"
+        },
+        {
+          "file": "src/provider/anthropic.rs",
+          "anchor": "AnthropicProvider"
+        }
+      ],
+      "tags": [
+        "async-removal",
+        "simplification"
+      ]
+    }
+  ],
+  "provenance": {
+    "operation": "initial",
+    "original_annotations_preserved": false
+  }
+}
