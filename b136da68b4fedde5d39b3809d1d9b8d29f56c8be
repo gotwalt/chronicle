@@ -1,0 +1,73 @@
+{
+  "schema": "chronicle/v1",
+  "commit": "b136da68b4fedde5d39b3809d1d9b8d29f56c8be",
+  "timestamp": "2026-02-06T00:00:00Z",
+  "summary": "Add read pipeline foundation: ultragit read <path> retrieves annotations from git notes with file/anchor/line-range filtering",
+  "context_level": "enhanced",
+  "regions": [
+    {
+      "file": "src/read/mod.rs",
+      "ast_anchor": { "unit_type": "module", "name": "read" },
+      "lines": { "start": 1, "end": 44 },
+      "intent": "Define ReadQuery, ReadResult, and MatchedRegion types plus the execute() entry point for the read pipeline",
+      "reasoning": "Separating the public types and entry point from the retrieval logic keeps the module interface clean",
+      "constraints": [{ "text": "ReadResult and MatchedRegion must be Serialize for JSON CLI output", "source": "author" }],
+      "tags": ["read-pipeline", "types"]
+    },
+    {
+      "file": "src/read/retrieve.rs",
+      "ast_anchor": { "unit_type": "fn", "name": "retrieve_regions" },
+      "lines": { "start": 15, "end": 56 },
+      "intent": "Core retrieval logic: find commits via git log, read notes, parse annotations, filter matching regions",
+      "reasoning": "Follows the git log -> note_read -> parse -> filter pipeline described in the design. Skips malformed notes gracefully.",
+      "constraints": [{ "text": "Must preserve newest-first ordering from git log", "source": "author" }],
+      "tags": ["read-pipeline", "retrieve"]
+    },
+    {
+      "file": "src/read/retrieve.rs",
+      "ast_anchor": { "unit_type": "fn", "name": "file_matches" },
+      "lines": { "start": 58, "end": 64 },
+      "intent": "Normalize file paths by stripping ./ prefix for comparison",
+      "reasoning": "Git diff output sometimes uses ./ prefix while annotations may not; normalizing prevents false negatives",
+      "constraints": [],
+      "tags": ["read-pipeline", "normalization"]
+    },
+    {
+      "file": "src/git/mod.rs",
+      "ast_anchor": { "unit_type": "trait", "name": "GitOps" },
+      "lines": { "start": 51, "end": 52 },
+      "intent": "Add log_for_file method to GitOps trait for listing commits that touched a file",
+      "reasoning": "The read pipeline needs to discover which commits are relevant for a given file path; adding to the trait keeps git operations abstracted",
+      "constraints": [{ "text": "Must follow renames via --follow flag", "source": "author" }],
+      "tags": ["git-ops", "trait-extension"]
+    },
+    {
+      "file": "src/git/cli_ops.rs",
+      "ast_anchor": { "unit_type": "fn", "name": "log_for_file" },
+      "lines": { "start": 235, "end": 244 },
+      "intent": "Implement log_for_file by shelling out to git log --follow --format=%H",
+      "reasoning": "Consistent with existing CliOps pattern of using run_git for git CLI operations",
+      "constraints": [],
+      "tags": ["git-ops", "cli-ops"]
+    },
+    {
+      "file": "src/cli/read.rs",
+      "ast_anchor": { "unit_type": "fn", "name": "run" },
+      "lines": { "start": 6, "end": 36 },
+      "intent": "CLI handler for ultragit read command: parse args, execute query, output JSON",
+      "reasoning": "Follows the same pattern as annotate.rs CLI handler for consistency",
+      "constraints": [{ "text": "Line range format is start:end with colon separator", "source": "author" }],
+      "tags": ["cli", "read-pipeline"]
+    },
+    {
+      "file": "src/cli/mod.rs",
+      "ast_anchor": { "unit_type": "enum", "name": "Commands" },
+      "lines": { "start": 70, "end": 82 },
+      "intent": "Register Read subcommand with path, --anchor, and --lines arguments",
+      "reasoning": "Standard clap subcommand registration following the existing pattern",
+      "constraints": [],
+      "tags": ["cli", "read-pipeline"]
+    }
+  ],
+  "provenance": { "operation": "initial", "original_annotations_preserved": false }
+}
