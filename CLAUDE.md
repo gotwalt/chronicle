@@ -50,7 +50,36 @@ cargo clippy         # lint
 | `export.rs` | JSONL export |
 | `import.rs` | JSONL import |
 
-## Annotating your work
+## Working with Chronicle annotations
+
+This project uses Chronicle (`git-chronicle`) to store structured metadata
+alongside commits as git notes. Before modifying existing code, query the
+annotations to understand intent, constraints, and dependencies.
+
+### Reading annotations (before modifying code)
+
+Use the `chronicle_read` MCP tool to check annotations on code you're about
+to modify:
+
+- `chronicle_read(path: "src/foo.rs", anchor: "bar_function")` -- get intent,
+  reasoning, constraints for a specific function
+- `chronicle_deps(path: "src/foo.rs", anchor: "bar_function")` -- find code
+  that depends on this function's behavior
+- `chronicle_summary(path: "src/foo.rs")` -- overview of all annotated regions
+
+If MCP tools are unavailable, use the CLI:
+
+```bash
+git chronicle read src/foo.rs --anchor bar_function
+```
+
+**Respect constraints.** Annotations may include constraints like "must not
+allocate" or "assumes sorted input." Violating these without updating the
+annotation is a bug.
+
+See `.claude/skills/context/SKILL.md` for the full context-reading workflow.
+
+### Writing annotations (after committing)
 
 After committing, annotate using the live path:
 
@@ -59,6 +88,11 @@ echo '<AnnotateInput JSON>' | git chronicle annotate --live
 ```
 
 See `.claude/skills/annotate/SKILL.md` for the full annotation workflow.
+
+### Backfilling annotations
+
+To annotate historical commits that lack annotations, see
+`.claude/skills/backfill/SKILL.md`.
 
 
 ## Errors
@@ -92,3 +126,7 @@ pub fn read_message(json: &str) -> Result<Message, MessageError> {
     Ok(validated_message)
 }
 ```
+
+## Parallel agent workflow
+
+Use git worktrees to allow simultaneous agent development in non-conflicting areas of code.

@@ -23,7 +23,8 @@ chronicle (Rust binary)
 ├── Annotation corrections           Feature 11
 ├── MCP server                       Feature 12
 ├── Claude Code integration          Feature 13
-└── Interactive show (TUI)           Feature 14
+├── Interactive show (TUI)           Feature 14
+└── Claude Code skills & workflow    Feature 15
 ```
 
 ---
@@ -46,6 +47,7 @@ chronicle (Rust binary)
 | 12 | MCP Server | `12-mcp-server.md` | Medium | MCP protocol, tool definitions, server lifecycle, registration |
 | 13 | Claude Code Integration | `13-claude-code-integration.md` | Low-Medium | MCP annotate tool, Claude Code skill, post-commit hook |
 | 14 | Interactive Show (TUI) | `14-interactive-show.md` | High | `git chronicle show` TUI explorer, annotation panel, deps/history drill-down, plain-text fallback |
+| 15 | Claude Code Skills | `15-claude-code-skills.md` | Low | Context/annotate/backfill skills, pre-edit hook, CLAUDE.md integration, MCP config |
 
 ---
 
@@ -81,10 +83,16 @@ Phase 4 (Integration)
   └──────┬───────┘            │
          │                    │
 Phase 5 (Advanced) — parallel, all features below can proceed independently
-  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐
+  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐
   │ 08 Adv.  │ │ 09 Hist. │ │ 10 Team  │ │ 11 Corr. │ │ 12 MCP   │ │ 13 CC    │ │ 14 Show  │
   │ Queries  │ │ Rewrites │ │ Ops      │ │          │ │ Server   │ │ Integr.  │ │ (TUI)    │
-  └──────────┘ └──────────┘ └──────────┘ └──────────┘ └──────────┘ └──────────┘ └──────────┘
+  └──────────┘ └──────────┘ └──────────┘ └──────────┘ └──────────┘ └──────┬───┘ └──────────┘
+                                                                         │
+Phase 6 (Agent Workflow)                                                 │
+  ┌──────────────┐                                                       │
+  │ 15 CC Skills │◄──────────────────────────────────────────────────────┘
+  │ & Workflow   │
+  └──────────────┘
 ```
 
 ### Dependency Details
@@ -105,6 +113,7 @@ Phase 5 (Advanced) — parallel, all features below can proceed independently
 | 12 MCP Server | 07, 08 | — |
 | 13 Claude Code Integration | 02, 03, 05, 12 | — |
 | 14 Interactive Show (TUI) | 02, 03, 07, 08 | — |
+| 15 Claude Code Skills | 12, 13 | — |
 
 ---
 
