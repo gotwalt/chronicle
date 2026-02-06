@@ -75,6 +75,10 @@ pub enum Commands {
         /// Run synchronously
         #[arg(long)]
         sync: bool,
+
+        /// Read AnnotateInput JSON from stdin (live annotation path, zero LLM cost)
+        #[arg(long)]
+        live: bool,
     },
 }
 
