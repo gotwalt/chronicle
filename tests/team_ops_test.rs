@@ -70,6 +70,7 @@ fn make_test_annotation(commit: &str) -> Annotation {
             related_annotations: Vec::new(),
             tags: Vec::new(),
             risk_notes: None,
+            corrections: vec![],
         }],
         cross_cutting: vec![CrossCuttingConcern {
             description: "test concern".to_string(),
