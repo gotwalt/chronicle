@@ -20,6 +20,9 @@ async fn main() {
         Commands::Annotate { commit, sync, live } => {
             ultragit::cli::annotate::run(commit, sync, live).await
         }
+        Commands::Read { path, anchor, lines } => {
+            ultragit::cli::read::run(path, anchor, lines)
+        }
     };
 
     if let Err(e) = result {

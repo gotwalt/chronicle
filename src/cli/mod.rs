@@ -2,6 +2,7 @@ pub mod init;
 pub mod commit;
 pub mod context;
 pub mod annotate;
+pub mod read;
 
 use clap::{Parser, Subcommand};
 
@@ -64,6 +65,20 @@ pub enum Commands {
     Context {
         #[command(subcommand)]
         action: ContextAction,
+    },
+
+    /// Read annotations for a file
+    Read {
+        /// File path to read annotations for
+        path: String,
+
+        /// Filter by AST anchor name
+        #[arg(long)]
+        anchor: Option<String>,
+
+        /// Filter by line range (format: start:end)
+        #[arg(long)]
+        lines: Option<String>,
     },
 
     /// Annotate a specific commit

@@ -422,6 +422,10 @@ mod tests {
         fn config_set(&self, _key: &str, _value: &str) -> std::result::Result<(), GitError> {
             Ok(())
         }
+
+        fn log_for_file(&self, _path: &str) -> std::result::Result<Vec<String>, GitError> {
+            Ok(vec![])
+        }
     }
 
     fn sample_rust_source() -> &'static str {
