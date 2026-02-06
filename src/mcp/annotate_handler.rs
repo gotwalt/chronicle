@@ -314,6 +314,7 @@ fn resolve_and_build_region(
         related_annotations: Vec::new(),
         tags: input.tags.clone(),
         risk_notes: input.risk_notes.clone(),
+        corrections: Vec::new(),
     };
 
     let resolution = AnchorResolution {

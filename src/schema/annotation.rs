@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 
+use super::correction::Correction;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Annotation {
     pub schema: String,
@@ -99,6 +101,8 @@ pub struct RegionAnnotation {
     pub tags: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub risk_notes: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub corrections: Vec<Correction>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

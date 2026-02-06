@@ -125,6 +125,7 @@ mod tests {
                         related_annotations: vec![],
                         tags: vec![],
                         risk_notes: None,
+                        corrections: vec![],
                     },
                     RegionAnnotation {
                         file: "src/lib.rs".to_string(),
@@ -137,6 +138,7 @@ mod tests {
                         related_annotations: vec![],
                         tags: vec![],
                         risk_notes: None,
+                        corrections: vec![],
                     },
                 ],
                 cross_cutting: vec![],
@@ -186,6 +188,7 @@ mod tests {
                         related_annotations: vec![],
                         tags: vec![],
                         risk_notes: None,
+                        corrections: vec![],
                     },
                     RegionAnnotation {
                         file: "src/main.rs".to_string(),
@@ -198,6 +201,7 @@ mod tests {
                         related_annotations: vec![],
                         tags: vec![],
                         risk_notes: None,
+                        corrections: vec![],
                     },
                 ],
                 cross_cutting: vec![],
@@ -246,6 +250,7 @@ mod tests {
                         related_annotations: vec![],
                         tags: vec![],
                         risk_notes: None,
+                        corrections: vec![],
                     },
                     RegionAnnotation {
                         file: "src/main.rs".to_string(),
@@ -258,6 +263,7 @@ mod tests {
                         related_annotations: vec![],
                         tags: vec![],
                         risk_notes: None,
+                        corrections: vec![],
                     },
                 ],
                 cross_cutting: vec![],

@@ -23,6 +23,12 @@ async fn main() {
         Commands::Read { path, anchor, lines } => {
             ultragit::cli::read::run(path, anchor, lines)
         }
+        Commands::Flag { path, anchor, reason } => {
+            ultragit::cli::flag::run(path, anchor, reason)
+        }
+        Commands::Correct { sha, region, field, remove, amend } => {
+            ultragit::cli::correct::run(sha, region, field, remove, amend)
+        }
     };
 
     if let Err(e) = result {

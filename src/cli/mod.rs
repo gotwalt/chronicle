@@ -3,6 +3,8 @@ pub mod commit;
 pub mod context;
 pub mod annotate;
 pub mod read;
+pub mod flag;
+pub mod correct;
 
 use clap::{Parser, Subcommand};
 
@@ -94,6 +96,41 @@ pub enum Commands {
         /// Read AnnotateInput JSON from stdin (live annotation path, zero LLM cost)
         #[arg(long)]
         live: bool,
+    },
+
+    /// Flag a region annotation as potentially inaccurate
+    Flag {
+        /// File path relative to repository root
+        path: String,
+
+        /// Optional AST anchor name to scope the flag to a specific region
+        anchor: Option<String>,
+
+        /// Reason for flagging this annotation
+        #[arg(long)]
+        reason: String,
+    },
+
+    /// Apply a precise correction to a specific annotation field
+    Correct {
+        /// Commit SHA of the annotation to correct
+        sha: String,
+
+        /// AST anchor name of the region within the annotation
+        #[arg(long)]
+        region: String,
+
+        /// Annotation field to correct (intent, reasoning, constraints, risk_notes, semantic_dependencies, tags)
+        #[arg(long)]
+        field: String,
+
+        /// Specific value to remove or mark as incorrect
+        #[arg(long)]
+        remove: Option<String>,
+
+        /// Replacement or amendment text
+        #[arg(long)]
+        amend: Option<String>,
     },
 }
 
