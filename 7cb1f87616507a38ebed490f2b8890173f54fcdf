@@ -1,140 +1,84 @@
 {
   "schema": "chronicle/v1",
   "commit": "7cb1f87616507a38ebed490f2b8890173f54fcdf",
-  "timestamp": "2026-02-06T20:20:54.630382+00:00",
-  "task": "MVP+MCP-annotate",
-  "summary": "MVP write path implementation with MCP annotate handler. Implements the full chronicle CLI framework, git operations layer, tree-sitter AST parsing, Anthropic LLM provider, writing agent, hooks, pre-LLM filtering, and annotation schema. Adds MCP annotate handler (live path) for zero-cost agent-authored annotations with AST anchor resolution, quality checks, validation, and git notes write.",
+  "timestamp": "2026-02-06T20:02:25.599196+00:00",
+  "task": "documentation",
+  "summary": "Add project documentation: README with full command reference, CLAUDE.md with build conventions, and HISTORY.md tracking all development phases",
   "context_level": "enhanced",
   "regions": [
     {
-      "file": "src/mcp/annotate_handler.rs",
+      "file": "README.md",
       "ast_anchor": {
-        "unit_type": "function",
-        "name": "handle_annotate",
-        "signature": "pub fn handle_annotate(git_ops: &dyn GitOps, input: AnnotateInput) -> Result<AnnotateResult>"
+        "unit_type": "file",
+        "name": "README.md"
       },
       "lines": {
-        "start": 131,
-        "end": 191
+        "start": 1,
+        "end": 175
       },
-      "intent": "Core MCP annotate handler — receives structured annotation data from the calling agent, resolves AST anchors to correct line ranges and fill signatures, validates the annotation, and writes it as a git note.",
-      "reasoning": "Separated from the batch path (agent loop) because the calling agent already knows intent, reasoning, and constraints. No LLM call needed. The handler reuses existing AST resolution and schema validation.",
+      "intent": "Project README with install instructions, full CLI command reference, annotation schema example, architecture overview, and Claude Code integration notes",
+      "reasoning": "Serves as the primary entry point for new users and contributors; covers both write and read paths, team ops, and corrections",
       "constraints": [
         {
-          "text": "Must always set context_level to Enhanced and ConstraintSource to Author since the authoring agent has direct knowledge.",
-          "source": "author"
-        },
-        {
-          "text": "Quality warnings are non-blocking — they're returned to the caller but don't prevent the note from being written.",
-          "source": "author"
-        },
-        {
-          "text": "Validation errors (empty summary, invalid line ranges) must reject the annotation entirely — no partial writes.",
+          "text": "Keep command table in sync with cli/mod.rs Commands enum",
           "source": "author"
         }
       ],
       "semantic_dependencies": [
         {
-          "file": "src/ast/mod.rs",
-          "anchor": "resolve_anchor",
-          "nature": "Delegates anchor resolution; assumes it returns None on no match rather than erroring."
-        },
-        {
-          "file": "src/schema/annotation.rs",
-          "anchor": "Annotation::validate",
-          "nature": "Calls validate() to enforce structural correctness before writing."
-        },
-        {
-          "file": "src/git/mod.rs",
-          "anchor": "GitOps::note_write",
-          "nature": "Writes the serialized annotation as a git note."
+          "file": "src/cli/mod.rs",
+          "anchor": "Commands",
+          "nature": "documents"
         }
       ],
       "tags": [
-        "mcp",
-        "live-path",
-        "core"
+        "documentation"
       ]
     },
     {
-      "file": "src/mcp/annotate_handler.rs",
+      "file": "CLAUDE.md",
       "ast_anchor": {
-        "unit_type": "function",
-        "name": "resolve_and_build_region",
-        "signature": "fn resolve_and_build_region(\n    git_ops: &dyn GitOps,\n    commit: &str,\n    input: &RegionInput,\n) -> Result<(RegionAnnotation, AnchorResolution)>"
+        "unit_type": "file",
+        "name": "CLAUDE.md"
       },
       "lines": {
-        "start": 195,
-        "end": 327
+        "start": 1,
+        "end": 70
       },
-      "intent": "Resolve a single region's anchor against the AST outline and build the final RegionAnnotation with corrected lines and filled signature.",
-      "reasoning": "Graceful degradation: if the language is unsupported, the file is missing, or the anchor doesn't resolve, the handler falls back to using the input as-is rather than failing the entire annotation.",
+      "intent": "Claude Code project instructions: build commands, architecture overview, key conventions (corrections field, tempfile pattern, worktree caveat), module map",
+      "reasoning": "Loaded automatically by Claude Code at session start; keeps conventions discoverable so agents follow project patterns",
       "constraints": [
         {
-          "text": "Must never fail the entire annotation due to a single region's anchor not resolving — fallback to input lines and unresolved status.",
+          "text": "Must document the corrections: vec![] requirement for RegionAnnotation test initializers",
           "source": "author"
         }
       ],
       "tags": [
-        "ast",
-        "anchor-resolution"
+        "documentation",
+        "claude-code"
       ]
     },
     {
-      "file": "src/mcp/annotate_handler.rs",
+      "file": "HISTORY.md",
       "ast_anchor": {
-        "unit_type": "function",
-        "name": "check_quality",
-        "signature": "fn check_quality(input: &AnnotateInput) -> Vec<String>"
+        "unit_type": "file",
+        "name": "HISTORY.md"
       },
       "lines": {
-        "start": 91,
-        "end": 120
+        "start": 1,
+        "end": 130
       },
-      "intent": "Non-blocking quality feedback — warns the caller about short intent, missing reasoning, or absent constraints without preventing the write.",
-      "reasoning": "Quality enforcement should nudge toward better annotations without blocking work. The warnings are returned in the result for the agent to improve next time.",
-      "tags": [
-        "quality"
-      ]
-    },
-    {
-      "file": "src/error.rs",
-      "ast_anchor": {
-        "unit_type": "enum",
-        "name": "ChronicleError"
-      },
-      "lines": {
-        "start": 68,
-        "end": 75
-      },
-      "intent": "Add Validation variant for annotation structural errors caught by the MCP handler before writing.",
-      "reasoning": "Reuses the existing snafu error pattern with module() attribute. Validation is a distinct error category from Git, Provider, or Agent errors.",
+      "intent": "Chronological development log tracking all 4 build phases with commit SHAs, what was built, and test counts",
+      "reasoning": "Provides a human-readable record of how the project was built, complementing the machine-readable ultragit annotations in git notes",
       "constraints": [
         {
-          "text": "Variant name must not end in 'Error' to avoid collision with the enum name per snafu module() convention.",
+          "text": "Update this file when new features are merged",
           "source": "author"
         }
       ],
       "tags": [
-        "error-handling"
-      ]
-    }
-  ],
-  "cross_cutting": [
-    {
-      "description": "Two-path annotation architecture: live path (MCP handler, zero LLM cost, agent provides metadata directly) and batch path (agent loop with API calls, for CI and backfill). Both produce identical Annotation schema output stored as git notes.",
-      "regions": [
-        {
-          "file": "src/mcp/annotate_handler.rs",
-          "anchor": "handle_annotate"
-        },
-        {
-          "file": "src/annotate/mod.rs",
-          "anchor": "run"
-        }
-      ],
-      "tags": [
-        "architecture"
+        "documentation",
+        "history"
       ]
     }
   ],
