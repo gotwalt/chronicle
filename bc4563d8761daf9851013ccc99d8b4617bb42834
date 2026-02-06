@@ -1,0 +1,111 @@
+{
+  "schema": "chronicle/v1",
+  "commit": "bc4563d",
+  "timestamp": "2026-02-06T00:00:00Z",
+  "summary": "Add history rewrite handling: squash synthesis, amend migration, and multi-hook installation for preserving annotations through git history rewrites.",
+  "context_level": "enhanced",
+  "regions": [
+    {
+      "file": "src/annotate/squash.rs",
+      "ast_anchor": { "unit_type": "module", "name": "squash" },
+      "lines": { "start": 1, "end": 234 },
+      "intent": "Core squash synthesis and amend migration logic with PendingSquash tmpfile lifecycle",
+      "reasoning": "Squash synthesis merges regions by (file, ast_anchor.name) deduplication, concatenates reasoning, preserves all constraints and semantic dependencies (never dropping any), and combines cross-cutting concerns. Amend migration copies the annotation with updated provenance, handling message-only amends (empty diff) as a fast path without LLM calls. PendingSquash tmpfile uses 60s expiry to detect stale files from aborted commits.",
+      "constraints": [
+        { "text": "Never drop constraints from source annotations during squash synthesis", "source": "inferred" },
+        { "text": "Never drop semantic_dependencies from source annotations", "source": "inferred" },
+        { "text": "Stale pending-squash.json (>60s) must be deleted, not processed", "source": "inferred" },
+        { "text": "Message-only amends must not invoke LLM", "source": "inferred" }
+      ],
+      "semantic_dependencies": [
+        { "file": "src/schema/annotation.rs", "anchor": "Provenance", "nature": "uses ProvenanceOperation::Squash and ::Amend" },
+        { "file": "src/schema/annotation.rs", "anchor": "Annotation", "nature": "constructs and clones Annotation structs" },
+        { "file": "src/git/mod.rs", "anchor": "GitOps", "nature": "calls note_read, commit_info for source collection" }
+      ],
+      "tags": ["squash", "amend", "provenance", "synthesis"]
+    },
+    {
+      "file": "src/hooks/prepare_commit_msg.rs",
+      "ast_anchor": { "unit_type": "module", "name": "prepare_commit_msg" },
+      "lines": { "start": 1, "end": 119 },
+      "intent": "Detect squash operations via three signals and write pending-squash.json for post-commit consumption",
+      "reasoning": "Three detection signals in priority order: (1) hook argument == 'squash', (2) .git/SQUASH_MSG file exists, (3) ULTRAGIT_SQUASH_SOURCES env var. SQUASH_MSG is parsed for 'commit <hex>' lines to extract source SHAs. Env var supports comma-separated lists. The pending-squash.json handshake allows prepare-commit-msg to communicate source commits to the post-commit hook.",
+      "constraints": [
+        { "text": "Must never block the git workflow — exit silently on all failures", "source": "inferred" },
+        { "text": "SHA validation requires >= 7 hex chars", "source": "inferred" }
+      ],
+      "semantic_dependencies": [
+        { "file": "src/annotate/squash.rs", "anchor": "write_pending_squash", "nature": "writes the pending squash tmpfile" }
+      ],
+      "tags": ["hooks", "squash-detection"]
+    },
+    {
+      "file": "src/hooks/post_rewrite.rs",
+      "ast_anchor": { "unit_type": "module", "name": "post_rewrite" },
+      "lines": { "start": 1, "end": 97 },
+      "intent": "Handle post-rewrite hook for amend migration, parsing stdin SHA mappings",
+      "reasoning": "Git provides old→new SHA mappings on stdin in 'old_sha new_sha' format. Only 'amend' rewrite type is handled in v1; 'rebase' is logged and skipped. Each mapping is processed independently so one failure doesn't block others. The diff comparison uses Debug format as a simple heuristic for detecting message-only vs code-change amends.",
+      "constraints": [
+        { "text": "Rebase rewrites are out of scope for v1 — log and skip", "source": "inferred" },
+        { "text": "Individual mapping failures must not fail the whole hook", "source": "inferred" }
+      ],
+      "semantic_dependencies": [
+        { "file": "src/annotate/squash.rs", "anchor": "migrate_amend_annotation", "nature": "delegates annotation migration" },
+        { "file": "src/git/mod.rs", "anchor": "GitOps", "nature": "reads notes, writes notes, gets commit info and diffs" }
+      ],
+      "tags": ["hooks", "amend", "post-rewrite"]
+    },
+    {
+      "file": "src/hooks/mod.rs",
+      "ast_anchor": { "unit_type": "function", "name": "install_hooks" },
+      "lines": { "start": 126, "end": 137 },
+      "intent": "Install all three hooks (post-commit, prepare-commit-msg, post-rewrite) with ultragit markers",
+      "reasoning": "Refactored from single post-commit hook installation to a generic install_single_hook helper that handles create/replace/append logic, then installs all three hooks. Each hook script delegates to 'ultragit hook <type>' with appropriate arguments.",
+      "constraints": [
+        { "text": "Hook scripts must be idempotent — safe to run install_hooks multiple times", "source": "inferred" }
+      ],
+      "semantic_dependencies": [],
+      "tags": ["hooks", "installation"]
+    },
+    {
+      "file": "src/cli/annotate.rs",
+      "ast_anchor": { "unit_type": "function", "name": "run" },
+      "lines": { "start": 11, "end": 40 },
+      "intent": "Extended annotate CLI with --squash-sources and --amend-source flags for CI and manual recovery",
+      "reasoning": "--squash-sources enables CI workflows (e.g. GitHub Actions) to synthesize annotations for server-side squash merges that bypass local hooks. --amend-source enables manual recovery when post-rewrite hook didn't fire. Both bypass the LLM provider discovery since they use deterministic synthesis.",
+      "constraints": [
+        { "text": "--squash-sources requires at least one source SHA", "source": "inferred" }
+      ],
+      "semantic_dependencies": [
+        { "file": "src/annotate/squash.rs", "anchor": "synthesize_squash_annotation", "nature": "squash synthesis entry point" },
+        { "file": "src/annotate/squash.rs", "anchor": "migrate_amend_annotation", "nature": "amend migration entry point" }
+      ],
+      "tags": ["cli", "squash", "amend", "ci"]
+    }
+  ],
+  "cross_cutting": [
+    {
+      "description": "Provenance tracking: all derived annotations set operation (squash/amend), derived_from SHAs, and synthesis_notes for full traceability",
+      "regions": [
+        { "file": "src/annotate/squash.rs", "anchor": "synthesize_squash_annotation" },
+        { "file": "src/annotate/squash.rs", "anchor": "migrate_amend_annotation" },
+        { "file": "src/hooks/post_rewrite.rs", "anchor": "handle_single_amend" }
+      ],
+      "tags": ["provenance"]
+    },
+    {
+      "description": "Silent failure principle: all hook handlers must never block the git workflow, logging errors for later retry",
+      "regions": [
+        { "file": "src/hooks/prepare_commit_msg.rs", "anchor": "handle_prepare_commit_msg" },
+        { "file": "src/hooks/post_rewrite.rs", "anchor": "handle_post_rewrite" }
+      ],
+      "tags": ["error-handling", "hooks"]
+    }
+  ],
+  "provenance": {
+    "operation": "initial",
+    "derived_from": [],
+    "original_annotations_preserved": false,
+    "synthesis_notes": null
+  }
+}
