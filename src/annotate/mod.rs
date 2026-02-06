@@ -1,5 +1,6 @@
 pub mod gather;
 pub mod filter;
+pub mod squash;
 
 use crate::error::{Result, ultragit_error};
 use crate::git::GitOps;

@@ -17,8 +17,8 @@ async fn main() {
         Commands::Context { action } => {
             ultragit::cli::context::run(action)
         }
-        Commands::Annotate { commit, sync, live } => {
-            ultragit::cli::annotate::run(commit, sync, live).await
+        Commands::Annotate { commit, sync, live, squash_sources, amend_source } => {
+            ultragit::cli::annotate::run(commit, sync, live, squash_sources, amend_source).await
         }
         Commands::Read { path, anchor, lines } => {
             ultragit::cli::read::run(path, anchor, lines)
