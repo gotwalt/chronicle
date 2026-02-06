@@ -1,0 +1,181 @@
+{
+  "schema": "chronicle/v1",
+  "commit": "93be678a66bed4d7f7a697818ee13aa2d93ee7b5",
+  "timestamp": "2026-02-06T19:57:26.578696+00:00",
+  "task": "feature-integration",
+  "summary": "Merge features 08-11: advanced queries, history rewrites, team ops, annotation corrections",
+  "context_level": "enhanced",
+  "regions": [
+    {
+      "file": "src/read/deps.rs",
+      "ast_anchor": {
+        "unit_type": "function",
+        "name": "find_dependents",
+        "signature": "pub fn find_dependents(git: &dyn GitOps, query: &DepsQuery) -> Result<DepsOutput, GitError>"
+      },
+      "lines": {
+        "start": 53,
+        "end": 107
+      },
+      "intent": "Dependency inversion query: finds code that depends on a given file/anchor by scanning annotated commits' semantic_dependencies",
+      "reasoning": "Enables reverse-dependency tracking without requiring a pre-built index; linear scan with deduplication by (file, anchor)",
+      "constraints": [
+        {
+          "text": "Respects scan_limit and max_results caps to bound runtime",
+          "source": "author"
+        }
+      ],
+      "semantic_dependencies": [
+        {
+          "file": "src/read/retrieve.rs",
+          "anchor": "retrieve_regions",
+          "nature": "reuses"
+        }
+      ],
+      "tags": [
+        "feature-08",
+        "query"
+      ]
+    },
+    {
+      "file": "src/read/history.rs",
+      "ast_anchor": {
+        "unit_type": "function",
+        "name": "build_timeline",
+        "signature": "pub fn build_timeline(git: &dyn GitOps, query: &HistoryQuery) -> Result<HistoryOutput, GitError>"
+      },
+      "lines": {
+        "start": 74,
+        "end": 171
+      },
+      "intent": "Timeline reconstruction: shows how a file/anchor's annotations evolved across commits in chronological order",
+      "reasoning": "Reverses git log's newest-first ordering to present chronological evolution; optionally follows related_annotations links",
+      "constraints": [
+        {
+          "text": "Limit parameter caps number of returned entries",
+          "source": "author"
+        }
+      ],
+      "tags": [
+        "feature-08",
+        "query"
+      ]
+    },
+    {
+      "file": "src/annotate/squash.rs",
+      "ast_anchor": {
+        "unit_type": "function",
+        "name": "synthesize_squash_annotation",
+        "signature": "pub fn synthesize_squash_annotation(ctx: &SquashSynthesisContext) -> Annotation"
+      },
+      "lines": {
+        "start": 116,
+        "end": 223
+      },
+      "intent": "Deterministic squash synthesis: merges region annotations from source commits into a single annotation for the squash commit",
+      "reasoning": "Deduplicates regions by (file, anchor), merges constraints and dependencies, expands line ranges. MVP uses heuristic merge, not LLM.",
+      "constraints": [
+        {
+          "text": "Never drops constraints during merge — accumulates from all sources",
+          "source": "author"
+        }
+      ],
+      "semantic_dependencies": [
+        {
+          "file": "src/hooks/prepare_commit_msg.rs",
+          "anchor": "handle_prepare_commit_msg",
+          "nature": "triggered-by"
+        }
+      ],
+      "tags": [
+        "feature-09",
+        "squash"
+      ]
+    },
+    {
+      "file": "src/schema/correction.rs",
+      "ast_anchor": {
+        "unit_type": "struct",
+        "name": "Correction",
+        "signature": "pub struct Correction"
+      },
+      "lines": {
+        "start": 17,
+        "end": 40
+      },
+      "intent": "Correction type for post-hoc annotation amendments: Flag, Remove, Amend with confidence penalty model",
+      "reasoning": "Append-only corrections preserve audit trail. Each correction reduces confidence by 15% with a 10% floor.",
+      "constraints": [
+        {
+          "text": "Corrections are append-only; existing corrections are never modified",
+          "source": "author"
+        }
+      ],
+      "semantic_dependencies": [
+        {
+          "file": "src/schema/annotation.rs",
+          "anchor": "RegionAnnotation",
+          "nature": "embedded-in"
+        }
+      ],
+      "tags": [
+        "feature-11",
+        "schema"
+      ]
+    },
+    {
+      "file": "src/sync/push_fetch.rs",
+      "ast_anchor": {
+        "unit_type": "function",
+        "name": "pull_notes",
+        "signature": "pub fn pull_notes(repo_dir: &PathBuf, remote: &str) -> Result<()>"
+      },
+      "lines": {
+        "start": 146,
+        "end": 154
+      },
+      "intent": "Fetch and merge remote ultragit notes for team collaboration",
+      "reasoning": "Uses git fetch with refspec for refs/notes/ultragit to sync annotations across team members",
+      "constraints": [
+        {
+          "text": "Only fetches from configured remote; does not push",
+          "source": "author"
+        }
+      ],
+      "tags": [
+        "feature-10",
+        "sync"
+      ]
+    }
+  ],
+  "cross_cutting": [
+    {
+      "description": "All new RegionAnnotation initializers must include corrections: vec![] field after Feature 11 merge",
+      "regions": [
+        {
+          "file": "src/annotate/squash.rs",
+          "anchor": "synthesize_squash_annotation"
+        },
+        {
+          "file": "src/read/deps.rs",
+          "anchor": "find_dependents"
+        },
+        {
+          "file": "src/read/history.rs",
+          "anchor": "build_timeline"
+        },
+        {
+          "file": "src/read/summary.rs",
+          "anchor": "build_summary"
+        }
+      ],
+      "tags": [
+        "schema-evolution"
+      ]
+    }
+  ],
+  "provenance": {
+    "operation": "initial",
+    "original_annotations_preserved": false
+  }
+}
