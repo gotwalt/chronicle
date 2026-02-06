@@ -27,7 +27,7 @@ cargo clippy         # lint
 - `RegionAnnotation` has a `corrections: Vec<Correction>` field. When constructing in tests, always include `corrections: vec![]`.
 - Git notes use `-F tempfile` pattern in `note_write` to avoid shell escaping. Do not pass note content as command-line args.
 - AST anchor resolution: `src/ast/anchor.rs` resolves anchors with exact/qualified/fuzzy matching via Levenshtein distance.
-- Tree-sitter is used for Rust only (`tree-sitter-rust`). TypeScript/Python AST support is deferred.
+- Tree-sitter supports Rust, TypeScript, Python, Go, Java, C, C++, and Ruby via optional feature flags.
 - The `annotate_live` integration test requires a real `.git` directory (not a worktree gitlink). It will fail in git worktrees.
 
 ## Module map

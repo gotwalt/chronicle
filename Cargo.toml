@@ -1,12 +1,19 @@
 [package]
-name = "chronicle"
+name = "git-chronicle"
 version = "0.1.0"
 edition = "2021"
 description = "AI-powered commit annotation tool that captures reasoning and intent behind code changes"
+license = "MIT"
+repository = "https://github.com/gotwalt/git-chronicle"
+homepage = "https://github.com/gotwalt/git-chronicle"
+readme = "README.md"
+keywords = ["git", "annotation", "ai", "commit", "developer-tools"]
+categories = ["command-line-utilities", "development-tools"]
+rust-version = "1.70"
+exclude = [".github/", ".claude/", "features/", "HISTORY.md", "CLAUDE.md"]
 
-[[bin]]
-name = "git-chronicle"
-path = "src/main.rs"
+[lib]
+name = "chronicle"
 
 [dependencies]
 clap = { version = "4", features = ["derive"] }
