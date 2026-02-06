@@ -76,10 +76,10 @@ fn make_basic_input(commit: &str) -> AnnotateInput {
         regions: vec![
             RegionInput {
                 file: "src/lib.rs".to_string(),
-                anchor: AnchorInput {
+                anchor: Some(AnchorInput {
                     unit_type: "function".to_string(),
                     name: "greet".to_string(),
-                },
+                }),
                 lines: LineRange { start: 1, end: 3 },
                 intent: "Add a standalone greet function for simple greeting use cases".to_string(),
                 reasoning: Some("Needed a simple entry point before the full Greeter struct".to_string()),
@@ -92,10 +92,10 @@ fn make_basic_input(commit: &str) -> AnnotateInput {
             },
             RegionInput {
                 file: "src/lib.rs".to_string(),
-                anchor: AnchorInput {
+                anchor: Some(AnchorInput {
                     unit_type: "method".to_string(),
                     name: "Greeter::new".to_string(),
-                },
+                }),
                 lines: LineRange { start: 10, end: 12 },
                 intent: "Constructor for Greeter with configurable prefix".to_string(),
                 reasoning: None,
@@ -178,10 +178,10 @@ fn anchor_resolution_corrects_line_ranges() {
         task: None,
         regions: vec![RegionInput {
             file: "src/lib.rs".to_string(),
-            anchor: AnchorInput {
+            anchor: Some(AnchorInput {
                 unit_type: "function".to_string(),
                 name: "greet".to_string(),
-            },
+            }),
             lines: LineRange { start: 99, end: 100 },
             intent: "The AST should correct these line numbers".to_string(),
             reasoning: None,
@@ -239,7 +239,7 @@ fn multiple_commits_have_independent_notes() {
         task: None,
         regions: vec![RegionInput {
             file: "src/lib.rs".to_string(),
-            anchor: AnchorInput { unit_type: "function".to_string(), name: "greet".to_string() },
+            anchor: Some(AnchorInput { unit_type: "function".to_string(), name: "greet".to_string() }),
             lines: LineRange { start: 1, end: 3 },
             intent: "Add standalone greet function".to_string(),
             reasoning: None, constraints: vec![], semantic_dependencies: vec![], tags: vec![], risk_notes: None,
@@ -258,7 +258,7 @@ fn multiple_commits_have_independent_notes() {
         task: None,
         regions: vec![RegionInput {
             file: "src/lib.rs".to_string(),
-            anchor: AnchorInput { unit_type: "function".to_string(), name: "farewell".to_string() },
+            anchor: Some(AnchorInput { unit_type: "function".to_string(), name: "farewell".to_string() }),
             lines: LineRange { start: 19, end: 21 },
             intent: "Add farewell function as counterpart to greet".to_string(),
             reasoning: None, constraints: vec![], semantic_dependencies: vec![], tags: vec![], risk_notes: None,
@@ -290,7 +290,7 @@ fn quality_warnings_do_not_block_write() {
         task: None,
         regions: vec![RegionInput {
             file: "src/lib.rs".to_string(),
-            anchor: AnchorInput { unit_type: "function".to_string(), name: "greet".to_string() },
+            anchor: Some(AnchorInput { unit_type: "function".to_string(), name: "greet".to_string() }),
             lines: LineRange { start: 1, end: 3 },
             intent: "short".to_string(),
             reasoning: None, constraints: vec![], semantic_dependencies: vec![], tags: vec![], risk_notes: None,

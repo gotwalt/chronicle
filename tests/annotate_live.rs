@@ -24,10 +24,10 @@ fn annotate_head_commit() {
         regions: vec![
             RegionInput {
                 file: "src/mcp/annotate_handler.rs".to_string(),
-                anchor: AnchorInput {
+                anchor: Some(AnchorInput {
                     unit_type: "function".to_string(),
                     name: "handle_annotate".to_string(),
-                },
+                }),
                 lines: LineRange { start: 110, end: 160 },
                 intent: "Core MCP annotate handler — receives structured annotation data from the \
                     calling agent, resolves AST anchors to correct line ranges and fill signatures, \
@@ -82,10 +82,10 @@ fn annotate_head_commit() {
             },
             RegionInput {
                 file: "src/mcp/annotate_handler.rs".to_string(),
-                anchor: AnchorInput {
+                anchor: Some(AnchorInput {
                     unit_type: "function".to_string(),
                     name: "resolve_and_build_region".to_string(),
-                },
+                }),
                 lines: LineRange { start: 165, end: 250 },
                 intent: "Resolve a single region's anchor against the AST outline and build the \
                     final RegionAnnotation with corrected lines and filled signature."
@@ -107,10 +107,10 @@ fn annotate_head_commit() {
             },
             RegionInput {
                 file: "src/mcp/annotate_handler.rs".to_string(),
-                anchor: AnchorInput {
+                anchor: Some(AnchorInput {
                     unit_type: "function".to_string(),
                     name: "check_quality".to_string(),
-                },
+                }),
                 lines: LineRange { start: 85, end: 108 },
                 intent: "Non-blocking quality feedback — warns the caller about short intent, \
                     missing reasoning, or absent constraints without preventing the write."
@@ -127,10 +127,10 @@ fn annotate_head_commit() {
             },
             RegionInput {
                 file: "src/error.rs".to_string(),
-                anchor: AnchorInput {
+                anchor: Some(AnchorInput {
                     unit_type: "enum".to_string(),
                     name: "ChronicleError".to_string(),
-                },
+                }),
                 lines: LineRange { start: 68, end: 75 },
                 intent: "Add Validation variant for annotation structural errors caught by \
                     the MCP handler before writing."

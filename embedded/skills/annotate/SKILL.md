@@ -64,8 +64,13 @@ git chronicle annotate --live < /tmp/chronicle-annotate.json
 ```
 
 **Important:** Use `<< 'EOF'` (quoted) to prevent shell expansion of special
-characters. The `lines` field is optional -- AST anchor resolution will
-determine the correct line range from the anchor name.
+characters.
+
+**Flexible input:**
+- `anchor` is optional -- omit it for file-level annotations (config, YAML, etc.)
+- `path` works as an alias for `file`
+- `constraints` accepts plain strings (`["Must not allocate"]`) or objects (`[{"text": "Must not allocate"}]`)
+- `lines` is optional -- AST anchor resolution will determine the correct line range from the anchor name
 
 ## Quality Bar
 

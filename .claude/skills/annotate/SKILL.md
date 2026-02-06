@@ -114,7 +114,13 @@ Use these `unit_type` values:
 - `impl` -- impl blocks
 - `module` -- module declarations
 
-The handler will resolve your anchor against the AST and correct the line numbers. The `lines` field is optional -- AST resolution will determine it from the anchor name.
+The handler will resolve your anchor against the AST and correct the line numbers.
+
+**Flexible input:**
+- `anchor` is optional -- omit it for file-level annotations (config, YAML, etc.)
+- `path` works as an alias for `file`
+- `constraints` accepts plain strings (`["Must not allocate"]`) or objects (`[{"text": "Must not allocate"}]`)
+- `lines` is optional -- AST resolution will determine it from the anchor name
 
 ## Fallback
 

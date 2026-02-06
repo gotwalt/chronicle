@@ -1,6 +1,7 @@
 use std::path::Path;
 
-use serde::{Deserialize, Serialize};
+use serde::de::{SeqAccess, Visitor};
+use serde::{Deserialize, Deserializer, Serialize};
 use snafu::ResultExt;
 
 use crate::ast::{self, AnchorMatch, Language};
@@ -35,13 +36,15 @@ fn default_line_range() -> LineRange {
 /// A single region the agent wants to annotate.
 #[derive(Debug, Clone, Deserialize)]
 pub struct RegionInput {
+    #[serde(alias = "path")]
     pub file: String,
-    pub anchor: AnchorInput,
+    #[serde(default)]
+    pub anchor: Option<AnchorInput>,
     #[serde(default = "default_line_range")]
     pub lines: LineRange,
     pub intent: String,
     pub reasoning: Option<String>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "deserialize_flexible_constraints")]
     pub constraints: Vec<ConstraintInput>,
     #[serde(default)]
     pub semantic_dependencies: Vec<SemanticDependency>,
@@ -58,10 +61,79 @@ pub struct AnchorInput {
     pub name: String,
 }
 
+impl RegionInput {
+    /// Returns the anchor, defaulting to a file-level anchor derived from the filename.
+    pub fn effective_anchor(&self) -> AnchorInput {
+        self.anchor.clone().unwrap_or_else(|| {
+            let name = Path::new(&self.file)
+                .file_name()
+                .and_then(|n| n.to_str())
+                .unwrap_or(&self.file)
+                .to_string();
+            AnchorInput {
+                unit_type: "file".to_string(),
+                name,
+            }
+        })
+    }
+}
+
 /// A constraint supplied by the author (source is always `Author`).
+///
+/// Accepts either a plain string `"text"` or an object `{"text": "..."}`.
 #[derive(Debug, Clone, Deserialize)]
 pub struct ConstraintInput {
     pub text: String,
+}
+
+/// Deserializes a `Vec<ConstraintInput>` where each element can be either:
+/// - a plain string: `"Must not allocate"` → `ConstraintInput { text: "Must not allocate" }`
+/// - an object: `{"text": "Must not allocate"}` → `ConstraintInput { text: "Must not allocate" }`
+fn deserialize_flexible_constraints<'de, D>(
+    deserializer: D,
+) -> std::result::Result<Vec<ConstraintInput>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    struct FlexibleConstraintsVisitor;
+
+    impl<'de> Visitor<'de> for FlexibleConstraintsVisitor {
+        type Value = Vec<ConstraintInput>;
+
+        fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+            formatter.write_str("a list of strings or {\"text\": \"...\"} objects")
+        }
+
+        fn visit_seq<S>(self, mut seq: S) -> std::result::Result<Vec<ConstraintInput>, S::Error>
+        where
+            S: SeqAccess<'de>,
+        {
+            let mut constraints = Vec::new();
+            while let Some(item) = seq.next_element::<FlexibleConstraint>()? {
+                constraints.push(item.into());
+            }
+            Ok(constraints)
+        }
+    }
+
+    deserializer.deserialize_seq(FlexibleConstraintsVisitor)
+}
+
+/// Intermediate type that accepts either a string or a `{"text": "..."}` object.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(untagged)]
+enum FlexibleConstraint {
+    Object { text: String },
+    Plain(String),
+}
+
+impl From<FlexibleConstraint> for ConstraintInput {
+    fn from(fc: FlexibleConstraint) -> Self {
+        match fc {
+            FlexibleConstraint::Object { text } => ConstraintInput { text },
+            FlexibleConstraint::Plain(text) => ConstraintInput { text },
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -108,9 +180,10 @@ fn check_quality(input: &AnnotateInput) -> Vec<String> {
 
     for (i, region) in input.regions.iter().enumerate() {
         if region.intent.len() < 10 {
+            let anchor = region.effective_anchor();
             warnings.push(format!(
                 "region[{}] ({}/{}): intent is very short",
-                i, region.file, region.anchor.name
+                i, region.file, anchor.name
             ));
         }
     }
@@ -198,6 +271,7 @@ fn resolve_and_build_region(
 ) -> Result<(RegionAnnotation, AnchorResolution)> {
     let file_path = Path::new(&input.file);
     let lang = Language::from_path(&input.file);
+    let anchor = input.effective_anchor();
 
     // Try to load the file and resolve the anchor via AST
     let (ast_anchor, lines, resolution_kind) = match lang {
@@ -205,8 +279,8 @@ fn resolve_and_build_region(
             // No AST support — use the input as-is
             (
                 AstAnchor {
-                    unit_type: input.anchor.unit_type.clone(),
-                    name: input.anchor.name.clone(),
+                    unit_type: anchor.unit_type.clone(),
+                    name: anchor.name.clone(),
                     signature: None,
                 },
                 input.lines,
@@ -220,8 +294,8 @@ fn resolve_and_build_region(
                         Ok(outline) => {
                             match ast::resolve_anchor(
                                 &outline,
-                                &input.anchor.unit_type,
-                                &input.anchor.name,
+                                &anchor.unit_type,
+                                &anchor.name,
                             ) {
                                 Some(anchor_match) => {
                                     let entry = anchor_match.entry();
@@ -253,8 +327,8 @@ fn resolve_and_build_region(
                                     // No match — use input as-is
                                     (
                                         AstAnchor {
-                                            unit_type: input.anchor.unit_type.clone(),
-                                            name: input.anchor.name.clone(),
+                                            unit_type: anchor.unit_type.clone(),
+                                            name: anchor.name.clone(),
                                             signature: None,
                                         },
                                         input.lines,
@@ -267,8 +341,8 @@ fn resolve_and_build_region(
                             // Outline extraction failed — use input as-is
                             (
                                 AstAnchor {
-                                    unit_type: input.anchor.unit_type.clone(),
-                                    name: input.anchor.name.clone(),
+                                    unit_type: anchor.unit_type.clone(),
+                                    name: anchor.name.clone(),
                                     signature: None,
                                 },
                                 input.lines,
@@ -281,8 +355,8 @@ fn resolve_and_build_region(
                     // File not available at commit — use input as-is
                     (
                         AstAnchor {
-                            unit_type: input.anchor.unit_type.clone(),
-                            name: input.anchor.name.clone(),
+                            unit_type: anchor.unit_type.clone(),
+                            name: anchor.name.clone(),
                             signature: None,
                         },
                         input.lines,
@@ -318,7 +392,7 @@ fn resolve_and_build_region(
 
     let resolution = AnchorResolution {
         file: input.file.clone(),
-        requested_name: input.anchor.name.clone(),
+        requested_name: anchor.name.clone(),
         resolution: resolution_kind,
     };
 
@@ -457,10 +531,10 @@ impl Config {
             task: Some("TASK-123".to_string()),
             regions: vec![RegionInput {
                 file: "src/lib.rs".to_string(),
-                anchor: AnchorInput {
+                anchor: Some(AnchorInput {
                     unit_type: "function".to_string(),
                     name: "hello_world".to_string(),
-                },
+                }),
                 lines: LineRange { start: 2, end: 4 },
                 intent: "Add a greeting function for the CLI entrypoint".to_string(),
                 reasoning: Some("Needed a simple entry point for testing".to_string()),
@@ -562,10 +636,10 @@ impl Config {
             task: None,
             regions: vec![RegionInput {
                 file: "src/lib.rs".to_string(),
-                anchor: AnchorInput {
+                anchor: Some(AnchorInput {
                     unit_type: "function".to_string(),
                     name: "foo".to_string(),
-                },
+                }),
                 lines: LineRange { start: 1, end: 5 },
                 intent: "short".to_string(), // too short
                 reasoning: None,             // missing
@@ -635,10 +709,10 @@ impl Config {
             task: None,
             regions: vec![RegionInput {
                 file: "src/data.toml".to_string(),
-                anchor: AnchorInput {
+                anchor: Some(AnchorInput {
                     unit_type: "function".to_string(),
                     name: "section".to_string(),
-                },
+                }),
                 lines: LineRange { start: 1, end: 2 },
                 intent: "Add a config section".to_string(),
                 reasoning: None,
@@ -669,10 +743,10 @@ impl Config {
             task: None,
             regions: vec![RegionInput {
                 file: "src/missing.rs".to_string(),
-                anchor: AnchorInput {
+                anchor: Some(AnchorInput {
                     unit_type: "function".to_string(),
                     name: "missing_fn".to_string(),
-                },
+                }),
                 lines: LineRange { start: 1, end: 10 },
                 intent: "Modify a function that was deleted".to_string(),
                 reasoning: None,
@@ -690,5 +764,117 @@ impl Config {
             result.anchor_resolutions[0].resolution,
             AnchorResolutionKind::Unresolved
         ));
+    }
+
+    #[test]
+    fn test_omitted_anchor_defaults_to_filename() {
+        let json = r#"{
+            "commit": "HEAD",
+            "summary": "Update config file with new settings",
+            "regions": [{
+                "file": "config/settings.toml",
+                "intent": "Add database connection pool settings"
+            }]
+        }"#;
+
+        let input: AnnotateInput = serde_json::from_str(json).unwrap();
+        assert!(input.regions[0].anchor.is_none());
+
+        let anchor = input.regions[0].effective_anchor();
+        assert_eq!(anchor.unit_type, "file");
+        assert_eq!(anchor.name, "settings.toml");
+    }
+
+    #[test]
+    fn test_null_anchor_defaults_to_filename() {
+        let json = r#"{
+            "commit": "HEAD",
+            "summary": "Update config file with new settings",
+            "regions": [{
+                "file": ".github/workflows/ci.yml",
+                "anchor": null,
+                "intent": "Add CI workflow for pull requests"
+            }]
+        }"#;
+
+        let input: AnnotateInput = serde_json::from_str(json).unwrap();
+        assert!(input.regions[0].anchor.is_none());
+
+        let anchor = input.regions[0].effective_anchor();
+        assert_eq!(anchor.unit_type, "file");
+        assert_eq!(anchor.name, "ci.yml");
+    }
+
+    #[test]
+    fn test_path_alias_for_file_field() {
+        let json = r#"{
+            "commit": "HEAD",
+            "summary": "Test path alias for the file field",
+            "regions": [{
+                "path": "src/main.rs",
+                "anchor": { "unit_type": "function", "name": "main" },
+                "intent": "Test that path works as an alias for file"
+            }]
+        }"#;
+
+        let input: AnnotateInput = serde_json::from_str(json).unwrap();
+        assert_eq!(input.regions[0].file, "src/main.rs");
+    }
+
+    #[test]
+    fn test_constraints_as_plain_strings() {
+        let json = r#"{
+            "commit": "HEAD",
+            "summary": "Test plain string constraints",
+            "regions": [{
+                "file": "src/lib.rs",
+                "anchor": { "unit_type": "function", "name": "foo" },
+                "intent": "Test that plain string constraints are accepted",
+                "constraints": ["Must not allocate", "Assumes sorted input"]
+            }]
+        }"#;
+
+        let input: AnnotateInput = serde_json::from_str(json).unwrap();
+        assert_eq!(input.regions[0].constraints.len(), 2);
+        assert_eq!(input.regions[0].constraints[0].text, "Must not allocate");
+        assert_eq!(input.regions[0].constraints[1].text, "Assumes sorted input");
+    }
+
+    #[test]
+    fn test_constraints_as_objects() {
+        let json = r#"{
+            "commit": "HEAD",
+            "summary": "Test object constraints still work",
+            "regions": [{
+                "file": "src/lib.rs",
+                "anchor": { "unit_type": "function", "name": "foo" },
+                "intent": "Test that object constraints are still accepted",
+                "constraints": [{"text": "Must not allocate"}, {"text": "Assumes sorted input"}]
+            }]
+        }"#;
+
+        let input: AnnotateInput = serde_json::from_str(json).unwrap();
+        assert_eq!(input.regions[0].constraints.len(), 2);
+        assert_eq!(input.regions[0].constraints[0].text, "Must not allocate");
+        assert_eq!(input.regions[0].constraints[1].text, "Assumes sorted input");
+    }
+
+    #[test]
+    fn test_constraints_mixed_strings_and_objects() {
+        let json = r#"{
+            "commit": "HEAD",
+            "summary": "Test mixed constraint formats",
+            "regions": [{
+                "file": "src/lib.rs",
+                "anchor": { "unit_type": "function", "name": "foo" },
+                "intent": "Test that mixed constraint formats are accepted",
+                "constraints": ["Plain string", {"text": "Object form"}]
+            }]
+        }"#;
+
+        let input: AnnotateInput = serde_json::from_str(json).unwrap();
+        assert_eq!(input.regions[0].constraints.len(), 2);
+        assert_eq!(input.regions[0].constraints[0].text, "Plain string");
+        assert_eq!(input.regions[0].constraints[1].text, "Object form");
     }
 }
