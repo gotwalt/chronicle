@@ -94,6 +94,14 @@ pub enum Commands {
         /// Read AnnotateInput JSON from stdin (live annotation path, zero LLM cost)
         #[arg(long)]
         live: bool,
+
+        /// Comma-separated source commit SHAs for squash synthesis (CI usage)
+        #[arg(long)]
+        squash_sources: Option<String>,
+
+        /// Old commit SHA to migrate annotation from (amend re-annotation)
+        #[arg(long)]
+        amend_source: Option<String>,
     },
 }
 

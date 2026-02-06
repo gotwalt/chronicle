@@ -1,3 +1,6 @@
+pub mod prepare_commit_msg;
+pub mod post_rewrite;
+
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 
@@ -9,10 +12,24 @@ use snafu::ResultExt;
 const HOOK_BEGIN_MARKER: &str = "# --- ultragit hook begin ---";
 const HOOK_END_MARKER: &str = "# --- ultragit hook end ---";
 
-const HOOK_SCRIPT: &str = r#"# --- ultragit hook begin ---
+const POST_COMMIT_SCRIPT: &str = r#"# --- ultragit hook begin ---
 # Installed by ultragit. Do not edit between these markers.
 if command -v ultragit >/dev/null 2>&1; then
     ultragit annotate --commit HEAD --sync &
+fi
+# --- ultragit hook end ---"#;
+
+const PREPARE_COMMIT_MSG_SCRIPT: &str = r#"# --- ultragit hook begin ---
+# Installed by ultragit. Do not edit between these markers.
+if command -v ultragit >/dev/null 2>&1; then
+    ultragit hook prepare-commit-msg "$@"
+fi
+# --- ultragit hook end ---"#;
+
+const POST_REWRITE_SCRIPT: &str = r#"# --- ultragit hook begin ---
+# Installed by ultragit. Do not edit between these markers.
+if command -v ultragit >/dev/null 2>&1; then
+    ultragit hook post-rewrite "$@"
 fi
 # --- ultragit hook end ---"#;
 
@@ -75,12 +92,9 @@ pub fn delete_pending_context(git_dir: &Path) -> Result<()> {
     Ok(())
 }
 
-/// Install the post-commit hook with ultragit markers.
-pub fn install_hooks(git_dir: &Path) -> Result<()> {
-    let hooks_dir = git_dir.join("hooks");
-    std::fs::create_dir_all(&hooks_dir).context(IoSnafu)?;
-
-    let hook_path = hooks_dir.join("post-commit");
+/// Install a single hook script into the hooks directory.
+fn install_single_hook(hooks_dir: &Path, hook_name: &str, script: &str) -> Result<()> {
+    let hook_path = hooks_dir.join(hook_name);
 
     let existing = if hook_path.exists() {
         std::fs::read_to_string(&hook_path).context(IoSnafu)?
@@ -88,7 +102,6 @@ pub fn install_hooks(git_dir: &Path) -> Result<()> {
         String::new()
     };
 
-    // Check if ultragit section already exists; if so, replace it
     let new_content = if existing.contains(HOOK_BEGIN_MARKER) {
         // Replace existing ultragit section
         let mut result = String::new();
@@ -96,7 +109,7 @@ pub fn install_hooks(git_dir: &Path) -> Result<()> {
         for line in existing.lines() {
             if line.contains(HOOK_BEGIN_MARKER) {
                 in_section = true;
-                result.push_str(HOOK_SCRIPT);
+                result.push_str(script);
                 result.push('\n');
                 continue;
             }
@@ -111,29 +124,38 @@ pub fn install_hooks(git_dir: &Path) -> Result<()> {
         }
         result
     } else if existing.is_empty() {
-        // New hook file
-        format!("#!/bin/sh\n{HOOK_SCRIPT}\n")
+        format!("#!/bin/sh\n{script}\n")
     } else {
-        // Append to existing hook, chaining
         let mut content = existing.clone();
         if !content.ends_with('\n') {
             content.push('\n');
         }
         content.push('\n');
-        content.push_str(HOOK_SCRIPT);
+        content.push_str(script);
         content.push('\n');
         content
     };
 
     std::fs::write(&hook_path, &new_content).context(IoSnafu)?;
 
-    // chmod +x
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
         let perms = std::fs::Permissions::from_mode(0o755);
         std::fs::set_permissions(&hook_path, perms).context(IoSnafu)?;
     }
+
+    Ok(())
+}
+
+/// Install all ultragit hooks: post-commit, prepare-commit-msg, and post-rewrite.
+pub fn install_hooks(git_dir: &Path) -> Result<()> {
+    let hooks_dir = git_dir.join("hooks");
+    std::fs::create_dir_all(&hooks_dir).context(IoSnafu)?;
+
+    install_single_hook(&hooks_dir, "post-commit", POST_COMMIT_SCRIPT)?;
+    install_single_hook(&hooks_dir, "prepare-commit-msg", PREPARE_COMMIT_MSG_SCRIPT)?;
+    install_single_hook(&hooks_dir, "post-rewrite", POST_REWRITE_SCRIPT)?;
 
     Ok(())
 }
