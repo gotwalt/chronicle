@@ -24,7 +24,8 @@ chronicle (Rust binary)
 ├── MCP server                       Feature 12
 ├── Claude Code integration          Feature 13
 ├── Interactive show (TUI)           Feature 14
-└── Claude Code skills & workflow    Feature 15
+├── Claude Code skills & workflow    Feature 15
+└── Multi-language AST parsing       Feature 16
 ```
 
 ---
@@ -48,6 +49,7 @@ chronicle (Rust binary)
 | 13 | Claude Code Integration | `13-claude-code-integration.md` | Low-Medium | MCP annotate tool, Claude Code skill, post-commit hook |
 | 14 | Interactive Show (TUI) | `14-interactive-show.md` | High | `git chronicle show` TUI explorer, annotation panel, deps/history drill-down, plain-text fallback |
 | 15 | Claude Code Skills | `15-claude-code-skills.md` | Low | Context/annotate/backfill skills, pre-edit hook, CLAUDE.md integration, MCP config |
+| 16 | Multi-Language AST | `16-multi-language-ast.md` | Medium | TypeScript, JavaScript, Python, Go, Java, C, C++, Ruby outline extraction and anchor resolution |
 
 ---
 
@@ -88,10 +90,14 @@ Phase 5 (Advanced) — parallel, all features below can proceed independently
   │ Queries  │ │ Rewrites │ │ Ops      │ │          │ │ Server   │ │ Integr.  │ │ (TUI)    │
   └──────────┘ └──────────┘ └──────────┘ └──────────┘ └──────────┘ └──────┬───┘ └──────────┘
                                                                          │
-Phase 6 (Agent Workflow)                                                 │
+Phase 6 (Agent Workflow & Language Expansion)                            │
   ┌──────────────┐                                                       │
   │ 15 CC Skills │◄──────────────────────────────────────────────────────┘
   │ & Workflow   │
+  └──────────────┘
+  ┌──────────────┐
+  │ 16 Multi-    │  (depends on 03, can proceed independently of Phase 5)
+  │ Lang AST     │
   └──────────────┘
 ```
 
@@ -114,6 +120,7 @@ Phase 6 (Agent Workflow)                                                 │
 | 13 Claude Code Integration | 02, 03, 05, 12 | — |
 | 14 Interactive Show (TUI) | 02, 03, 07, 08 | — |
 | 15 Claude Code Skills | 12, 13 | — |
+| 16 Multi-Language AST | 03 | 14 (show uses outline dispatch) |
 
 ---
 
@@ -169,10 +176,16 @@ chronicle/
 │   │   ├── config.rs            # Git config read/write
 │   │   └── refs.rs              # Ref management
 │   ├── ast/
-│   │   ├── mod.rs               # AST parsing coordination
-│   │   ├── outline.rs           # Outline extraction (functions, types, methods)
+│   │   ├── mod.rs               # AST parsing coordination, Language enum
+│   │   ├── outline.rs           # Rust outline extraction, SemanticKind, shared helpers
 │   │   ├── anchor.rs            # Anchor name → line range resolution
-│   │   └── languages.rs         # Grammar loading and language detection
+│   │   ├── outline_typescript.rs # TypeScript/TSX outline extraction (F16)
+│   │   ├── outline_python.rs    # Python outline extraction (F16)
+│   │   ├── outline_go.rs        # Go outline extraction (F16)
+│   │   ├── outline_java.rs      # Java outline extraction (F16)
+│   │   ├── outline_c.rs         # C outline extraction (F16)
+│   │   ├── outline_cpp.rs       # C++ outline extraction (F16)
+│   │   └── outline_ruby.rs     # Ruby outline extraction (F16)
 │   ├── provider/
 │   │   ├── mod.rs               # LlmProvider trait, credential discovery
 │   │   ├── anthropic.rs         # Anthropic Messages API
@@ -236,10 +249,10 @@ chronicle/
 │   └── fixtures/
 │       ├── repos/               # Test git repositories
 │       └── annotations/         # Sample annotation JSON
-└── grammars/                    # Tree-sitter grammar sources
-    ├── tree-sitter-rust/
-    ├── tree-sitter-typescript/
-    └── tree-sitter-python/
+└── features/                    # Feature specifications
+    ├── 00-overview.md
+    ├── ...
+    └── 16-multi-language-ast.md
 ```
 
 ---
@@ -256,8 +269,13 @@ serde_json = "1"
 gix = { version = "0.68", features = ["blocking-network-client"] }
 tree-sitter = "0.24"
 tree-sitter-rust = "0.23"
-tree-sitter-typescript = "0.23"
-tree-sitter-python = "0.23"
+tree-sitter-typescript = { version = "0.23", optional = true }
+tree-sitter-python = { version = "0.23", optional = true }
+tree-sitter-go = { version = "0.23", optional = true }
+tree-sitter-java = { version = "0.23", optional = true }
+tree-sitter-c = { version = "0.23", optional = true }
+tree-sitter-cpp = { version = "0.23", optional = true }
+tree-sitter-ruby = { version = "0.23", optional = true }
 toml = "0.8"
 chrono = { version = "0.4", features = ["serde"] }
 snafu = "0.8"

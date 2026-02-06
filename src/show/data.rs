@@ -1,4 +1,4 @@
-use crate::ast::outline::{extract_rust_outline, OutlineEntry};
+use crate::ast::outline::OutlineEntry;
 use crate::error::{ChronicleError, Result};
 use crate::git::GitOps;
 use crate::read::{self, MatchedRegion, ReadQuery};
@@ -100,7 +100,8 @@ pub fn build_show_data(
     let total_lines = source_lines.len();
 
     // Parse AST outline (best-effort, non-fatal)
-    let outline = extract_rust_outline(&source).unwrap_or_default();
+    let lang = crate::ast::Language::from_path(file_path);
+    let outline = crate::ast::extract_outline(&source, lang).unwrap_or_default();
 
     // Fetch annotations via the read pipeline
     let query = ReadQuery {

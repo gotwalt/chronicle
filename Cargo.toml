@@ -14,7 +14,14 @@ ureq = { version = "2", features = ["json", "tls"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tree-sitter = "0.24"
-tree-sitter-rust = "0.23"
+tree-sitter-rust = { version = "0.23", optional = true }
+tree-sitter-typescript = { version = "0.23", optional = true }
+tree-sitter-python = { version = "0.23", optional = true }
+tree-sitter-go = { version = "0.23", optional = true }
+tree-sitter-java = { version = "0.23", optional = true }
+tree-sitter-c = { version = "0.23", optional = true }
+tree-sitter-cpp = { version = "0.23", optional = true }
+tree-sitter-ruby = { version = "0.23", optional = true }
 chrono = { version = "0.4", features = ["serde"] }
 snafu = "0.8"
 tracing = "0.1"
@@ -24,8 +31,16 @@ ratatui = { version = "0.29", optional = true, default-features = false, feature
 crossterm = { version = "0.28", optional = true }
 
 [features]
-default = ["tui"]
+default = ["tui", "lang-rust", "lang-typescript", "lang-python", "lang-go", "lang-java", "lang-c", "lang-cpp", "lang-ruby"]
 tui = ["ratatui", "crossterm"]
+lang-rust = ["dep:tree-sitter-rust"]
+lang-typescript = ["dep:tree-sitter-typescript"]
+lang-python = ["dep:tree-sitter-python"]
+lang-go = ["dep:tree-sitter-go"]
+lang-java = ["dep:tree-sitter-java"]
+lang-c = ["dep:tree-sitter-c"]
+lang-cpp = ["dep:tree-sitter-cpp"]
+lang-ruby = ["dep:tree-sitter-ruby"]
 
 [dev-dependencies]
 tempfile = "3"

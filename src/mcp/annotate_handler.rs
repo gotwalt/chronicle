@@ -605,20 +605,20 @@ impl Config {
     #[test]
     fn test_unsupported_language_uses_input_as_is() {
         let mock = MockGitOps::new("abc123")
-            .with_file("src/main.py", "def hello():\n    pass\n");
+            .with_file("src/data.toml", "[section]\nkey = \"value\"\n");
 
         let input = AnnotateInput {
             commit: "HEAD".to_string(),
-            summary: "Add Python hello function".to_string(),
+            summary: "Add TOML config data".to_string(),
             task: None,
             regions: vec![RegionInput {
-                file: "src/main.py".to_string(),
+                file: "src/data.toml".to_string(),
                 anchor: AnchorInput {
                     unit_type: "function".to_string(),
-                    name: "hello".to_string(),
+                    name: "section".to_string(),
                 },
                 lines: LineRange { start: 1, end: 2 },
-                intent: "Add a hello function for Python".to_string(),
+                intent: "Add a config section".to_string(),
                 reasoning: None,
                 constraints: vec![],
                 semantic_dependencies: vec![],

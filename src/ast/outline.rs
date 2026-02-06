@@ -14,6 +14,10 @@ pub enum SemanticKind {
     Static,
     TypeAlias,
     Module,
+    Class,
+    Interface,
+    Namespace,
+    Constructor,
 }
 
 impl SemanticKind {
@@ -29,6 +33,10 @@ impl SemanticKind {
             SemanticKind::Static => "static",
             SemanticKind::TypeAlias => "type_alias",
             SemanticKind::Module => "module",
+            SemanticKind::Class => "class",
+            SemanticKind::Interface => "interface",
+            SemanticKind::Namespace => "namespace",
+            SemanticKind::Constructor => "constructor",
         }
     }
 
@@ -45,6 +53,10 @@ impl SemanticKind {
             "static" => Some(SemanticKind::Static),
             "type_alias" | "type" => Some(SemanticKind::TypeAlias),
             "module" | "mod" => Some(SemanticKind::Module),
+            "class" => Some(SemanticKind::Class),
+            "interface" => Some(SemanticKind::Interface),
+            "namespace" | "package" => Some(SemanticKind::Namespace),
+            "constructor" | "ctor" => Some(SemanticKind::Constructor),
             _ => None,
         }
     }
@@ -63,7 +75,36 @@ pub struct OutlineEntry {
     pub parent: Option<String>,
 }
 
+/// Compute 1-indexed inclusive line range for a tree-sitter node.
+pub(crate) fn node_line_range(node: tree_sitter::Node) -> LineRange {
+    LineRange {
+        start: node.start_position().row as u32 + 1,
+        end: node.end_position().row as u32 + 1,
+    }
+}
+
+/// Extract the signature: text from the start of the node up to (but not including)
+/// the given body delimiter character.
+pub(crate) fn extract_signature_with_delimiter(
+    node: tree_sitter::Node,
+    source: &[u8],
+    delimiter: char,
+) -> String {
+    let full_text = node.utf8_text(source).unwrap_or("");
+    if let Some(pos) = full_text.find(delimiter) {
+        full_text[..pos].trim().to_string()
+    } else {
+        full_text.trim().to_string()
+    }
+}
+
+/// Returns true if this node is an error or missing node and should be skipped.
+pub(crate) fn should_skip_node(node: &tree_sitter::Node) -> bool {
+    node.is_error() || node.is_missing()
+}
+
 /// Extract an outline of semantic units from Rust source code using tree-sitter.
+#[cfg(feature = "lang-rust")]
 pub fn extract_rust_outline(source: &str) -> Result<Vec<OutlineEntry>, AstError> {
     let mut parser = tree_sitter::Parser::new();
     parser
@@ -90,6 +131,7 @@ pub fn extract_rust_outline(source: &str) -> Result<Vec<OutlineEntry>, AstError>
     Ok(entries)
 }
 
+#[cfg(feature = "lang-rust")]
 fn walk_rust_node(
     node: tree_sitter::Node,
     source: &[u8],
@@ -127,6 +169,7 @@ fn walk_rust_node(
     }
 }
 
+#[cfg(feature = "lang-rust")]
 fn extract_function(
     node: tree_sitter::Node,
     source: &[u8],
@@ -159,6 +202,7 @@ fn extract_function(
     })
 }
 
+#[cfg(feature = "lang-rust")]
 fn extract_named_item(
     node: tree_sitter::Node,
     source: &[u8],
@@ -181,6 +225,7 @@ fn extract_named_item(
     })
 }
 
+#[cfg(feature = "lang-rust")]
 fn extract_impl(
     node: tree_sitter::Node,
     source: &[u8],
@@ -212,14 +257,7 @@ fn extract_impl(
     }
 }
 
-/// Extract the signature: text from the start of the node up to (but not including)
-/// the opening `{`.
+#[cfg(feature = "lang-rust")]
 fn extract_signature(node: tree_sitter::Node, source: &[u8]) -> String {
-    let full_text = node.utf8_text(source).unwrap_or("");
-    if let Some(brace_pos) = full_text.find('{') {
-        full_text[..brace_pos].trim().to_string()
-    } else {
-        // For items without a body (e.g. unit structs), use the full text
-        full_text.trim().to_string()
-    }
+    extract_signature_with_delimiter(node, source, '{')
 }

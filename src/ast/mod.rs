@@ -1,6 +1,21 @@
 pub mod outline;
 pub mod anchor;
 
+#[cfg(feature = "lang-typescript")]
+mod outline_typescript;
+#[cfg(feature = "lang-python")]
+mod outline_python;
+#[cfg(feature = "lang-go")]
+mod outline_go;
+#[cfg(feature = "lang-java")]
+mod outline_java;
+#[cfg(feature = "lang-c")]
+mod outline_c;
+#[cfg(feature = "lang-cpp")]
+mod outline_cpp;
+#[cfg(feature = "lang-ruby")]
+mod outline_ruby;
+
 pub use outline::{OutlineEntry, SemanticKind};
 pub use anchor::AnchorMatch;
 
@@ -10,6 +25,16 @@ use crate::error::AstError;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Language {
     Rust,
+    TypeScript,
+    Tsx,
+    JavaScript,
+    Jsx,
+    Python,
+    Go,
+    Java,
+    C,
+    Cpp,
+    Ruby,
     Unsupported,
 }
 
@@ -18,6 +43,16 @@ impl Language {
     pub fn from_extension(ext: &str) -> Self {
         match ext {
             "rs" => Language::Rust,
+            "ts" | "mts" | "cts" => Language::TypeScript,
+            "tsx" => Language::Tsx,
+            "js" | "mjs" | "cjs" => Language::JavaScript,
+            "jsx" => Language::Jsx,
+            "py" | "pyi" => Language::Python,
+            "go" => Language::Go,
+            "java" => Language::Java,
+            "c" | "h" => Language::C,
+            "cc" | "cpp" | "cxx" | "hpp" | "hxx" | "hh" => Language::Cpp,
+            "rb" | "rake" | "gemspec" => Language::Ruby,
             _ => Language::Unsupported,
         }
     }
@@ -34,10 +69,46 @@ impl Language {
 /// Extract an outline of semantic units from source code.
 pub fn extract_outline(source: &str, language: Language) -> Result<Vec<OutlineEntry>, AstError> {
     match language {
+        #[cfg(feature = "lang-rust")]
         Language::Rust => outline::extract_rust_outline(source),
+
+        #[cfg(feature = "lang-typescript")]
+        Language::TypeScript | Language::JavaScript =>
+            outline_typescript::extract_typescript_outline(source, false),
+        #[cfg(feature = "lang-typescript")]
+        Language::Tsx | Language::Jsx =>
+            outline_typescript::extract_typescript_outline(source, true),
+
+        #[cfg(feature = "lang-python")]
+        Language::Python => outline_python::extract_python_outline(source),
+
+        #[cfg(feature = "lang-go")]
+        Language::Go => outline_go::extract_go_outline(source),
+
+        #[cfg(feature = "lang-java")]
+        Language::Java => outline_java::extract_java_outline(source),
+
+        #[cfg(feature = "lang-c")]
+        Language::C => outline_c::extract_c_outline(source),
+
+        #[cfg(feature = "lang-cpp")]
+        Language::Cpp => outline_cpp::extract_cpp_outline(source),
+
+        #[cfg(feature = "lang-ruby")]
+        Language::Ruby => outline_ruby::extract_ruby_outline(source),
+
         Language::Unsupported => {
             Err(AstError::UnsupportedLanguage {
                 extension: "unknown".to_string(),
+                location: snafu::Location::new(file!(), line!(), 0),
+            })
+        }
+
+        // Feature-disabled arms: language recognized but grammar not compiled in
+        #[allow(unreachable_patterns)]
+        _ => {
+            Err(AstError::UnsupportedLanguage {
+                extension: format!("{:?} (feature not enabled)", language),
                 location: snafu::Location::new(file!(), line!(), 0),
             })
         }
