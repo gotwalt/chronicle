@@ -5,6 +5,10 @@ pub mod annotate;
 pub mod read;
 pub mod flag;
 pub mod correct;
+pub mod sync;
+pub mod export;
+pub mod import;
+pub mod doctor;
 
 use clap::{Parser, Subcommand};
 
@@ -139,6 +143,64 @@ pub enum Commands {
         /// Replacement or amendment text
         #[arg(long)]
         amend: Option<String>,
+    },
+
+    /// Manage notes sync with remotes
+    Sync {
+        #[command(subcommand)]
+        action: SyncAction,
+    },
+
+    /// Export annotations as JSONL
+    Export {
+        /// Write to file instead of stdout
+        #[arg(short, long)]
+        output: Option<String>,
+    },
+
+    /// Import annotations from a JSONL file
+    Import {
+        /// JSONL file to import
+        file: String,
+
+        /// Overwrite existing annotations
+        #[arg(long)]
+        force: bool,
+
+        /// Show what would be imported without writing
+        #[arg(long)]
+        dry_run: bool,
+    },
+
+    /// Run diagnostic checks on the ultragit setup
+    Doctor {
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+    },
+}
+
+#[derive(Subcommand)]
+pub enum SyncAction {
+    /// Enable notes sync for a remote
+    Enable {
+        /// Remote name (default: origin)
+        #[arg(long, default_value = "origin")]
+        remote: String,
+    },
+
+    /// Show sync status
+    Status {
+        /// Remote name (default: origin)
+        #[arg(long, default_value = "origin")]
+        remote: String,
+    },
+
+    /// Fetch and merge remote notes
+    Pull {
+        /// Remote name (default: origin)
+        #[arg(long, default_value = "origin")]
+        remote: String,
     },
 }
 
