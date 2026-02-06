@@ -1,0 +1,95 @@
+{
+  "schema": "chronicle/v1",
+  "commit": "dc47eec1a5a3539f250f7e3d50022a74bc5d37ef",
+  "timestamp": "2026-02-06T12:00:00Z",
+  "summary": "Add three advanced query commands (deps, history, summary) extending the read pipeline for dependency inversion, timeline reconstruction, and condensed annotation views",
+  "context_level": "enhanced",
+  "regions": [
+    {
+      "file": "src/read/deps.rs",
+      "ast_anchor": {
+        "unit_type": "fn",
+        "name": "find_dependents",
+        "signature": "pub fn find_dependents(git: &dyn GitOps, query: &DepsQuery) -> Result<DepsOutput, GitError>"
+      },
+      "lines": { "start": 53, "end": 100 },
+      "intent": "Scan annotated commits and find regions whose semantic_dependencies reference the queried file+anchor, implementing dependency inversion via linear scan",
+      "reasoning": "Linear scan is O(n) in annotated commits but sufficient for v1 with scan_limit cap; reverse index (v1.1) will optimize to O(1) later. Uses unqualified anchor matching so 'max_sessions' matches 'TlsSessionCache::max_sessions'.",
+      "constraints": [
+        { "text": "scan_limit caps the number of commits examined to bound latency", "source": "author" },
+        { "text": "Deduplication keeps most-recent entry per (file, anchor) pair", "source": "author" }
+      ],
+      "semantic_dependencies": [
+        { "file": "src/git/mod.rs", "anchor": "list_annotated_commits", "nature": "requires new GitOps method to enumerate all annotated commits" }
+      ],
+      "related_annotations": [],
+      "tags": ["query", "dependency-inversion"],
+      "risk_notes": "Linear scan will degrade beyond ~1000 annotated commits; reverse index (Feature 08 Step 5-6) is needed for scale"
+    },
+    {
+      "file": "src/read/history.rs",
+      "ast_anchor": {
+        "unit_type": "fn",
+        "name": "build_timeline",
+        "signature": "pub fn build_timeline(git: &dyn GitOps, query: &HistoryQuery) -> Result<HistoryOutput, GitError>"
+      },
+      "lines": { "start": 72, "end": 142 },
+      "intent": "Reconstruct chronological chain of annotations across commits that touched a file+anchor, optionally following related_annotations links",
+      "reasoning": "Uses log_for_file to get commit set, then fetches annotations per commit and filters to matching regions. Reverses git log order (newest-first) to produce oldest-first chronological timeline. Limit applied after sorting keeps the N most recent entries.",
+      "constraints": [
+        { "text": "Timeline is sorted oldest-first for chronological reading", "source": "author" },
+        { "text": "Limit keeps N most recent entries, not N oldest", "source": "author" }
+      ],
+      "semantic_dependencies": [
+        { "file": "src/git/mod.rs", "anchor": "log_for_file", "nature": "relies on log_for_file returning newest-first commit order" }
+      ],
+      "related_annotations": [],
+      "tags": ["query", "timeline"],
+      "risk_notes": null
+    },
+    {
+      "file": "src/read/summary.rs",
+      "ast_anchor": {
+        "unit_type": "fn",
+        "name": "build_summary",
+        "signature": "pub fn build_summary(git: &dyn GitOps, query: &SummaryQuery) -> Result<SummaryOutput, GitError>"
+      },
+      "lines": { "start": 63, "end": 119 },
+      "intent": "Build condensed view showing only intent, constraints, and risk_notes per region for quick orientation on unfamiliar code",
+      "reasoning": "Keeps only the most recent annotation per anchor name (first match wins since git log returns newest-first). Deliberately omits reasoning, tags, and dependencies to provide a focused summary view.",
+      "constraints": [
+        { "text": "Output excludes reasoning, tags, and semantic_dependencies for brevity", "source": "author" },
+        { "text": "Most recent annotation per anchor wins via HashMap::or_insert", "source": "author" }
+      ],
+      "semantic_dependencies": [],
+      "related_annotations": [],
+      "tags": ["query", "summary"],
+      "risk_notes": null
+    },
+    {
+      "file": "src/git/mod.rs",
+      "ast_anchor": {
+        "unit_type": "method",
+        "name": "list_annotated_commits",
+        "signature": "fn list_annotated_commits(&self, limit: u32) -> Result<Vec<String>, GitError>"
+      },
+      "lines": { "start": 55, "end": 56 },
+      "intent": "New GitOps trait method to enumerate commit SHAs that have ultragit notes, needed by deps linear scan",
+      "reasoning": "Uses `git notes list` which outputs blob-sha + commit-sha pairs, then extracts the commit SHAs. Gracefully returns empty vec if the notes ref does not exist yet.",
+      "constraints": [
+        { "text": "Returns up to limit commits; ordering depends on git notes internals (not guaranteed chronological)", "source": "author" }
+      ],
+      "semantic_dependencies": [],
+      "related_annotations": [],
+      "tags": ["git-ops"],
+      "risk_notes": "git notes list ordering is not strictly chronological; for the linear scan this is acceptable since we scan all within the limit anyway"
+    }
+  ],
+  "cross_cutting": [],
+  "provenance": {
+    "operation": "initial",
+    "derived_from": [],
+    "original_annotations_preserved": false,
+    "synthesis_notes": null
+  }
+}
