@@ -1,5 +1,5 @@
 use clap::Parser;
-use ultragit::cli::{Cli, Commands};
+use ultragit::cli::{Cli, Commands, SyncAction};
 
 #[tokio::main]
 async fn main() {
@@ -22,6 +22,28 @@ async fn main() {
         }
         Commands::Read { path, anchor, lines } => {
             ultragit::cli::read::run(path, anchor, lines)
+        }
+        Commands::Sync { action } => {
+            match action {
+                SyncAction::Enable { remote } => {
+                    ultragit::cli::sync::run_enable(&remote)
+                }
+                SyncAction::Status { remote } => {
+                    ultragit::cli::sync::run_status(&remote)
+                }
+                SyncAction::Pull { remote } => {
+                    ultragit::cli::sync::run_pull(&remote)
+                }
+            }
+        }
+        Commands::Export { output } => {
+            ultragit::cli::export::run(output)
+        }
+        Commands::Import { file, force, dry_run } => {
+            ultragit::cli::import::run(file, force, dry_run)
+        }
+        Commands::Doctor { json } => {
+            ultragit::cli::doctor::run(json)
         }
     };
 
