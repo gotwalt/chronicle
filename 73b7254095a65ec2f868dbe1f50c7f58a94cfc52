@@ -1,0 +1,302 @@
+{
+  "schema": "chronicle/v1",
+  "commit": "73b7254095a65ec2f868dbe1f50c7f58a94cfc52",
+  "timestamp": "2026-02-06T21:02:16.740584+00:00",
+  "summary": "Add git chronicle show command: an interactive ratatui-based TUI explorer that renders source code with annotation coverage gutter and detail panel. Users scroll through source with j/k, jump between annotated regions with n/N, and expand annotation details (intent, reasoning, constraints, deps, risk notes) in a side panel. Falls back to plain text when piped or with --no-tui. Behind a default-on tui Cargo feature flag so ratatui/crossterm can be excluded with --no-default-features.",
+  "context_level": "enhanced",
+  "regions": [
+    {
+      "file": "Cargo.toml",
+      "ast_anchor": {
+        "unit_type": "module",
+        "name": "dependencies"
+      },
+      "lines": {
+        "start": 11,
+        "end": 30
+      },
+      "intent": "Add ratatui and crossterm as optional dependencies gated behind a tui feature flag, enabled by default.",
+      "reasoning": "Feature flag lets users build without TUI deps via --no-default-features, keeping the binary slim when TUI is not needed.",
+      "constraints": [
+        {
+          "text": "ratatui 0.29 with crossterm backend only (no termion)",
+          "source": "author"
+        },
+        {
+          "text": "Both deps must be optional and gated behind the same tui feature",
+          "source": "author"
+        }
+      ],
+      "tags": [
+        "dependencies",
+        "feature-flags"
+      ]
+    },
+    {
+      "file": "src/show/mod.rs",
+      "ast_anchor": {
+        "unit_type": "module",
+        "name": "show"
+      },
+      "lines": {
+        "start": 1,
+        "end": 17
+      },
+      "intent": "Module root for the show feature: declares submodules with cfg-gated TUI modules and re-exports public types.",
+      "reasoning": "Keeps TUI code behind #[cfg(feature = tui)] so the crate compiles without ratatui/crossterm.",
+      "constraints": [
+        {
+          "text": "tui, keymap, and views modules are cfg-gated; data and plain are always compiled",
+          "source": "author"
+        }
+      ],
+      "tags": [
+        "module-structure"
+      ]
+    },
+    {
+      "file": "src/show/data.rs",
+      "ast_anchor": {
+        "unit_type": "function",
+        "name": "build_show_data",
+        "signature": "pub fn build_show_data(\n    git_ops: &dyn GitOps,\n    file_path: &str,\n    commit: &str,\n    anchor: Option<&str>,\n) -> Result<ShowData>"
+      },
+      "lines": {
+        "start": 85,
+        "end": 127
+      },
+      "intent": "Data pipeline entry point: reads file at commit, extracts AST outline, fetches annotations via read pipeline, deduplicates regions, and builds the LineAnnotationMap.",
+      "reasoning": "Reuses existing read::execute infrastructure for note fetching and region filtering. AST parsing is best-effort (non-fatal) so non-Rust files still get annotations without outlines.",
+      "constraints": [
+        {
+          "text": "AST parse failure is non-fatal: returns empty outline, annotations still work",
+          "source": "author"
+        },
+        {
+          "text": "Regions are deduplicated by file+anchor, keeping most recent by timestamp",
+          "source": "author"
+        }
+      ],
+      "semantic_dependencies": [
+        {
+          "file": "src/read/mod.rs",
+          "anchor": "execute",
+          "nature": "Delegates annotation fetching to the read pipeline"
+        },
+        {
+          "file": "src/ast/outline.rs",
+          "anchor": "extract_rust_outline",
+          "nature": "Uses tree-sitter outline for structural context"
+        },
+        {
+          "file": "src/git/mod.rs",
+          "anchor": "GitOps::file_at_commit",
+          "nature": "Reads file content at the target commit"
+        }
+      ],
+      "tags": [
+        "data-pipeline"
+      ]
+    },
+    {
+      "file": "src/show/data.rs",
+      "ast_anchor": {
+        "unit_type": "struct",
+        "name": "LineAnnotationMap",
+        "signature": "pub struct LineAnnotationMap"
+      },
+      "lines": {
+        "start": 20,
+        "end": 23
+      },
+      "intent": "Maps each source line to covering annotation regions for O(1) lookup during rendering. Supports next/prev annotated line queries for region navigation.",
+      "reasoning": "Pre-computing per-line coverage avoids repeated linear scans during TUI rendering which runs on every frame.",
+      "constraints": [
+        {
+          "text": "Line numbers are 1-indexed in the public API (internally 0-indexed)",
+          "source": "author"
+        },
+        {
+          "text": "A line can be covered by multiple overlapping regions",
+          "source": "author"
+        }
+      ],
+      "tags": [
+        "data-structure"
+      ]
+    },
+    {
+      "file": "src/show/plain.rs",
+      "ast_anchor": {
+        "unit_type": "function",
+        "name": "run_plain",
+        "signature": "pub fn run_plain(data: &ShowData, w: &mut dyn Write) -> std::io::Result<()>"
+      },
+      "lines": {
+        "start": 6,
+        "end": 68
+      },
+      "intent": "Plain-text annotated listing for non-interactive output: groups by region, shows intent, reasoning, constraints, deps, risk notes.",
+      "reasoning": "Used when stdout is not a TTY (piped) or with --no-tui flag. Also the fallback when the tui feature is disabled.",
+      "constraints": [
+        {
+          "text": "Writes to any std::io::Write implementor for testability",
+          "source": "author"
+        },
+        {
+          "text": "Constraint source tags shown as [author] or [inferred]",
+          "source": "author"
+        }
+      ],
+      "semantic_dependencies": [
+        {
+          "file": "src/show/data.rs",
+          "anchor": "ShowData",
+          "nature": "Consumes ShowData struct for rendering"
+        }
+      ],
+      "tags": [
+        "rendering",
+        "plain-text"
+      ]
+    },
+    {
+      "file": "src/show/tui.rs",
+      "ast_anchor": {
+        "unit_type": "function",
+        "name": "run_tui",
+        "signature": "pub fn run_tui(data: ShowData) -> Result<()>"
+      },
+      "lines": {
+        "start": 6,
+        "end": 41
+      },
+      "intent": "Launch the interactive TUI: set up crossterm raw mode and alternate screen, run the event loop, clean up on exit.",
+      "reasoning": "Standard ratatui setup pattern with crossterm backend. Alternate screen prevents polluting the users terminal history.",
+      "constraints": [
+        {
+          "text": "Must restore terminal state (disable raw mode, leave alternate screen) even on error",
+          "source": "author"
+        },
+        {
+          "text": "q and Ctrl-C both exit cleanly",
+          "source": "author"
+        }
+      ],
+      "semantic_dependencies": [
+        {
+          "file": "src/show/keymap.rs",
+          "anchor": "handle_key",
+          "nature": "Delegates key events to keymap handler"
+        }
+      ],
+      "tags": [
+        "tui",
+        "terminal"
+      ],
+      "risk_notes": "If the process panics mid-render, terminal may be left in raw mode. Consider a panic hook in future."
+    },
+    {
+      "file": "src/show/keymap.rs",
+      "ast_anchor": {
+        "unit_type": "function",
+        "name": "handle_key",
+        "signature": "pub fn handle_key(app: &mut AppState, key: KeyEvent)"
+      },
+      "lines": {
+        "start": 6,
+        "end": 60
+      },
+      "intent": "Map key events to app state mutations: scrolling (j/k/g/G/Ctrl-d/Ctrl-u), region navigation (n/N), panel toggle (Enter), panel scroll (J/K), help (?).",
+      "reasoning": "Centralizes all keybinding logic in one function for easy modification and future customization.",
+      "constraints": [
+        {
+          "text": "Auto-selects the region under cursor when scrolling into annotated lines",
+          "source": "author"
+        }
+      ],
+      "semantic_dependencies": [
+        {
+          "file": "src/show/tui.rs",
+          "anchor": "AppState",
+          "nature": "Mutates AppState fields directly"
+        }
+      ],
+      "tags": [
+        "tui",
+        "keybindings"
+      ]
+    },
+    {
+      "file": "src/cli/show.rs",
+      "ast_anchor": {
+        "unit_type": "function",
+        "name": "run",
+        "signature": "pub fn run(\n    path: String,\n    anchor: Option<String>,\n    commit: String,\n    no_tui: bool,\n) -> Result<()>"
+      },
+      "lines": {
+        "start": 4,
+        "end": 32
+      },
+      "intent": "CLI command handler: builds ShowData then routes to TUI or plain-text based on TTY detection and --no-tui flag.",
+      "reasoning": "Uses std::io::IsTerminal (stable since Rust 1.70) instead of the atty crate to avoid an extra dependency.",
+      "constraints": [
+        {
+          "text": "When tui feature is disabled, always falls back to plain output even if TTY",
+          "source": "author"
+        },
+        {
+          "text": "cfg(feature = tui) / cfg(not(feature = tui)) branches must both compile",
+          "source": "author"
+        }
+      ],
+      "semantic_dependencies": [
+        {
+          "file": "src/show/data.rs",
+          "anchor": "build_show_data",
+          "nature": "Builds the data pipeline"
+        },
+        {
+          "file": "src/show/tui.rs",
+          "anchor": "run_tui",
+          "nature": "Launches TUI when feature enabled and TTY"
+        },
+        {
+          "file": "src/show/plain.rs",
+          "anchor": "run_plain",
+          "nature": "Fallback plain-text output"
+        }
+      ],
+      "tags": [
+        "cli"
+      ]
+    }
+  ],
+  "cross_cutting": [
+    {
+      "description": "Feature-gated TUI: all ratatui/crossterm code behind #[cfg(feature = tui)] so the binary compiles and works (with plain-text fallback) when built with --no-default-features.",
+      "regions": [
+        {
+          "file": "Cargo.toml",
+          "anchor": "dependencies"
+        },
+        {
+          "file": "src/show/mod.rs",
+          "anchor": "show"
+        },
+        {
+          "file": "src/cli/show.rs",
+          "anchor": "run"
+        }
+      ],
+      "tags": [
+        "feature-flags",
+        "conditional-compilation"
+      ]
+    }
+  ],
+  "provenance": {
+    "operation": "initial",
+    "original_annotations_preserved": false
+  }
+}
