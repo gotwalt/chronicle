@@ -22,6 +22,7 @@ pub struct AnnotateInput {
     pub summary: String,
     pub task: Option<String>,
     pub regions: Vec<RegionInput>,
+    #[serde(default)]
     pub cross_cutting: Vec<CrossCuttingConcern>,
 }
 
@@ -33,8 +34,11 @@ pub struct RegionInput {
     pub lines: LineRange,
     pub intent: String,
     pub reasoning: Option<String>,
+    #[serde(default)]
     pub constraints: Vec<ConstraintInput>,
+    #[serde(default)]
     pub semantic_dependencies: Vec<SemanticDependency>,
+    #[serde(default)]
     pub tags: Vec<String>,
     pub risk_notes: Option<String>,
 }
@@ -99,18 +103,6 @@ fn check_quality(input: &AnnotateInput) -> Vec<String> {
         if region.intent.len() < 10 {
             warnings.push(format!(
                 "region[{}] ({}/{}): intent is very short",
-                i, region.file, region.anchor.name
-            ));
-        }
-        if region.reasoning.is_none() {
-            warnings.push(format!(
-                "region[{}] ({}/{}): no reasoning provided",
-                i, region.file, region.anchor.name
-            ));
-        }
-        if region.constraints.is_empty() {
-            warnings.push(format!(
-                "region[{}] ({}/{}): no constraints provided",
                 i, region.file, region.anchor.name
             ));
         }
@@ -581,8 +573,31 @@ impl Config {
         let warnings = check_quality(&input);
         assert!(warnings.iter().any(|w| w.contains("Summary is very short")));
         assert!(warnings.iter().any(|w| w.contains("intent is very short")));
-        assert!(warnings.iter().any(|w| w.contains("no reasoning")));
-        assert!(warnings.iter().any(|w| w.contains("no constraints")));
+        // reasoning and constraints are genuinely optional — no warnings for them
+        assert!(!warnings.iter().any(|w| w.contains("no reasoning")));
+        assert!(!warnings.iter().any(|w| w.contains("no constraints")));
+    }
+
+    #[test]
+    fn test_serde_defaults_for_optional_vec_fields() {
+        // Minimal JSON omitting constraints, semantic_dependencies, tags, and cross_cutting
+        let json = r#"{
+            "commit": "HEAD",
+            "summary": "Test summary for serde defaults",
+            "regions": [{
+                "file": "src/lib.rs",
+                "anchor": { "unit_type": "function", "name": "foo" },
+                "lines": { "start": 1, "end": 5 },
+                "intent": "Test intent for serde defaults"
+            }]
+        }"#;
+
+        let input: AnnotateInput = serde_json::from_str(json).unwrap();
+        assert!(input.cross_cutting.is_empty());
+        assert_eq!(input.regions.len(), 1);
+        assert!(input.regions[0].constraints.is_empty());
+        assert!(input.regions[0].semantic_dependencies.is_empty());
+        assert!(input.regions[0].tags.is_empty());
     }
 
     #[test]
