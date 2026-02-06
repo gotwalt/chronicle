@@ -427,6 +427,10 @@ mod tests {
         fn log_for_file(&self, _path: &str) -> std::result::Result<Vec<String>, GitError> {
             Ok(vec![])
         }
+
+        fn list_annotated_commits(&self, _limit: u32) -> std::result::Result<Vec<String>, GitError> {
+            Ok(vec![])
+        }
     }
 
     fn sample_rust_source() -> &'static str {

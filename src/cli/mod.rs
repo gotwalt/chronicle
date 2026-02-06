@@ -9,6 +9,9 @@ pub mod sync;
 pub mod export;
 pub mod import;
 pub mod doctor;
+pub mod deps;
+pub mod history;
+pub mod summary;
 
 use clap::{Parser, Subcommand};
 
@@ -177,6 +180,62 @@ pub enum Commands {
         /// Output as JSON
         #[arg(long)]
         json: bool,
+    },
+
+    /// Find code that depends on a given file/anchor (dependency inversion)
+    Deps {
+        /// File path to query
+        path: String,
+
+        /// AST anchor name to query
+        anchor: Option<String>,
+
+        /// Output format (json or pretty)
+        #[arg(long, default_value = "json")]
+        format: String,
+
+        /// Maximum number of results to return
+        #[arg(long, default_value = "50")]
+        max_results: u32,
+
+        /// Maximum number of commits to scan
+        #[arg(long, default_value = "500")]
+        scan_limit: u32,
+    },
+
+    /// Show annotation timeline for a file/anchor across commits
+    History {
+        /// File path to query
+        path: String,
+
+        /// AST anchor name to query
+        anchor: Option<String>,
+
+        /// Maximum number of timeline entries
+        #[arg(long, default_value = "10")]
+        limit: u32,
+
+        /// Output format (json or pretty)
+        #[arg(long, default_value = "json")]
+        format: String,
+
+        /// Follow related annotation links
+        #[arg(long, default_value = "true")]
+        follow_related: bool,
+    },
+
+    /// Show condensed annotation summary for a file
+    Summary {
+        /// File path to query
+        path: String,
+
+        /// Filter to a specific AST anchor
+        #[arg(long)]
+        anchor: Option<String>,
+
+        /// Output format (json or pretty)
+        #[arg(long, default_value = "json")]
+        format: String,
     },
 }
 

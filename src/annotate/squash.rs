@@ -324,6 +324,7 @@ mod tests {
                 related_annotations: Vec::new(),
                 tags: Vec::new(),
                 risk_notes: None,
+                corrections: vec![],
             }],
             cross_cutting: vec![CrossCuttingConcern {
                 description: format!("Cross-cutting from {commit}"),
