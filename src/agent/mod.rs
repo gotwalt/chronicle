@@ -16,7 +16,7 @@ const MAX_TURNS: u32 = 20;
 
 /// Run the annotation agent loop. Calls the LLM with tools until it finishes
 /// or hits the turn limit. Returns collected annotations.
-pub async fn run_agent_loop(
+pub fn run_agent_loop(
     provider: &dyn LlmProvider,
     git_ops: &dyn GitOps,
     context: &AnnotationContext,
@@ -43,7 +43,7 @@ pub async fn run_agent_loop(
             max_tokens: 4096,
         };
 
-        let response = provider.complete(&request).await.context(ProviderSnafu)?;
+        let response = provider.complete(&request).context(ProviderSnafu)?;
 
         // Collect any text from the response as potential summary
         let mut assistant_text = String::new();

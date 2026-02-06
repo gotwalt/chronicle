@@ -7,7 +7,7 @@ use crate::error::Result;
 use crate::git::{CliOps, GitOps};
 use snafu::ResultExt;
 
-pub async fn run(
+pub fn run(
     commit: String,
     sync: bool,
     live: bool,
@@ -40,8 +40,7 @@ pub async fn run(
             location: snafu::Location::default(),
         })?;
 
-    let annotation = crate::annotate::run(&git_ops, provider.as_ref(), &commit, sync)
-        .await?;
+    let annotation = crate::annotate::run(&git_ops, provider.as_ref(), &commit, sync)?;
 
     let json = serde_json::to_string_pretty(&annotation).map_err(|e| {
         crate::error::ChronicleError::Json {

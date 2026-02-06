@@ -59,3 +59,36 @@ echo '<AnnotateInput JSON>' | git chronicle annotate --live
 ```
 
 See `.claude/skills/annotate/SKILL.md` for the full annotation workflow.
+
+
+## Errors
+Use `snafu` to manage errors. 
+* Errors should be organized in a hierarchy where errors from other crates are the leaves of the tree and are linked to higher-level errors with 'source'
+* Every error variant must include a `location` field to track where it occurred. The message should end with `, at {location}` to make the error traces easy to read.
+* Most of the message formatting should be done in the `snafu(display(` macro. 
+
+```rust
+use snafu::{Snafu, ResultExt, Location};
+
+#[derive(Debug, Snafu)]
+pub enum MessageError {
+    #[snafu(display("Failed to deserialize message, at {location}"))]
+    Deserialization {
+        #[snafu(source)]
+        source: serde_json::Error,
+        #[snafu(implicit)]
+        location: Location,
+    },
+    #[snafu(display("Failed to validate message, at {location}"))]
+    Validate {
+        #[snafu(implicit)]
+        location: Location,
+    }
+}
+
+pub fn read_message(json: &str) -> Result<Message, MessageError> {
+    let message = serde_json::from_str(json).context(DeserializationSnafu)?;
+    let validated_message = message.validate().context(ValidateSnafu)?;
+    Ok(validated_message)
+}
+```

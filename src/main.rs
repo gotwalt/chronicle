@@ -1,8 +1,7 @@
 use clap::Parser;
 use chronicle::cli::{Cli, Commands, SyncAction};
 
-#[tokio::main]
-async fn main() {
+fn main() {
     tracing_subscriber::fmt::init();
 
     let cli = Cli::parse();
@@ -15,7 +14,7 @@ async fn main() {
             chronicle::cli::context::run(action)
         }
         Commands::Annotate { commit, sync, live, squash_sources, amend_source } => {
-            chronicle::cli::annotate::run(commit, sync, live, squash_sources, amend_source).await
+            chronicle::cli::annotate::run(commit, sync, live, squash_sources, amend_source)
         }
         Commands::Read { path, anchor, lines } => {
             chronicle::cli::read::run(path, anchor, lines)

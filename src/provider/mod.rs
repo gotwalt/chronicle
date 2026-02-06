@@ -3,14 +3,12 @@ pub mod anthropic;
 pub use anthropic::AnthropicProvider;
 
 use crate::error::ProviderError;
-use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 
 /// Normalized LLM provider trait. MVP implements Anthropic only.
-#[async_trait]
 pub trait LlmProvider: Send + Sync {
-    async fn complete(&self, request: &CompletionRequest) -> Result<CompletionResponse, ProviderError>;
-    async fn check_auth(&self) -> Result<AuthStatus, ProviderError>;
+    fn complete(&self, request: &CompletionRequest) -> Result<CompletionResponse, ProviderError>;
+    fn check_auth(&self) -> Result<AuthStatus, ProviderError>;
     fn name(&self) -> &str;
     fn model(&self) -> &str;
 }

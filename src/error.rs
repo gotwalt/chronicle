@@ -164,9 +164,9 @@ pub enum ProviderError {
         location: snafu::Location,
     },
 
-    #[snafu(display("HTTP error: {source}"))]
+    #[snafu(display("HTTP error: {source}, at {location}"))]
     Http {
-        source: reqwest::Error,
+        source: Box<ureq::Transport>,
         #[snafu(implicit)]
         location: snafu::Location,
     },

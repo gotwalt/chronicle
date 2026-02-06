@@ -10,7 +10,7 @@ use snafu::ResultExt;
 
 /// The main annotation entry point. Gathers context, checks filters,
 /// runs the agent, and writes the annotation as a git note.
-pub async fn run(
+pub fn run(
     git_ops: &dyn GitOps,
     provider: &dyn LlmProvider,
     commit: &str,
@@ -50,7 +50,6 @@ pub async fn run(
             // Call the agent loop for full LLM annotation
             let (regions, cross_cutting, summary) =
                 crate::agent::run_agent_loop(provider, git_ops, &context)
-                    .await
                     .context(chronicle_error::AgentSnafu)?;
 
             let context_level = if context.author_context.is_some() {
