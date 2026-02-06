@@ -15,10 +15,12 @@ and constraints as structured metadata stored alongside the commit.
 
 ## How to Annotate
 
-Pipe AnnotateInput JSON to the CLI:
+Write AnnotateInput JSON to a temp file, then pipe it to the CLI. This avoids
+shell escaping issues with special characters in your annotation text:
 
 ```bash
-echo '{
+cat > /tmp/chronicle-annotate.json << 'EOF'
+{
   "commit": "HEAD",
   "summary": "One paragraph: what the commit does and why",
   "task": "TASK-123 (if applicable)",
@@ -29,7 +31,6 @@ echo '{
         "unit_type": "function",
         "name": "function_name"
       },
-      "lines": { "start": 10, "end": 25 },
       "intent": "What this specific change accomplishes",
       "reasoning": "Why this approach was chosen over alternatives",
       "constraints": [
@@ -57,8 +58,14 @@ echo '{
       "tags": ["error-handling"]
     }
   ]
-}' | git chronicle annotate --live
+}
+EOF
+git chronicle annotate --live < /tmp/chronicle-annotate.json
 ```
+
+**Important:** Use `<< 'EOF'` (quoted) to prevent shell expansion of special
+characters. The `lines` field is optional -- AST anchor resolution will
+determine the correct line range from the anchor name.
 
 ## Quality Bar
 

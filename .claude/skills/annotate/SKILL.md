@@ -114,19 +114,24 @@ Use these `unit_type` values:
 - `impl` -- impl blocks
 - `module` -- module declarations
 
-The handler will resolve your anchor against the AST and correct the line numbers. Provide approximate lines -- the AST will fix them.
+The handler will resolve your anchor against the AST and correct the line numbers. The `lines` field is optional -- AST resolution will determine it from the anchor name.
 
 ## Fallback
 
-If the `chronicle_annotate` MCP tool is not available, pipe AnnotateInput JSON to the CLI:
+If the `chronicle_annotate` MCP tool is not available, write AnnotateInput JSON
+to a temp file and pipe it to the CLI. Use `<< 'EOF'` (quoted heredoc) to
+prevent shell expansion of special characters:
 
 ```bash
-echo '{
+cat > /tmp/chronicle-annotate.json << 'EOF'
+{
   "commit": "HEAD",
   "summary": "...",
   "regions": [...],
   "cross_cutting": []
-}' | git chronicle annotate --live
+}
+EOF
+git chronicle annotate --live < /tmp/chronicle-annotate.json
 ```
 
 This uses the same handler as the MCP tool. The JSON format is identical.

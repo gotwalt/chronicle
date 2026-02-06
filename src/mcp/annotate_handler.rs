@@ -26,11 +26,18 @@ pub struct AnnotateInput {
     pub cross_cutting: Vec<CrossCuttingConcern>,
 }
 
+/// Default line range used when the caller omits `lines`.
+/// AST anchor resolution will correct this to the actual range.
+fn default_line_range() -> LineRange {
+    LineRange { start: 0, end: 0 }
+}
+
 /// A single region the agent wants to annotate.
 #[derive(Debug, Clone, Deserialize)]
 pub struct RegionInput {
     pub file: String,
     pub anchor: AnchorInput,
+    #[serde(default = "default_line_range")]
     pub lines: LineRange,
     pub intent: String,
     pub reasoning: Option<String>,

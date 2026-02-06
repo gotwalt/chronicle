@@ -81,10 +81,14 @@ See `.claude/skills/context/SKILL.md` for the full context-reading workflow.
 
 ### Writing annotations (after committing)
 
-After committing, annotate using the live path:
+After committing, annotate using the live path. Use a temp file with a
+quoted heredoc to avoid shell escaping issues:
 
 ```bash
-echo '<AnnotateInput JSON>' | git chronicle annotate --live
+cat > /tmp/chronicle-annotate.json << 'EOF'
+{ "commit": "HEAD", "summary": "...", "regions": [...], "cross_cutting": [] }
+EOF
+git chronicle annotate --live < /tmp/chronicle-annotate.json
 ```
 
 See `.claude/skills/annotate/SKILL.md` for the full annotation workflow.
