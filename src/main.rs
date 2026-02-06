@@ -17,8 +17,8 @@ async fn main() {
         Commands::Context { action } => {
             ultragit::cli::context::run(action)
         }
-        Commands::Annotate { commit, sync } => {
-            ultragit::cli::annotate::run(commit, sync).await
+        Commands::Annotate { commit, sync, live } => {
+            ultragit::cli::annotate::run(commit, sync, live).await
         }
     };
 
