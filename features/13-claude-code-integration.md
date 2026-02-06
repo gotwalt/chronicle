@@ -2,11 +2,11 @@
 
 ## Overview
 
-Integrates Ultragit with Claude Code so that the agent automatically annotates commits it creates. This is the "live path" — the agent calls `ultragit_annotate` as an MCP tool immediately after committing, providing intent, reasoning, constraints, and dependencies from its own working context. Zero LLM cost because the authoring agent already knows everything needed for the annotation.
+Integrates Chronicle with Claude Code so that the agent automatically annotates commits it creates. This is the "live path" — the agent calls `chronicle_annotate` as an MCP tool immediately after committing, providing intent, reasoning, constraints, and dependencies from its own working context. Zero LLM cost because the authoring agent already knows everything needed for the annotation.
 
 **Two-path architecture:**
-- **Live path**: Agent calls `ultragit_annotate` MCP tool after committing. The agent provides structured metadata from its own context. Zero LLM cost.
-- **Batch path**: `ultragit annotate --commit <sha>` uses the existing API-based agent loop (Feature 05). For CI pipelines, backfill of historical commits, and commits made by humans without agent assistance.
+- **Live path**: Agent calls `chronicle_annotate` MCP tool after committing. The agent provides structured metadata from its own context. Zero LLM cost.
+- **Batch path**: `git chronicle annotate --commit <sha>` uses the existing API-based agent loop (Feature 05). For CI pipelines, backfill of historical commits, and commits made by humans without agent assistance.
 
 ---
 
@@ -14,7 +14,7 @@ Integrates Ultragit with Claude Code so that the agent automatically annotates c
 
 | Feature | Reason |
 |---------|--------|
-| 12 MCP Server | `ultragit_annotate` is exposed as an MCP tool |
+| 12 MCP Server | `chronicle_annotate` is exposed as an MCP tool |
 | 05 Writing Agent | Batch path fallback uses the existing agent loop |
 | 03 AST Parsing | Anchor resolution for line correction and signature extraction |
 | 02 Git Operations | Note writing, ref resolution, file-at-commit |
@@ -25,7 +25,7 @@ Integrates Ultragit with Claude Code so that the agent automatically annotates c
 
 ### 1. MCP Annotate Handler (`src/mcp/annotate_handler.rs`)
 
-The core handler that receives structured annotation data from the calling agent and writes it as a git note. See Feature 12 for the `ultragit_annotate` tool definition.
+The core handler that receives structured annotation data from the calling agent and writes it as a git note. See Feature 12 for the `chronicle_annotate` tool definition.
 
 **Key design decisions:**
 - **`context_level: Enhanced`** — always, because the authoring agent has direct knowledge
@@ -41,12 +41,12 @@ A Claude Code skill definition that teaches the agent when and how to annotate c
 - Triggers after the agent creates a git commit
 - Instructs the agent on what fields to provide (summary, regions, intent, reasoning, constraints, dependencies)
 - Sets quality expectations (minimum detail for intent/reasoning, constraint coverage)
-- Provides the `ultragit_annotate` tool call template
+- Provides the `chronicle_annotate` tool call template
 - Includes fallback instructions if the MCP tool is unavailable
 
 ### 3. PostToolUse Hook (`.claude/hooks/post-tool-use/annotate-reminder.sh`)
 
-A Claude Code hook that fires after the Bash tool is used. If the command was a `git commit`, it reminds the agent to annotate the commit using the `ultragit_annotate` MCP tool.
+A Claude Code hook that fires after the Bash tool is used. If the command was a `git commit`, it reminds the agent to annotate the commit using the `chronicle_annotate` MCP tool.
 
 ---
 
@@ -62,7 +62,7 @@ Agent commits via Bash tool
 PostToolUse hook fires ──── "Remember to annotate this commit"
        │
        ▼
-Agent calls ultragit_annotate MCP tool
+Agent calls chronicle_annotate MCP tool
   ├── commit: "HEAD"
   ├── summary: "..."
   ├── regions: [{ file, anchor, intent, reasoning, constraints, ... }]
@@ -91,7 +91,7 @@ Result returned to agent:
 
 | Failure Mode | Handling |
 |---|---|
-| MCP tool unavailable | Agent falls back to `ultragit annotate --commit HEAD` CLI |
+| MCP tool unavailable | Agent falls back to `git chronicle annotate --commit HEAD` CLI |
 | Anchor doesn't resolve | Handler uses input lines as-is, returns `Unresolved` status |
 | File not available at commit | Handler uses input as-is, anchor unresolved |
 | Unsupported language | Handler skips AST resolution, uses input as-is |
@@ -116,17 +116,17 @@ Result returned to agent:
 ### Integration Tests
 
 - **Full round-trip:** Create a real git commit → call `handle_annotate` → read the note back → verify annotation matches input
-- **MCP tool invocation:** Start MCP server → send `tools/call` for `ultragit_annotate` → verify note written
+- **MCP tool invocation:** Start MCP server → send `tools/call` for `chronicle_annotate` → verify note written
 
 ---
 
 ## Acceptance Criteria
 
-1. An MCP-connected agent can call `ultragit_annotate` to write an annotation after committing.
+1. An MCP-connected agent can call `chronicle_annotate` to write an annotation after committing.
 2. The handler resolves AST anchors, corrects line ranges, and fills signatures for supported languages.
 3. Annotations written via the handler have `context_level: Enhanced` and `ConstraintSource::Author`.
 4. The handler validates annotations and rejects structural errors.
 5. Quality warnings are returned but don't block the write.
 6. The Claude Code skill teaches the agent when and how to annotate.
 7. The PostToolUse hook reminds the agent to annotate after `git commit`.
-8. The batch path (`ultragit annotate --commit <sha>`) continues to work for CI and backfill.
+8. The batch path (`git chronicle annotate --commit <sha>`) continues to work for CI and backfill.

@@ -2,7 +2,7 @@ use crate::annotate::squash::{
     collect_source_annotations, collect_source_messages, migrate_amend_annotation,
     synthesize_squash_annotation, AmendMigrationContext, SquashSynthesisContext,
 };
-use crate::error::ultragit_error::{GitSnafu, JsonSnafu};
+use crate::error::chronicle_error::{GitSnafu, JsonSnafu};
 use crate::error::Result;
 use crate::git::{CliOps, GitOps};
 use snafu::ResultExt;
@@ -14,7 +14,7 @@ pub async fn run(
     squash_sources: Option<String>,
     amend_source: Option<String>,
 ) -> Result<()> {
-    let repo_dir = std::env::current_dir().map_err(|e| crate::error::UltragitError::Io {
+    let repo_dir = std::env::current_dir().map_err(|e| crate::error::ChronicleError::Io {
         source: e,
         location: snafu::Location::default(),
     })?;
@@ -35,7 +35,7 @@ pub async fn run(
     }
 
     let provider = crate::provider::discover_provider()
-        .map_err(|e| crate::error::UltragitError::Provider {
+        .map_err(|e| crate::error::ChronicleError::Provider {
             source: e,
             location: snafu::Location::default(),
         })?;
@@ -44,7 +44,7 @@ pub async fn run(
         .await?;
 
     let json = serde_json::to_string_pretty(&annotation).map_err(|e| {
-        crate::error::UltragitError::Json {
+        crate::error::ChronicleError::Json {
             source: e,
             location: snafu::Location::default(),
         }
@@ -63,7 +63,7 @@ fn run_squash_synthesis(git_ops: &CliOps, commit: &str, sources: &str) -> Result
         .collect();
 
     if source_shas.is_empty() {
-        return Err(crate::error::UltragitError::Validation {
+        return Err(crate::error::ChronicleError::Validation {
             message: "--squash-sources requires at least one source SHA".to_string(),
             location: snafu::Location::default(),
         });
@@ -110,7 +110,7 @@ fn run_amend_migration(git_ops: &CliOps, commit: &str, old_sha: &str) -> Result<
     let old_json = match old_note {
         Some(json) => json,
         None => {
-            return Err(crate::error::UltragitError::Validation {
+            return Err(crate::error::ChronicleError::Validation {
                 message: format!("No annotation found for old commit {old_sha}"),
                 location: snafu::Location::default(),
             });
@@ -153,14 +153,14 @@ fn run_amend_migration(git_ops: &CliOps, commit: &str, old_sha: &str) -> Result<
 /// print AnnotateResult JSON to stdout. Zero LLM cost.
 fn run_live(git_ops: &CliOps) -> Result<()> {
     let stdin = std::io::read_to_string(std::io::stdin()).map_err(|e| {
-        crate::error::UltragitError::Io {
+        crate::error::ChronicleError::Io {
             source: e,
             location: snafu::Location::default(),
         }
     })?;
 
     let input: crate::mcp::annotate_handler::AnnotateInput =
-        serde_json::from_str(&stdin).map_err(|e| crate::error::UltragitError::Json {
+        serde_json::from_str(&stdin).map_err(|e| crate::error::ChronicleError::Json {
             source: e,
             location: snafu::Location::default(),
         })?;
@@ -168,7 +168,7 @@ fn run_live(git_ops: &CliOps) -> Result<()> {
     let result = crate::mcp::annotate_handler::handle_annotate(git_ops, input)?;
 
     let json = serde_json::to_string_pretty(&result).map_err(|e| {
-        crate::error::UltragitError::Json {
+        crate::error::ChronicleError::Json {
             source: e,
             location: snafu::Location::default(),
         }

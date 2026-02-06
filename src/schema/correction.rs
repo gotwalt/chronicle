@@ -53,8 +53,8 @@ pub fn apply_correction_penalty(base_confidence: f64, correction_count: usize) -
 
 /// Resolve the author for a correction from git config or environment.
 pub fn resolve_author(git: &dyn crate::git::GitOps) -> String {
-    // Check ULTRAGIT_SESSION env var first
-    if let Ok(session) = std::env::var("ULTRAGIT_SESSION") {
+    // Check CHRONICLE_SESSION env var first
+    if let Ok(session) = std::env::var("CHRONICLE_SESSION") {
         if !session.is_empty() {
             return session;
         }

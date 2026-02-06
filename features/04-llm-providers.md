@@ -2,7 +2,7 @@
 
 ## Overview
 
-The LLM provider layer is the HTTP interface between Ultragit and the language models that power annotation. It abstracts over four providers — Anthropic, OpenAI, Gemini, and OpenRouter — behind a single `LlmProvider` trait, normalizing request/response formats, tool-use message types, credential discovery, retry logic, and error handling.
+The LLM provider layer is the HTTP interface between Chronicle and the language models that power annotation. It abstracts over four providers — Anthropic, OpenAI, Gemini, and OpenRouter — behind a single `LlmProvider` trait, normalizing request/response formats, tool-use message types, credential discovery, retry logic, and error handling.
 
 This layer exists so that the writing agent (Feature 05) and any future LLM-calling code can work against a single interface without caring which provider is active. The provider is selected once at startup based on available credentials and configuration, then used throughout the session.
 
@@ -14,7 +14,7 @@ No third-party SDK dependencies. Each provider is a thin HTTP client built on `r
 
 | Feature | What it provides |
 |---------|-----------------|
-| 01 CLI & Config | `UltragitConfig` for reading `provider`, `model`, API key overrides from `.git/config` and `.ultragit-config.toml` |
+| 01 CLI & Config | `ChronicleConfig` for reading `provider`, `model`, API key overrides from `.git/config` and `.chronicle-config.toml` |
 
 No dependency on 02 (Git Operations) or 03 (AST Parsing). This feature is purely about HTTP + LLM protocol normalization.
 
@@ -39,7 +39,7 @@ pub trait LlmProvider: Send + Sync {
     /// Model identifier currently configured.
     fn model(&self) -> &str;
 
-    /// Validate that credentials are working. Used by `ultragit auth check`.
+    /// Validate that credentials are working. Used by `git chronicle auth check`.
     async fn check_auth(&self) -> Result<AuthStatus, ProviderError>;
 }
 ```
@@ -152,7 +152,7 @@ pub struct AuthStatus {
 ```rust
 /// Discover credentials and construct the appropriate provider.
 /// Returns the first provider with valid credentials, following the priority chain.
-pub async fn discover_provider(config: &UltragitConfig) -> Result<Box<dyn LlmProvider>, ProviderError>;
+pub async fn discover_provider(config: &ChronicleConfig) -> Result<Box<dyn LlmProvider>, ProviderError>;
 
 /// Construct a specific provider by name. Used when the user pins a provider in config.
 pub fn build_provider(
@@ -242,10 +242,10 @@ pub enum ProviderError {
 }
 ```
 
-### CLI: `ultragit auth check`
+### CLI: `git chronicle auth check`
 
 ```
-ultragit auth check
+chronicle auth check
 
 Discovers credentials using the priority chain and validates them by making
 a minimal API call to the selected provider.
@@ -282,7 +282,7 @@ The `discover_provider` function walks the following chain, returning the first 
 | 3 | `OPENAI_API_KEY` env var | OpenAI | `gpt-4o` |
 | 4 | `GOOGLE_API_KEY` or `GEMINI_API_KEY` env var | Gemini | `gemini-2.0-flash` |
 | 5 | `OPENROUTER_API_KEY` env var | OpenRouter | `anthropic/claude-sonnet-4-5-20250929` |
-| 6 | `ULTRAGIT_API_KEY` + `ULTRAGIT_PROVIDER` env vars | Explicit | Per provider |
+| 6 | `CHRONICLE_API_KEY` + `CHRONICLE_PROVIDER` env vars | Explicit | Per provider |
 
 If `config.provider` is set (user pinned a provider), skip the chain and construct that provider directly, failing if credentials for it are missing.
 
@@ -428,7 +428,7 @@ struct RateLimiter {
 This prevents hitting rate limits in the first place during high-throughput operations like backfill. The limiter is configurable:
 
 ```ini
-[ultragit]
+[chronicle]
     rateLimit = 50  # requests per minute
 ```
 
@@ -447,7 +447,7 @@ let client = reqwest::Client::builder()
     .timeout(Duration::from_secs(60))
     .connect_timeout(Duration::from_secs(10))
     .pool_max_idle_per_host(2)
-    .user_agent(format!("ultragit/{}", env!("CARGO_PKG_VERSION")))
+    .user_agent(format!("chronicle/{}", env!("CARGO_PKG_VERSION")))
     .build()?;
 ```
 
@@ -460,7 +460,7 @@ Use `rustls` for TLS (no OpenSSL dependency, simplifies static linking).
 | Failure Mode | Handling |
 |-------------|----------|
 | No credentials found | `discover_provider` returns `ProviderError::NoCredentials`. Caller (hook) logs warning and exits without annotating. |
-| Invalid API key | First API call returns 401. `ProviderError::AuthFailed`. No retry. Hook logs error to `.git/ultragit/failed.log`. |
+| Invalid API key | First API call returns 401. `ProviderError::AuthFailed`. No retry. Hook logs error to `.git/chronicle/failed.log`. |
 | Rate limited | Retry with backoff, respecting `Retry-After`. After `max_retries`, return `ProviderError::RetriesExhausted`. |
 | Server error (5xx) | Retry with exponential backoff + jitter. After `max_retries`, return `ProviderError::RetriesExhausted`. |
 | Network timeout | Retry with backoff. After `max_retries`, return `ProviderError::Timeout`. |
@@ -468,13 +468,13 @@ Use `rustls` for TLS (no OpenSSL dependency, simplifies static linking).
 | Provider doesn't support tool use | If `structured_fallback` is enabled, use fallback mode. Otherwise, `ProviderError::NoToolUseSupport`. |
 | Claude CLI credentials expired/invalid | Skip to next credential in chain. If no other credentials, `ProviderError::NoCredentials`. |
 
-All errors include the provider name for diagnostics. The hook's responsibility is to catch `ProviderError` and decide whether to log-and-continue (for async annotation) or surface to the user (for `ultragit auth check` or `ultragit annotate --sync`).
+All errors include the provider name for diagnostics. The hook's responsibility is to catch `ProviderError` and decide whether to log-and-continue (for async annotation) or surface to the user (for `git chronicle auth check` or `git chronicle annotate --sync`).
 
 ---
 
 ## Configuration
 
-### Git Config (`[ultragit]` section)
+### Git Config (`[chronicle]` section)
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
@@ -493,9 +493,9 @@ All errors include the provider name for diagnostics. The hook's responsibility 
 | `GOOGLE_API_KEY` | Google/Gemini API key |
 | `GEMINI_API_KEY` | Alias for `GOOGLE_API_KEY` |
 | `OPENROUTER_API_KEY` | OpenRouter API key |
-| `ULTRAGIT_API_KEY` | Explicit override API key |
-| `ULTRAGIT_PROVIDER` | Explicit override provider name |
-| `ULTRAGIT_MODEL` | Explicit override model (used with `ULTRAGIT_PROVIDER`) |
+| `CHRONICLE_API_KEY` | Explicit override API key |
+| `CHRONICLE_PROVIDER` | Explicit override provider name |
+| `CHRONICLE_MODEL` | Explicit override model (used with `CHRONICLE_PROVIDER`) |
 
 ---
 
@@ -553,7 +553,7 @@ All errors include the provider name for diagnostics. The hook's responsibility 
 - Unit tests: verify prompt injection, JSON parsing, error handling on malformed JSON.
 - **PR scope:** `src/provider/mod.rs` (or `src/agent/structured.rs` if cleaner).
 
-### Step 9: `ultragit auth check` CLI command
+### Step 9: `git chronicle auth check` CLI command
 - Wire up the `auth check` subcommand to call `discover_provider()` then `provider.check_auth()`.
 - Format output (success/failure, provider name, model, connection test result).
 - **PR scope:** `src/cli/auth.rs`.
@@ -591,7 +591,7 @@ All errors include the provider name for diagnostics. The hook's responsibility 
 **Credential discovery:**
 - Returns Anthropic when `ANTHROPIC_API_KEY` is set.
 - Skips Anthropic, returns OpenAI when only `OPENAI_API_KEY` is set.
-- Returns explicit override when `ULTRAGIT_PROVIDER` + `ULTRAGIT_API_KEY` are set, even if `ANTHROPIC_API_KEY` is also set.
+- Returns explicit override when `CHRONICLE_PROVIDER` + `CHRONICLE_API_KEY` are set, even if `ANTHROPIC_API_KEY` is also set.
 - Returns `NoCredentials` when nothing is set.
 - Config-pinned provider overrides the chain.
 
@@ -627,7 +627,7 @@ All errors include the provider name for diagnostics. The hook's responsibility 
 4. Retry logic handles 429, 5xx, and network errors with exponential backoff + jitter, respecting `max_retries`.
 5. Auth errors (401/403) fail immediately without retry.
 6. Rate limiter prevents exceeding configured requests-per-minute.
-7. `ultragit auth check` discovers credentials, identifies the provider and model, makes a test API call, and reports success or failure with actionable guidance.
+7. `git chronicle auth check` discovers credentials, identifies the provider and model, makes a test API call, and reports success or failure with actionable guidance.
 8. Structured-output fallback works for providers without tool use.
 9. All provider tests pass with recorded HTTP responses (no live API calls in CI).
 10. Request timeout and outer timeout both function correctly.

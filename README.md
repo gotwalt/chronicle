@@ -1,10 +1,10 @@
-# ultragit
+# chronicle
 
 AI-powered commit annotation tool that captures the **reasoning and intent** behind code changes, stored as structured metadata in git notes.
 
 ## Why
 
-Git commits record *what* changed. Ultragit records *why* -- the intent, constraints, dependencies, and reasoning that informed each change. This metadata lives alongside commits as git notes (`refs/notes/ultragit`) and can be queried, synced, exported, and corrected over time.
+Git commits record *what* changed. Chronicle records *why* -- the intent, constraints, dependencies, and reasoning that informed each change. This metadata lives alongside commits as git notes (`refs/notes/chronicle`) and can be queried, synced, exported, and corrected over time.
 
 ## Install
 
@@ -12,23 +12,25 @@ Git commits record *what* changed. Ultragit records *why* -- the intent, constra
 cargo install --path .
 ```
 
+This installs the `git-chronicle` binary. Once on your PATH, git discovers it automatically -- use `git chronicle <command>`.
+
 Requires Rust 1.70+ and git.
 
 ## Quick start
 
 ```bash
 # Initialize in a git repo
-ultragit init
+git chronicle init
 
-# Make a commit (wraps git commit with annotation context)
-ultragit commit -m "refactor auth middleware" --task PROJ-42
+# Make a commit (use regular git commit; post-commit hook handles annotation)
+git commit -m "refactor auth middleware"
 
 # Annotate an existing commit via the LLM batch path
 export ANTHROPIC_API_KEY=sk-...
-ultragit annotate --commit HEAD
+git chronicle annotate --commit HEAD
 
 # Or annotate via the live path (zero LLM cost, stdin JSON)
-echo '{"commit":"HEAD","summary":"...","regions":[...]}' | ultragit annotate --live
+echo '{"commit":"HEAD","summary":"...","regions":[...]}' | git chronicle annotate --live
 ```
 
 ## Commands
@@ -37,45 +39,44 @@ echo '{"commit":"HEAD","summary":"...","regions":[...]}' | ultragit annotate --l
 
 | Command | Description |
 |---------|-------------|
-| `ultragit init` | Initialize ultragit in the current repository |
-| `ultragit commit` | Commit with annotation context (wraps `git commit`) |
-| `ultragit annotate` | Annotate a commit (batch LLM or `--live` stdin) |
-| `ultragit context set` | Set pending context for the next commit |
+| `git chronicle init` | Initialize chronicle in the current repository |
+| `git chronicle annotate` | Annotate a commit (batch LLM or `--live` stdin) |
+| `git chronicle context set` | Set pending context for the next commit |
 
 ### Read path
 
 | Command | Description |
 |---------|-------------|
-| `ultragit read <path>` | Read annotations for a file, optionally filtered by `--anchor` or `--lines` |
-| `ultragit deps <path>` | Find code that depends on a given file/anchor (dependency inversion) |
-| `ultragit history <path>` | Show annotation timeline across commits |
-| `ultragit summary <path>` | Condensed annotation summary for a file |
+| `git chronicle read <path>` | Read annotations for a file, optionally filtered by `--anchor` or `--lines` |
+| `git chronicle deps <path>` | Find code that depends on a given file/anchor (dependency inversion) |
+| `git chronicle history <path>` | Show annotation timeline across commits |
+| `git chronicle summary <path>` | Condensed annotation summary for a file |
 
 ### Corrections
 
 | Command | Description |
 |---------|-------------|
-| `ultragit flag <path> --reason "..."` | Flag a region annotation as potentially inaccurate |
-| `ultragit correct <sha> --region <anchor> --field <field>` | Apply a precise correction to an annotation field |
+| `git chronicle flag <path> --reason "..."` | Flag a region annotation as potentially inaccurate |
+| `git chronicle correct <sha> --region <anchor> --field <field>` | Apply a precise correction to an annotation field |
 
 ### Team operations
 
 | Command | Description |
 |---------|-------------|
-| `ultragit sync enable` | Enable notes sync with a remote |
-| `ultragit sync status` | Show sync status (local/remote note counts) |
-| `ultragit sync pull` | Fetch and merge remote notes |
-| `ultragit export` | Export all annotations as JSONL |
-| `ultragit import <file>` | Import annotations from JSONL (`--force`, `--dry-run`) |
-| `ultragit doctor` | Run diagnostic checks on the ultragit setup |
+| `git chronicle sync enable` | Enable notes sync with a remote |
+| `git chronicle sync status` | Show sync status (local/remote note counts) |
+| `git chronicle sync pull` | Fetch and merge remote notes |
+| `git chronicle export` | Export all annotations as JSONL |
+| `git chronicle import <file>` | Import annotations from JSONL (`--force`, `--dry-run`) |
+| `git chronicle doctor` | Run diagnostic checks on the chronicle setup |
 
 ## Annotation schema
 
-Annotations use the `ultragit/v1` schema and are stored as JSON in git notes:
+Annotations use the `chronicle/v1` schema and are stored as JSON in git notes:
 
 ```json
 {
-  "schema": "ultragit/v1",
+  "schema": "chronicle/v1",
   "commit": "abc123...",
   "timestamp": "2026-02-06T12:00:00Z",
   "summary": "Refactor auth middleware to support JWT",
@@ -100,8 +101,8 @@ Annotations use the `ultragit/v1` schema and are stored as JSON in git notes:
 
 Two annotation paths:
 
-- **Batch path**: `ultragit annotate --commit <sha>` runs an LLM agent loop that inspects the diff, reads source files, extracts AST outlines, and emits structured annotations. Requires `ANTHROPIC_API_KEY`.
-- **Live path**: `ultragit annotate --live` reads `AnnotateInput` JSON from stdin. Zero LLM cost -- the calling agent (e.g. Claude Code) already knows intent and reasoning because it wrote the code.
+- **Batch path**: `git chronicle annotate --commit <sha>` runs an LLM agent loop that inspects the diff, reads source files, extracts AST outlines, and emits structured annotations. Requires `ANTHROPIC_API_KEY`.
+- **Live path**: `git chronicle annotate --live` reads `AnnotateInput` JSON from stdin. Zero LLM cost -- the calling agent (e.g. Claude Code) already knows intent and reasoning because it wrote the code.
 
 Key modules:
 
@@ -127,14 +128,14 @@ src/
 ## Testing
 
 ```bash
-cargo test           # all tests (143 across 7 test binaries)
+cargo test           # all tests (142 across 7 test binaries)
 cargo test --lib     # unit tests only (92)
 cargo test --test annotate_live  # live annotation integration test
 ```
 
 ## Claude Code integration
 
-Ultragit ships with a Claude Code skill (`.claude/skills/annotate/SKILL.md`) and a post-tool-use hook (`.claude/hooks/`) that reminds the agent to annotate after committing. When Claude Code is the authoring agent, it uses the live annotation path -- zero LLM cost because the agent already knows the intent behind its changes.
+Chronicle ships with a Claude Code skill (`.claude/skills/annotate/SKILL.md`) and a post-tool-use hook (`.claude/hooks/`) that reminds the agent to annotate after committing. When Claude Code is the authoring agent, it uses the live annotation path -- zero LLM cost because the agent already knows the intent behind its changes.
 
 ## License
 

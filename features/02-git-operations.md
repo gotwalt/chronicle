@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Git operations layer is the abstraction between Ultragit's application logic and git itself. It provides a unified interface for diff extraction, blame queries, notes read/write, config access, and ref management. Every operation is implemented in `gix` (gitoxide) first, with an automatic fallback to the `git` CLI when gix doesn't support the operation or fails at runtime.
+The Git operations layer is the abstraction between Chronicle's application logic and git itself. It provides a unified interface for diff extraction, blame queries, notes read/write, config access, and ref management. Every operation is implemented in `gix` (gitoxide) first, with an automatic fallback to the `git` CLI when gix doesn't support the operation or fails at runtime.
 
 This layer is consumed by nearly every other feature: the writing agent needs diffs and notes storage, the read pipeline needs blame and notes retrieval, hooks need config access, and team operations need ref management. Getting this layer right is critical — it must be fast, reliable, and testable.
 
@@ -10,7 +10,7 @@ This layer is consumed by nearly every other feature: the writing agent needs di
 
 ## Dependencies
 
-- **Feature 01 (CLI & Config):** Uses `UltragitConfig` for the notes ref name, repo root, and configuration.
+- **Feature 01 (CLI & Config):** Uses `ChronicleConfig` for the notes ref name, repo root, and configuration.
 
 ---
 
@@ -120,10 +120,10 @@ pub trait GitOps: Send + Sync {
 
     // --- Config ---
 
-    /// Read a git config value under [ultragit].
+    /// Read a git config value under [chronicle].
     fn config_get(&self, key: &str) -> Result<Option<String>>;
 
-    /// Write a git config value under [ultragit].
+    /// Write a git config value under [chronicle].
     fn config_set(&self, key: &str, value: &str) -> Result<()>;
 
     // --- Refs ---
@@ -204,7 +204,7 @@ impl GitOps for GixOps {
 }
 ```
 
-This per-operation fallback is important because `gix` is actively developed and some operations may not be available or stable in the version Ultragit pins.
+This per-operation fallback is important because `gix` is actively developed and some operations may not be available or stable in the version Chronicle pins.
 
 ### Diff Extraction
 
@@ -258,7 +258,7 @@ filename <path>
 
 **Line-range blame:** The `-L start,end` flag restricts blame to a range. This is critical for performance — blaming a 20-line function in a 5000-line file should not require blaming all 5000 lines.
 
-**Caching:** Within a single Ultragit command invocation, blame results are cached by (path, range). The read pipeline may blame the same file multiple times with overlapping ranges (e.g., when resolving multiple anchors). The cache is a `HashMap<(PathBuf, Option<LineRange>), BlameResult>` wrapped in a `RefCell` or stored on the `GitOps` implementation.
+**Caching:** Within a single Chronicle command invocation, blame results are cached by (path, range). The read pipeline may blame the same file multiple times with overlapping ranges (e.g., when resolving multiple anchors). The cache is a `HashMap<(PathBuf, Option<LineRange>), BlameResult>` wrapped in a `RefCell` or stored on the `GitOps` implementation.
 
 ```rust
 pub struct CachedGitOps {
@@ -277,7 +277,7 @@ The cache is session-scoped — it lives for the duration of a single CLI invoca
 
 ### Notes Storage
 
-Notes are the core storage mechanism. Each annotated commit has exactly one JSON document stored as a git note under `refs/notes/ultragit`.
+Notes are the core storage mechanism. Each annotated commit has exactly one JSON document stored as a git note under `refs/notes/chronicle`.
 
 **Write path:**
 
@@ -293,7 +293,7 @@ fn note_write(&self, commit: &str, content: &str) -> Result<()>
 
 **CLI fallback:**
 ```
-git notes --ref=ultragit add -f -m '<content>' <commit>
+git notes --ref=chronicle add -f -m '<content>' <commit>
 ```
 
 The `-f` (force) flag is critical — it allows overwriting an existing note. Re-annotation of a commit must be idempotent. Without `-f`, `git notes add` fails if a note already exists.
@@ -311,7 +311,7 @@ fn note_read(&self, commit: &str) -> Result<Option<String>>
 
 **CLI fallback:**
 ```
-git notes --ref=ultragit show <commit>
+git notes --ref=chronicle show <commit>
 ```
 
 Returns the raw content. The caller (schema layer) is responsible for parsing JSON.
@@ -332,14 +332,14 @@ fn note_list(&self) -> Result<Vec<String>>
 
 **CLI fallback:**
 ```
-git notes --ref=ultragit list
+git notes --ref=chronicle list
 ```
 
 Returns lines of `<blob-sha> <commit-sha>`. Parse the commit SHAs.
 
 ### Config Read/Write
 
-Git config operations for the `[ultragit]` section.
+Git config operations for the `[chronicle]` section.
 
 **gix path:**
 - `gix::Repository::config_snapshot()` for reads.
@@ -347,8 +347,8 @@ Git config operations for the `[ultragit]` section.
 
 **CLI fallback:**
 ```
-git config --get ultragit.<key>
-git config ultragit.<key> <value>
+git config --get chronicle.<key>
+git config chronicle.<key> <value>
 ```
 
 Note: `git config --get` exits with code 1 when the key doesn't exist. This must be handled as `Ok(None)`, not as an error.
@@ -423,7 +423,7 @@ pub enum GitError {
         location: Location,
     },
 
-    #[snafu(display("Notes ref does not exist: {refspec} (run `ultragit init`), at {location}"))]
+    #[snafu(display("Notes ref does not exist: {refspec} (run `git chronicle init`), at {location}"))]
     NotesRefMissing {
         refspec: String,
         #[snafu(implicit)]
@@ -471,7 +471,7 @@ The git operations layer reads these config values:
 
 | Key | Used For | Default |
 |-----|----------|---------|
-| `noteref` | Notes ref namespace for all note operations | `refs/notes/ultragit` |
+| `noteref` | Notes ref namespace for all note operations | `refs/notes/chronicle` |
 
 The layer itself is mostly config-free — it receives the repo root and notes ref at construction time.
 
@@ -570,7 +570,7 @@ Write integration tests that create temporary git repos, make commits, and exerc
 3. `blame_lines(path, range)` returns correct `(commit_sha, line_range)` pairs for the specified range.
 4. `note_write()` followed by `note_read()` returns the exact content written.
 5. `note_write()` with `-f` semantics: writing to an already-annotated commit succeeds and overwrites.
-6. Notes are stored under the configured `refs/notes/ultragit` ref (or custom ref from config).
+6. Notes are stored under the configured `refs/notes/chronicle` ref (or custom ref from config).
 7. `note_list()` returns all annotated commit SHAs.
 8. Blame caching eliminates redundant blame calls within a session (measurable via debug logging or test instrumentation).
 9. When `gix` fails for a specific operation, the CLI fallback activates transparently (visible in debug logs, invisible to the caller).

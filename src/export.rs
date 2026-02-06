@@ -1,6 +1,6 @@
 use std::io::Write;
 
-use crate::error::ultragit_error::GitSnafu;
+use crate::error::chronicle_error::GitSnafu;
 use crate::error::Result;
 use crate::git::GitOps;
 use crate::schema::annotation::Annotation;
@@ -17,7 +17,7 @@ pub struct ExportEntry {
 
 /// Export annotations as JSONL to a writer.
 ///
-/// Iterates all notes under `refs/notes/ultragit`, deserializes each as an
+/// Iterates all notes under `refs/notes/chronicle`, deserializes each as an
 /// Annotation, and writes one JSON object per line.
 pub fn export_annotations<W: Write>(
     git_ops: &dyn GitOps,
@@ -44,13 +44,13 @@ pub fn export_annotations<W: Write>(
         };
 
         let line = serde_json::to_string(&entry).map_err(|e| {
-            crate::error::UltragitError::Json {
+            crate::error::ChronicleError::Json {
                 source: e,
                 location: snafu::Location::default(),
             }
         })?;
 
-        writeln!(writer, "{line}").map_err(|e| crate::error::UltragitError::Io {
+        writeln!(writer, "{line}").map_err(|e| crate::error::ChronicleError::Io {
             source: e,
             location: snafu::Location::default(),
         })?;
@@ -61,15 +61,15 @@ pub fn export_annotations<W: Write>(
     Ok(count)
 }
 
-/// List all commit SHAs that have ultragit notes.
+/// List all commit SHAs that have chronicle notes.
 fn list_annotated_commits(_git_ops: &dyn GitOps) -> Result<Vec<String>> {
-    // git notes --ref=refs/notes/ultragit list outputs: <note-sha> <commit-sha>
+    // git notes --ref=refs/notes/chronicle list outputs: <note-sha> <commit-sha>
     // We use the CliOps internals indirectly — iterate by using a known set.
     // Since GitOps doesn't expose `notes list`, we shell out directly.
     let output = std::process::Command::new("git")
-        .args(["notes", "--ref", "refs/notes/ultragit", "list"])
+        .args(["notes", "--ref", "refs/notes/chronicle", "list"])
         .output()
-        .map_err(|e| crate::error::UltragitError::Io {
+        .map_err(|e| crate::error::ChronicleError::Io {
             source: e,
             location: snafu::Location::default(),
         })?;

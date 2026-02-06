@@ -5,15 +5,15 @@ use crate::error::Result;
 use crate::git::CliOps;
 use crate::import::import_annotations;
 
-/// Run `ultragit import`.
+/// Run `git chronicle import`.
 pub fn run(file: String, force: bool, dry_run: bool) -> Result<()> {
-    let repo_dir = std::env::current_dir().map_err(|e| crate::error::UltragitError::Io {
+    let repo_dir = std::env::current_dir().map_err(|e| crate::error::ChronicleError::Io {
         source: e,
         location: snafu::Location::default(),
     })?;
     let git_ops = CliOps::new(repo_dir);
 
-    let f = File::open(&file).map_err(|e| crate::error::UltragitError::Io {
+    let f = File::open(&file).map_err(|e| crate::error::ChronicleError::Io {
         source: e,
         location: snafu::Location::default(),
     })?;

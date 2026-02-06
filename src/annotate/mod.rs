@@ -2,7 +2,7 @@ pub mod gather;
 pub mod filter;
 pub mod squash;
 
-use crate::error::{Result, ultragit_error};
+use crate::error::{Result, chronicle_error};
 use crate::git::GitOps;
 use crate::provider::LlmProvider;
 use crate::schema::{Annotation, ContextLevel};
@@ -51,7 +51,7 @@ pub async fn run(
             let (regions, cross_cutting, summary) =
                 crate::agent::run_agent_loop(provider, git_ops, &context)
                     .await
-                    .context(ultragit_error::AgentSnafu)?;
+                    .context(chronicle_error::AgentSnafu)?;
 
             let context_level = if context.author_context.is_some() {
                 ContextLevel::Enhanced
@@ -76,10 +76,10 @@ pub async fn run(
 
     // 3. Serialize and write as git note
     let json = serde_json::to_string_pretty(&annotation)
-        .context(ultragit_error::JsonSnafu)?;
+        .context(chronicle_error::JsonSnafu)?;
     git_ops
         .note_write(commit, &json)
-        .context(ultragit_error::GitSnafu)?;
+        .context(chronicle_error::GitSnafu)?;
 
     Ok(annotation)
 }

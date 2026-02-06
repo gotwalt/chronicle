@@ -24,10 +24,10 @@ pub trait GitOps: Send + Sync {
     /// Get the diff for a single commit.
     fn diff(&self, commit: &str) -> Result<Vec<FileDiff>, GitError>;
 
-    /// Read a git note from the ultragit notes ref.
+    /// Read a git note from the chronicle notes ref.
     fn note_read(&self, commit: &str) -> Result<Option<String>, GitError>;
 
-    /// Write a git note to the ultragit notes ref (overwrites existing).
+    /// Write a git note to the chronicle notes ref (overwrites existing).
     fn note_write(&self, commit: &str, content: &str) -> Result<(), GitError>;
 
     /// Check if a note exists for a commit.
@@ -51,6 +51,6 @@ pub trait GitOps: Send + Sync {
     /// List commit SHAs that touched a file (newest first), following renames.
     fn log_for_file(&self, path: &str) -> Result<Vec<String>, GitError>;
 
-    /// List commit SHAs that have ultragit notes (newest first), up to `limit`.
+    /// List commit SHAs that have chronicle notes (newest first), up to `limit`.
     fn list_annotated_commits(&self, limit: u32) -> Result<Vec<String>, GitError>;
 }

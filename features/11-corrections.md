@@ -15,7 +15,7 @@ This creates a self-correcting knowledge base: annotations improve over time as 
 | Feature | Reason |
 |---------|--------|
 | 02 Git Operations Layer | Corrections are stored as git notes; requires notes read/write |
-| 07 Read Pipeline | Corrections must be surfaced during `ultragit read`; the read path must be extended to fetch and merge corrections |
+| 07 Read Pipeline | Corrections must be surfaced during `git chronicle read`; the read path must be extended to fetch and merge corrections |
 
 ---
 
@@ -23,12 +23,12 @@ This creates a self-correcting knowledge base: annotations improve over time as 
 
 ### CLI Commands
 
-#### `ultragit flag`
+#### `git chronicle flag`
 
 Flags the most recent annotation for a code region as potentially inaccurate.
 
 ```
-ultragit flag <PATH> [<ANCHOR>] --reason "<TEXT>"
+git chronicle flag <PATH> [<ANCHOR>] --reason "<TEXT>"
 ```
 
 **Arguments:**
@@ -37,7 +37,7 @@ ultragit flag <PATH> [<ANCHOR>] --reason "<TEXT>"
 - `--reason <TEXT>` — required. Why the annotation is being flagged.
 
 **Behavior:**
-1. Resolve the anchor to identify the target region (using tree-sitter, same as `ultragit read`).
+1. Resolve the anchor to identify the target region (using tree-sitter, same as `git chronicle read`).
 2. Run `git blame` on the resolved line range to find the most recent commit SHA that touched the region.
 3. Fetch the existing annotation for that commit.
 4. Verify that an annotation exists and contains a region matching the anchor.
@@ -47,15 +47,15 @@ ultragit flag <PATH> [<ANCHOR>] --reason "<TEXT>"
 ```
 Flagged annotation on commit abc1234 for MqttClient::connect
   Reason: Constraint about drain-before-reconnect is no longer required since broker v2.3
-  Correction stored in refs/notes/ultragit
+  Correction stored in refs/notes/chronicle
 ```
 
-#### `ultragit correct`
+#### `git chronicle correct`
 
 Targets a specific annotation by commit SHA and applies a precise correction to a specific field.
 
 ```
-ultragit correct <SHA> --region <ANCHOR> --field <FIELD> --remove <VALUE>
+git chronicle correct <SHA> --region <ANCHOR> --field <FIELD> --remove <VALUE>
 ```
 
 **Arguments:**
@@ -72,7 +72,7 @@ ultragit correct <SHA> --region <ANCHOR> --field <FIELD> --remove <VALUE>
 Corrected annotation on commit abc1234, region MqttClient::connect
   Field: constraints
   Removed: "Must drain queue before reconnecting"
-  Correction stored in refs/notes/ultragit
+  Correction stored in refs/notes/chronicle
 ```
 
 ---
@@ -134,7 +134,7 @@ JSON representation:
 
 ### Storage Design
 
-Corrections are stored within the same notes system as annotations, under `refs/notes/ultragit`. They are embedded in the annotation's JSON document as an additional `corrections` field on the relevant region.
+Corrections are stored within the same notes system as annotations, under `refs/notes/chronicle`. They are embedded in the annotation's JSON document as an additional `corrections` field on the relevant region.
 
 **Storage approach: augment the annotation JSON.**
 
@@ -171,7 +171,7 @@ pub struct RegionAnnotation {
 
 #### Why Not a Separate Notes Ref?
 
-An alternative design would store corrections under a separate ref like `refs/notes/ultragit-corrections`. This was rejected because:
+An alternative design would store corrections under a separate ref like `refs/notes/chronicle-corrections`. This was rejected because:
 
 - The read path would need to make two note lookups per commit (annotation + corrections), doubling I/O.
 - Corrections would be easy to lose during notes sync if only the main ref is synced.
@@ -181,7 +181,7 @@ The tradeoff is that writing a correction requires a read-modify-write on the an
 
 ### Read-Path Integration
 
-When `ultragit read` fetches an annotation and the region has corrections, the output includes them inline:
+When `git chronicle read` fetches an annotation and the region has corrections, the output includes them inline:
 
 ```json
 {
@@ -237,7 +237,7 @@ The `flag` correction type applies the penalty to the entire region. The `remove
 The `author` field on a correction is populated from:
 
 1. The git user name/email from `git config user.name` / `git config user.email`.
-2. If an `ULTRAGIT_SESSION` environment variable is set (for agent identification), use that.
+2. If an `CHRONICLE_SESSION` environment variable is set (for agent identification), use that.
 3. Fall back to `"unknown"`.
 
 This is best-effort identification, not authentication. Corrections are not access-controlled — any user with write access to the repository can write corrections.
@@ -252,22 +252,22 @@ This is best-effort identification, not authentication. Corrections are not acce
 | Target anchor not found in annotation | Return error: "No region matching '<ANCHOR>' found in annotation for commit <SHA>." List available regions. |
 | Target field doesn't exist or is empty | Return error: "Field '<FIELD>' is empty in region '<ANCHOR>'. Nothing to correct." |
 | `--remove` value doesn't match any entry | Return error: "Value not found in '<FIELD>'. Available values: ..." List existing values for the field. |
-| `git blame` fails to resolve anchor | Return error with suggestion to use `--lines` or specify the commit SHA directly with `ultragit correct`. |
+| `git blame` fails to resolve anchor | Return error with suggestion to use `--lines` or specify the commit SHA directly with `git chronicle correct`. |
 | Note write fails (permissions, corrupt repo) | Return error from git operations layer. Do not leave partial state. |
-| Concurrent correction write (race condition) | Last writer wins. Lost corrections are logged to `.git/ultragit/failed.log` with details for manual re-application. |
+| Concurrent correction write (race condition) | Last writer wins. Lost corrections are logged to `.git/chronicle/failed.log` with details for manual re-application. |
 
 ---
 
 ## Configuration
 
-No additional configuration is required for corrections. The correction system uses the same notes ref (`refs/notes/ultragit`) and follows the same sync configuration as annotations.
+No additional configuration is required for corrections. The correction system uses the same notes ref (`refs/notes/chronicle`) and follows the same sync configuration as annotations.
 
 One optional config key:
 
 | Key | Default | Description |
 |-----|---------|-------------|
-| `ultragit.corrections.confidencePenalty` | `0.15` | Confidence penalty per correction |
-| `ultragit.corrections.confidenceFloor` | `0.1` | Minimum confidence after corrections |
+| `chronicle.corrections.confidencePenalty` | `0.15` | Confidence penalty per correction |
+| `chronicle.corrections.confidenceFloor` | `0.1` | Minimum confidence after corrections |
 
 ---
 
@@ -317,8 +317,8 @@ One optional config key:
 ### Step 5: Skill Definition Update
 **Scope:** `src/skill.rs`
 
-- Update the embedded skill definition to teach agents about `ultragit flag` and `ultragit correct`.
-- Add guidance: "If you discover an annotation's constraint or reasoning is incorrect, use `ultragit flag` immediately to prevent future agents from being misled."
+- Update the embedded skill definition to teach agents about `git chronicle flag` and `git chronicle correct`.
+- Add guidance: "If you discover an annotation's constraint or reasoning is incorrect, use `git chronicle flag` immediately to prevent future agents from being misled."
 - Bump the skill version marker.
 - Tests: verify updated skill content includes correction commands.
 
@@ -340,16 +340,16 @@ One optional config key:
 - **Flag round-trip:**
   1. Create a repo with a commit.
   2. Write an annotation for the commit.
-  3. `ultragit flag <path> <anchor> --reason "..."`.
-  4. `ultragit read <path> <anchor>`.
+  3. `git chronicle flag <path> <anchor> --reason "..."`.
+  4. `git chronicle read <path> <anchor>`.
   5. Verify the correction appears in the output.
   6. Verify confidence is reduced.
 
 - **Correct round-trip:**
   1. Create a repo with a commit.
   2. Write an annotation with a specific constraint.
-  3. `ultragit correct <SHA> --region <anchor> --field constraints --remove "the constraint"`.
-  4. `ultragit read <path> <anchor>`.
+  3. `git chronicle correct <SHA> --region <anchor> --field constraints --remove "the constraint"`.
+  4. `git chronicle read <path> <anchor>`.
   5. Verify the correction appears, the original constraint is still present, and confidence is reduced.
 
 - **Multiple corrections accumulate:**
@@ -361,7 +361,7 @@ One optional config key:
 
 - **Amend correction:**
   1. Write an annotation with a reasoning field.
-  2. `ultragit correct <SHA> --region <anchor> --field reasoning --amend "Updated reasoning"`.
+  2. `git chronicle correct <SHA> --region <anchor> --field reasoning --amend "Updated reasoning"`.
   3. Read and verify the amend correction appears alongside original reasoning.
 
 - **Corrections survive sync:**
@@ -383,15 +383,15 @@ One optional config key:
 
 ## Acceptance Criteria
 
-1. `ultragit flag <PATH> <ANCHOR> --reason "..."` writes a correction entry to the annotation for the most recent commit touching that code region.
-2. `ultragit correct <SHA> --region <ANCHOR> --field <FIELD> --remove <VALUE>` writes a precise correction entry targeting a specific field and value.
-3. `ultragit correct <SHA> --region <ANCHOR> --field <FIELD> --amend <TEXT>` writes an amendment correction.
+1. `git chronicle flag <PATH> <ANCHOR> --reason "..."` writes a correction entry to the annotation for the most recent commit touching that code region.
+2. `git chronicle correct <SHA> --region <ANCHOR> --field <FIELD> --remove <VALUE>` writes a precise correction entry targeting a specific field and value.
+3. `git chronicle correct <SHA> --region <ANCHOR> --field <FIELD> --amend <TEXT>` writes an amendment correction.
 4. Corrections are stored within the annotation JSON on the target commit's note, not in a separate notes ref.
 5. Original annotation content is never deleted or overwritten by corrections — corrections are additive only.
-6. `ultragit read` output includes the `corrections` array for any region that has corrections.
+6. `git chronicle read` output includes the `corrections` array for any region that has corrections.
 7. Confidence scores are reduced by 0.15 per flag/remove correction on the region, with a floor of 0.1.
 8. Amend corrections do not reduce confidence.
-9. Corrections sync correctly with `ultragit sync pull` — they are part of the annotation JSON and travel with it.
+9. Corrections sync correctly with `git chronicle sync pull` — they are part of the annotation JSON and travel with it.
 10. Annotations without corrections deserialize correctly (backward compatible).
 11. Error messages for invalid targets (missing annotation, missing region, missing value) are specific and actionable.
 12. Multiple corrections on the same region accumulate without interfering with each other.

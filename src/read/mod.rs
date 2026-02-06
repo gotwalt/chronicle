@@ -3,7 +3,7 @@ pub mod deps;
 pub mod history;
 pub mod summary;
 
-use crate::error::{Result, UltragitError};
+use crate::error::{Result, ChronicleError};
 use crate::git::GitOps;
 use crate::schema::annotation::{LineRange, RegionAnnotation};
 
@@ -33,7 +33,7 @@ pub struct MatchedRegion {
 
 /// Execute a read query against the repository.
 pub fn execute(git: &dyn GitOps, query: &ReadQuery) -> Result<ReadResult> {
-    let regions = retrieve::retrieve_regions(git, query).map_err(|e| UltragitError::Git {
+    let regions = retrieve::retrieve_regions(git, query).map_err(|e| ChronicleError::Git {
         source: e,
         location: snafu::Location::default(),
     })?;

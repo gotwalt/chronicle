@@ -13,7 +13,7 @@ Feature 09 implements four mechanisms:
 1. **Squash merge detection and synthesis** — `prepare-commit-msg` hook detects squash operations, records source commits in a tmpfile, and `post-commit` synthesizes a consolidated annotation from the source annotations.
 2. **Amend migration** — `post-rewrite` hook receives old-to-new SHA mappings, fetches old annotations, passes them to the agent with the new diff, and writes updated annotations to new SHAs.
 3. **Merge commit annotation** — detects merge commits (>1 parent), diffs against both parents, and annotates only the conflict resolutions.
-4. **Server-side squash merges** — `ultragit annotate --squash-sources` synthesizes annotations for CI-triggered squash merges that bypass local hooks.
+4. **Server-side squash merges** — `git chronicle annotate --squash-sources` synthesizes annotations for CI-triggered squash merges that bypass local hooks.
 
 All mechanisms track provenance: every derived annotation records its `operation` (initial/squash/amend), `derived_from` SHAs, and `synthesis_notes`.
 
@@ -39,7 +39,7 @@ Feature 09 depends heavily on the writing agent because squash synthesis and ame
 **Squash-source annotation (for CI):**
 
 ```
-ultragit annotate --commit <SHA> --squash-sources <SHA>[,<SHA>...]
+git chronicle annotate --commit <SHA> --squash-sources <SHA>[,<SHA>...]
 ```
 
 Synthesizes an annotation for `--commit` by collecting annotations from the listed source commits and passing them to the agent alongside the commit's diff. Used in CI workflows for server-side squash merges.
@@ -47,7 +47,7 @@ Synthesizes an annotation for `--commit` by collecting annotations from the list
 **Manual amend re-annotation:**
 
 ```
-ultragit annotate --commit <SHA> --amend-source <OLD_SHA>
+git chronicle annotate --commit <SHA> --amend-source <OLD_SHA>
 ```
 
 Migrates the annotation from `OLD_SHA` to the new commit. Used when the `post-rewrite` hook didn't fire or failed.
@@ -82,7 +82,7 @@ pub fn handle_post_rewrite(
 ### 3.3 Internal Types
 
 ```rust
-/// Written to .git/ultragit/pending-squash.json by prepare-commit-msg.
+/// Written to .git/chronicle/pending-squash.json by prepare-commit-msg.
 /// Consumed and deleted by post-commit.
 #[derive(Serialize, Deserialize)]
 pub struct PendingSquash {
@@ -145,7 +145,7 @@ Squash detection happens in the `prepare-commit-msg` hook, which fires before th
 
 2. **`.git/SQUASH_MSG` file.** Present during `git merge --squash`. Contains concatenated commit messages from the squashed branch. Parse this to extract source commit information.
 
-3. **`ULTRAGIT_SQUASH_SOURCES` env var.** Explicitly set by an agent or CI script. Contains a comma-separated list of SHAs or a range like `main..feature-branch`.
+3. **`CHRONICLE_SQUASH_SOURCES` env var.** Explicitly set by an agent or CI script. Contains a comma-separated list of SHAs or a range like `main..feature-branch`.
 
 ```rust
 pub fn detect_squash(
@@ -164,7 +164,7 @@ pub fn detect_squash(
     }
 
     // Check 3: environment variable
-    if let Ok(sources) = std::env::var("ULTRAGIT_SQUASH_SOURCES") {
+    if let Ok(sources) = std::env::var("CHRONICLE_SQUASH_SOURCES") {
         return resolve_squash_sources_from_env(&sources, repo_path);
     }
 
@@ -197,18 +197,18 @@ For ranges, resolve via `git rev-list <range>`.
 
 ### 4.2 Pending-Squash Tmpfile Lifecycle
 
-The handshake between `prepare-commit-msg` and `post-commit` uses a tmpfile at `.git/ultragit/pending-squash.json`.
+The handshake between `prepare-commit-msg` and `post-commit` uses a tmpfile at `.git/chronicle/pending-squash.json`.
 
 ```
 Timeline:
 
 1. Developer runs `git merge --squash feature && git commit`
-   (or agent runs `ultragit commit --squash-sources ...`)
+   (or agent runs `git chronicle commit --squash-sources ...`)
 
 2. prepare-commit-msg fires:
    - Detects squash via hook arg or SQUASH_MSG.
    - Resolves source commit SHAs.
-   - Writes .git/ultragit/pending-squash.json:
+   - Writes .git/chronicle/pending-squash.json:
      {
        "source_commits": ["abc123", "def456", "ghi789"],
        "source_ref": "feature-branch",
@@ -218,12 +218,12 @@ Timeline:
 3. Commit proceeds normally. Commit message editor opens (if interactive).
 
 4. post-commit fires:
-   - Checks for .git/ultragit/pending-squash.json.
+   - Checks for .git/chronicle/pending-squash.json.
    - If found: reads it, enters squash synthesis path.
    - If not found: normal annotation path.
 
 5. After synthesis (or on error):
-   - Deletes .git/ultragit/pending-squash.json.
+   - Deletes .git/chronicle/pending-squash.json.
 ```
 
 **Stale tmpfile handling.** The tmpfile includes a `timestamp`. If the `post-commit` hook finds a pending-squash.json older than 60 seconds, it's stale — likely from a `prepare-commit-msg` that ran but whose commit was aborted (e.g., user exited the editor without saving). Stale tmpfiles are deleted with a warning logged.
@@ -232,7 +232,7 @@ Timeline:
 const PENDING_SQUASH_EXPIRY_SECS: i64 = 60;
 
 pub fn read_pending_squash(repo_path: &Path) -> Result<Option<PendingSquash>> {
-    let path = repo_path.join(".git/ultragit/pending-squash.json");
+    let path = repo_path.join(".git/chronicle/pending-squash.json");
     if !path.exists() {
         return Ok(None);
     }
@@ -267,8 +267,8 @@ When `post-commit` finds a valid pending-squash.json, it enters the synthesis pa
 ```
 1. Read pending-squash.json → source commit SHAs.
 
-2. For each source SHA, attempt to fetch the Ultragit annotation
-   from refs/notes/ultragit.
+2. For each source SHA, attempt to fetch the Chronicle annotation
+   from refs/notes/chronicle.
    → Vec<(sha, Option<Annotation>)>
 
    Some source commits may not have annotations (unannotated commits,
@@ -301,7 +301,7 @@ When `post-commit` finds a valid pending-squash.json, it enters the synthesis pa
           consolidated into single region."
       }
 
-8. Write the synthesized annotation to refs/notes/ultragit for the
+8. Write the synthesized annotation to refs/notes/chronicle for the
    squash commit SHA.
 
 9. Delete pending-squash.json.
@@ -350,7 +350,7 @@ old_sha2 new_sha2
    (Rebase handling is out of scope for v1.)
 
 3. For each (old_sha, new_sha):
-   a. Fetch the annotation from refs/notes/ultragit for old_sha.
+   a. Fetch the annotation from refs/notes/chronicle for old_sha.
    b. If no annotation exists: skip. The old commit was unannotated.
    c. Compute the new commit's diff: git diff new_sha~1..new_sha.
    d. Assemble AmendMigrationContext.
@@ -367,7 +367,7 @@ old_sha2 new_sha2
           "synthesis_notes": "Migrated from amend. Updated reasoning for
             connect() to reflect added timeout parameter."
         }
-   g. Write the updated annotation to refs/notes/ultragit for new_sha.
+   g. Write the updated annotation to refs/notes/chronicle for new_sha.
    h. Optionally: remove the orphaned note from old_sha.
       (The old commit is unreachable; the note will be garbage-collected
       with the commit. Removing it is tidy but not required.)
@@ -520,18 +520,18 @@ pub fn find_conflict_resolutions(
 
 ### 4.6 Server-Side Squash Merges (CI)
 
-GitHub's "Squash and merge" and GitLab's equivalent bypass local hooks entirely. The `--squash-sources` flag on `ultragit annotate` enables CI-based synthesis.
+GitHub's "Squash and merge" and GitLab's equivalent bypass local hooks entirely. The `--squash-sources` flag on `git chronicle annotate` enables CI-based synthesis.
 
 **Usage:**
 
 ```bash
-ultragit annotate --commit HEAD --squash-sources abc123,def456,ghi789
+git chronicle annotate --commit HEAD --squash-sources abc123,def456,ghi789
 ```
 
 Or with a branch reference:
 
 ```bash
-ultragit annotate --commit HEAD --squash-sources $(git log --format=%H origin/main..HEAD~1)
+git chronicle annotate --commit HEAD --squash-sources $(git log --format=%H origin/main..HEAD~1)
 ```
 
 **Implementation:** This follows the same synthesis path as local squash detection, except the source commits are provided explicitly rather than discovered via `prepare-commit-msg`.
@@ -586,7 +586,7 @@ pub fn annotate_with_squash_sources(
 **GitHub Actions workflow:**
 
 ```yaml
-# .github/workflows/ultragit-annotate.yml
+# .github/workflows/chronicle-annotate.yml
 name: Annotate squash merges
 on:
   pull_request:
@@ -601,9 +601,9 @@ jobs:
           fetch-depth: 0
           ref: ${{ github.event.pull_request.base.ref }}
       - name: Fetch notes
-        run: git fetch origin refs/notes/ultragit:refs/notes/ultragit || true
-      - name: Install Ultragit
-        run: cargo install ultragit
+        run: git fetch origin refs/notes/chronicle:refs/notes/chronicle || true
+      - name: Install Chronicle
+        run: cargo install chronicle
       - name: Fetch feature branch
         run: git fetch origin ${{ github.event.pull_request.head.sha }}
       - name: Annotate squash merge
@@ -613,10 +613,10 @@ jobs:
           # Get source commits from the feature branch
           MERGE_BASE=$(git merge-base HEAD ${{ github.event.pull_request.head.sha }})
           SOURCE_SHAS=$(git log --format=%H $MERGE_BASE..${{ github.event.pull_request.head.sha }})
-          ultragit annotate --commit HEAD \
+          git chronicle annotate --commit HEAD \
             --squash-sources $(echo $SOURCE_SHAS | tr '\n' ',')
       - name: Push annotations
-        run: git push origin refs/notes/ultragit
+        run: git push origin refs/notes/chronicle
 ```
 
 ### 4.7 Provenance Tracking
@@ -644,7 +644,7 @@ The `original_annotations_preserved` field indicates whether the synthesis agent
 | `pending-squash.json` is stale (>60s old) | Delete with warning. Run normal annotation. |
 | Source commit has no annotation | Skip it in synthesis. Note in `synthesis_notes`: "N of M source commits had annotations." Set `original_annotations_preserved: false`. |
 | All source commits lack annotations | Run normal annotation instead of synthesis. No source context to synthesize from. |
-| LLM API fails during synthesis | Log to `.git/ultragit/failed.log` with the squash commit SHA and source SHAs. The commit proceeds. Can be retried: `ultragit annotate --commit <sha> --squash-sources <shas>`. |
+| LLM API fails during synthesis | Log to `.git/chronicle/failed.log` with the squash commit SHA and source SHAs. The commit proceeds. Can be retried: `git chronicle annotate --commit <sha> --squash-sources <shas>`. |
 | `post-rewrite` receives rebase mappings | Log info: "Rebase annotation migration not yet supported." Skip. |
 | `post-rewrite` fails to read old annotation | Skip migration for that SHA. Log warning. |
 | Merge commit with no conflict regions | Skip annotation entirely. Log: "Clean merge, no annotation needed." |
@@ -658,7 +658,7 @@ The `original_annotations_preserved` field indicates whether the synthesis agent
 ## 6. Configuration
 
 ```ini
-[ultragit]
+[chronicle]
     # Enable squash synthesis (default: true)
     squashSynthesis = true
 
@@ -676,8 +676,8 @@ The `original_annotations_preserved` field indicates whether the synthesis agent
 ```
 
 ```toml
-# .ultragit-config.toml
-[ultragit.rewrites]
+# .chronicle-config.toml
+[chronicle.rewrites]
 squash_synthesis = true
 amend_migration = true
 merge_annotation = true
@@ -693,7 +693,7 @@ clean_orphaned_notes = false
 **Scope:** Define `PendingSquash` struct in `src/annotate/squash.rs`. Implement `write_pending_squash()`, `read_pending_squash()`, and `delete_pending_squash()`. Stale file detection with configurable expiry. Tests: write/read roundtrip, stale detection, missing file, invalid JSON.
 
 ### Step 2: Squash Detection in prepare-commit-msg
-**Scope:** Implement `handle_prepare_commit_msg()` in `src/hooks/prepare_commit_msg.rs`. Detect squash via hook argument, `.git/SQUASH_MSG`, and `ULTRAGIT_SQUASH_SOURCES` env var. Resolve source commit SHAs. Write pending-squash.json. Tests: detection via each signal, source SHA resolution from SQUASH_MSG, resolution from env var (comma-separated and range).
+**Scope:** Implement `handle_prepare_commit_msg()` in `src/hooks/prepare_commit_msg.rs`. Detect squash via hook argument, `.git/SQUASH_MSG`, and `CHRONICLE_SQUASH_SOURCES` env var. Resolve source commit SHAs. Write pending-squash.json. Tests: detection via each signal, source SHA resolution from SQUASH_MSG, resolution from env var (comma-separated and range).
 
 ### Step 3: Post-Commit Squash Routing
 **Scope:** Modify the post-commit handler (Feature 06) to check for pending-squash.json. If found, route to squash synthesis instead of normal annotation. If stale or invalid, fall back to normal annotation. Tests: routing with valid pending file, routing with stale file, routing with no pending file.
@@ -711,7 +711,7 @@ clean_orphaned_notes = false
 **Scope:** Implement `find_conflict_resolutions()` in `src/annotate/squash.rs`. Detect merge commits. Diff against both parents. Identify overlapping hunks. Pass conflict regions to writing agent. Tests: clean merge (no annotation), merge with conflicts, multiple conflict files.
 
 ### Step 8: Server-Side Squash (--squash-sources)
-**Scope:** Add `--squash-sources` flag to `ultragit annotate` in `src/cli/annotate.rs`. Implement `annotate_with_squash_sources()`. Same synthesis path as local squash. Tests: end-to-end with explicit source SHAs, missing source annotations.
+**Scope:** Add `--squash-sources` flag to `git chronicle annotate` in `src/cli/annotate.rs`. Implement `annotate_with_squash_sources()`. Same synthesis path as local squash. Tests: end-to-end with explicit source SHAs, missing source annotations.
 
 ### Step 9: Provenance in Output
 **Scope:** Ensure all annotation paths set the `provenance` field correctly. Verify the read pipeline (Feature 07) surfaces provenance in confidence scoring and output. Tests: provenance from initial, squash, amend annotations all correctly set and visible in read output.
@@ -729,8 +729,8 @@ clean_orphaned_notes = false
 - Hook argument `"squash"` → detected.
 - Hook argument `"message"` → not detected.
 - `.git/SQUASH_MSG` exists → detected; source SHAs parsed from content.
-- `ULTRAGIT_SQUASH_SOURCES` env var with comma-separated SHAs → detected.
-- `ULTRAGIT_SQUASH_SOURCES` with range `main..feature` → resolved to individual SHAs.
+- `CHRONICLE_SQUASH_SOURCES` env var with comma-separated SHAs → detected.
+- `CHRONICLE_SQUASH_SOURCES` with range `main..feature` → resolved to individual SHAs.
 - No signals → not detected.
 
 **Pending-squash tmpfile:**
@@ -797,7 +797,7 @@ clean_orphaned_notes = false
 
 **CI squash flow:**
 1. Create a repo with annotated commits on a feature branch.
-2. Simulate CI: run `ultragit annotate --commit HEAD --squash-sources <shas>`.
+2. Simulate CI: run `git chronicle annotate --commit HEAD --squash-sources <shas>`.
 3. Verify synthesized annotation matches local squash behavior.
 
 **Stale tmpfile cleanup:**
@@ -827,11 +827,11 @@ clean_orphaned_notes = false
 
 5. Merge commits are annotated only for conflict resolution regions. Clean merges produce no annotation.
 
-6. `ultragit annotate --commit HEAD --squash-sources <shas>` produces the same synthesized annotation as a local squash merge, enabling CI workflows for server-side squash merges.
+6. `git chronicle annotate --commit HEAD --squash-sources <shas>` produces the same synthesized annotation as a local squash merge, enabling CI workflows for server-side squash merges.
 
 7. Stale `pending-squash.json` files (>60s old) are deleted without blocking commits.
 
-8. All hook handlers exit silently on failure. Failed annotations are logged to `.git/ultragit/failed.log` for retry.
+8. All hook handlers exit silently on failure. Failed annotations are logged to `.git/chronicle/failed.log` for retry.
 
 9. The `post-rewrite` hook handles `amend` rewrites. `rebase` rewrites are logged and skipped (out of scope for v1).
 

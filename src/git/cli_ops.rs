@@ -16,7 +16,7 @@ impl CliOps {
     pub fn new(repo_dir: PathBuf) -> Self {
         Self {
             repo_dir,
-            notes_ref: "refs/notes/ultragit".to_string(),
+            notes_ref: "refs/notes/chronicle".to_string(),
         }
     }
 
@@ -95,7 +95,7 @@ impl GitOps for CliOps {
 
     fn note_write(&self, commit: &str, content: &str) -> Result<(), GitError> {
         // Use a tempfile to avoid shell escaping issues with note content
-        let tmp_dir = self.repo_dir.join(".git").join("ultragit");
+        let tmp_dir = self.repo_dir.join(".git").join("chronicle");
         std::fs::create_dir_all(&tmp_dir).map_err(|e| {
             CommandFailedSnafu {
                 message: format!("failed to create temp dir: {e}"),
@@ -243,8 +243,8 @@ impl GitOps for CliOps {
     }
 
     fn list_annotated_commits(&self, limit: u32) -> Result<Vec<String>, GitError> {
-        // List commits that have notes under refs/notes/ultragit.
-        // `git log --format=%H refs/notes/ultragit` lists the note tree commits,
+        // List commits that have notes under refs/notes/chronicle.
+        // `git log --format=%H refs/notes/chronicle` lists the note tree commits,
         // not the annotated commits. Instead, use `git notes list` which outputs
         // "<blob-sha> <commit-sha>" for each annotated commit.
         let (success, stdout, _stderr) =

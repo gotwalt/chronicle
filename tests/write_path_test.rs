@@ -1,12 +1,12 @@
 use std::path::Path;
 use std::process::Command;
 
-use ultragit::git::{CliOps, GitOps};
-use ultragit::mcp::annotate_handler::{
+use chronicle::git::{CliOps, GitOps};
+use chronicle::mcp::annotate_handler::{
     AnchorInput, AnchorResolutionKind, AnnotateInput, ConstraintInput, RegionInput,
     handle_annotate,
 };
-use ultragit::schema::{
+use chronicle::schema::{
     Annotation, ConstraintSource, ContextLevel, CrossCuttingConcern, CrossCuttingRegionRef,
     LineRange, ProvenanceOperation, SemanticDependency,
 };
@@ -141,7 +141,7 @@ fn full_roundtrip_annotate_and_read_note() {
     let note_json = ops.note_read(&result.commit).unwrap().unwrap();
     let annotation: Annotation = serde_json::from_str(&note_json).unwrap();
 
-    assert_eq!(annotation.schema, "ultragit/v1");
+    assert_eq!(annotation.schema, "chronicle/v1");
     assert_eq!(annotation.commit, result.commit);
     assert_eq!(annotation.context_level, ContextLevel::Enhanced);
     assert_eq!(annotation.task, Some("TASK-42".to_string()));

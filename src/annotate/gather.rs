@@ -1,4 +1,4 @@
-use crate::error::{Result, ultragit_error};
+use crate::error::{Result, chronicle_error};
 use crate::git::{FileDiff, GitOps};
 use snafu::ResultExt;
 use std::path::PathBuf;
@@ -30,10 +30,10 @@ pub fn build_context(
     commit: &str,
 ) -> Result<AnnotationContext> {
     // Get commit metadata
-    let info = git_ops.commit_info(commit).context(ultragit_error::GitSnafu)?;
+    let info = git_ops.commit_info(commit).context(chronicle_error::GitSnafu)?;
 
     // Get file diffs
-    let diffs = git_ops.diff(commit).context(ultragit_error::GitSnafu)?;
+    let diffs = git_ops.diff(commit).context(chronicle_error::GitSnafu)?;
 
     // Gather author context from pending-context file and env vars
     let author_context = gather_author_context();
@@ -51,14 +51,14 @@ pub fn build_context(
 
 /// Gather author context from pending-context.json and environment variables.
 fn gather_author_context() -> Option<AuthorContext> {
-    // Try reading pending context from .git/ultragit/pending-context.json
+    // Try reading pending context from .git/chronicle/pending-context.json
     let pending = read_pending_context_from_git_dir();
 
     // Also check environment variables
-    let env_task = std::env::var("ULTRAGIT_TASK").ok().filter(|s| !s.is_empty());
-    let env_reasoning = std::env::var("ULTRAGIT_REASONING").ok().filter(|s| !s.is_empty());
-    let env_dependencies = std::env::var("ULTRAGIT_DEPENDENCIES").ok().filter(|s| !s.is_empty());
-    let env_tags: Vec<String> = std::env::var("ULTRAGIT_TAGS")
+    let env_task = std::env::var("CHRONICLE_TASK").ok().filter(|s| !s.is_empty());
+    let env_reasoning = std::env::var("CHRONICLE_REASONING").ok().filter(|s| !s.is_empty());
+    let env_dependencies = std::env::var("CHRONICLE_DEPENDENCIES").ok().filter(|s| !s.is_empty());
+    let env_tags: Vec<String> = std::env::var("CHRONICLE_TAGS")
         .ok()
         .filter(|s| !s.is_empty())
         .map(|s| s.split(',').map(|t| t.trim().to_string()).collect())

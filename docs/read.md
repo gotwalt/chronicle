@@ -1,14 +1,14 @@
-# Ultragit: Reading Agent
+# Chronicle: Reading Agent
 
-## `ultragit read` — CLI for Semantic Code Context Retrieval
+## `git chronicle read` — CLI for Semantic Code Context Retrieval
 
 ---
 
 ## 1. Overview
 
-`ultragit read` is the retrieval interface for Ultragit annotations. It is a CLI designed primarily for AI agents — invoked before modifying code to gather the reasoning, intent, constraints, and semantic dependencies captured at commit time by the Writing Agent.
+`git chronicle read` is the retrieval interface for Chronicle annotations. It is a CLI designed primarily for AI agents — invoked before modifying code to gather the reasoning, intent, constraints, and semantic dependencies captured at commit time by the Writing Agent.
 
-The core workflow is simple: an agent identifies code it needs to understand, runs `ultragit read` with a file path and optional scope, and receives structured JSON containing the accumulated reasoning behind that code. The CLI handles the mechanics of blame traversal, note retrieval, annotation filtering, and confidence scoring internally.
+The core workflow is simple: an agent identifies code it needs to understand, runs `git chronicle read` with a file path and optional scope, and receives structured JSON containing the accumulated reasoning behind that code. The CLI handles the mechanics of blame traversal, note retrieval, annotation filtering, and confidence scoring internally.
 
 This document covers the CLI design and an accompanying LLM skill definition that teaches agents when and how to invoke it.
 
@@ -18,7 +18,7 @@ This document covers the CLI design and an accompanying LLM skill definition tha
 
 An agent assigned a task — "add connection pooling to the MQTT client" — needs to understand the existing code before modifying it. Reading the code tells it *what* exists. `git log` and `git blame` tell it *when* and *who*. But neither tells it *why* the code is structured the way it is, what alternatives were rejected, what invariants are being protected, or what other code depends on assumptions embedded here.
 
-Ultragit annotations capture all of this. But raw `git notes` are keyed by commit SHA and contain annotations for entire commits spanning multiple files and regions. An agent doesn't want to manually run blame, collect SHAs, fetch notes, parse JSON, and filter to the relevant regions. It wants a single command that returns "here's everything you should know about this code before you touch it."
+Chronicle annotations capture all of this. But raw `git notes` are keyed by commit SHA and contain annotations for entire commits spanning multiple files and regions. An agent doesn't want to manually run blame, collect SHAs, fetch notes, parse JSON, and filter to the relevant regions. It wants a single command that returns "here's everything you should know about this code before you touch it."
 
 ---
 
@@ -41,16 +41,16 @@ Ultragit annotations capture all of this. But raw `git notes` are keyed by commi
 ### 4.1 Primary Command
 
 ```
-ultragit read [OPTIONS] <PATH> [<ANCHOR>] [--lines <START:END>]
+git chronicle read [OPTIONS] <PATH> [<ANCHOR>] [--lines <START:END>]
 ```
 
-Returns Ultragit annotations relevant to the specified code.
+Returns Chronicle annotations relevant to the specified code.
 
 **Arguments:**
 
 `<PATH>` — relative file path from the repository root. Required.
 
-`<ANCHOR>` — optional positional argument specifying a named AST unit (function, struct, impl, etc.). This is the most common use case — querying a specific function or type — so it should be easy to type without a flag. Ultragit parses the file with tree-sitter to resolve the anchor to a line range, then proceeds as with `--lines`. Supports qualified names like `MqttClient::connect`. The `--anchor <NAME>` flag is retained as an alias for backward compatibility.
+`<ANCHOR>` — optional positional argument specifying a named AST unit (function, struct, impl, etc.). This is the most common use case — querying a specific function or type — so it should be easy to type without a flag. Chronicle parses the file with tree-sitter to resolve the anchor to a line range, then proceeds as with `--lines`. Supports qualified names like `MqttClient::connect`. The `--anchor <NAME>` flag is retained as an alias for backward compatibility.
 
 **Scope selectors (optional):**
 
@@ -82,34 +82,34 @@ If neither anchor nor `--lines` is specified, returns annotations for the entire
 
 `--verbose` — include all fields in JSON output, even when empty/null. Default output is compact (omits empty/null fields) to reduce token count for agent consumption.
 
-`--max-tokens <N>` — target maximum token count for the output. Ultragit estimates token count (roughly 4 characters per token) and trims the output to fit while maintaining valid, parseable output regardless of format. Trimming happens at the semantic level (dropping regions, then fields) before formatting. See Section 5.4 for the trimming strategy.
+`--max-tokens <N>` — target maximum token count for the output. Chronicle estimates token count (roughly 4 characters per token) and trims the output to fit while maintaining valid, parseable output regardless of format. Trimming happens at the semantic level (dropping regions, then fields) before formatting. See Section 5.4 for the trimming strategy.
 
 ### 4.2 Multi-File Queries
 
 ```
-ultragit read [OPTIONS] <PATH...>
+git chronicle read [OPTIONS] <PATH...>
 ```
 
-When multiple paths are provided, `ultragit read` returns a combined annotation set with cross-file `semantic_dependencies` and `cross_cutting` concerns surfaced automatically. Useful when an agent is planning a change that spans multiple files and needs to understand the coupling between them.
+When multiple paths are provided, `git chronicle read` returns a combined annotation set with cross-file `semantic_dependencies` and `cross_cutting` concerns surfaced automatically. Useful when an agent is planning a change that spans multiple files and needs to understand the coupling between them.
 
 ```
-ultragit read src/mqtt/client.rs src/tls/session.rs src/mqtt/reconnect.rs
+git chronicle read src/mqtt/client.rs src/tls/session.rs src/mqtt/reconnect.rs
 ```
 
 ### 4.3 Dependency Query
 
 ```
-ultragit deps <PATH> [<ANCHOR>]
+git chronicle deps <PATH> [<ANCHOR>]
 ```
 
 Returns only the `semantic_dependencies` and `cross_cutting` entries that reference the specified code, aggregated across all annotations in the repository. This answers: "what other code depends on assumptions about this function?"
 
-This is the highest-value query for preventing regressions. An agent about to modify `TlsSessionCache::max_sessions()` runs `ultragit deps src/tls/session.rs max_sessions` and immediately learns that the MQTT reconnection logic assumes a max of 4 sessions.
+This is the highest-value query for preventing regressions. An agent about to modify `TlsSessionCache::max_sessions()` runs `git chronicle deps src/tls/session.rs max_sessions` and immediately learns that the MQTT reconnection logic assumes a max of 4 sessions.
 
 ### 4.4 History Query
 
 ```
-ultragit history <PATH> [<ANCHOR>] [--limit <N>]
+git chronicle history <PATH> [<ANCHOR>] [--limit <N>]
 ```
 
 Returns the annotation timeline for a code region — the chain of annotations across commits that have touched it, ordered chronologically. This is `git log` but for reasoning: not "what changed" but "what was the thinking at each step."
@@ -119,7 +119,7 @@ Follows `related_annotations` links to include connected reasoning even from com
 ### 4.5 Summary Query
 
 ```
-ultragit summary <PATH> [<ANCHOR>]
+git chronicle summary <PATH> [<ANCHOR>]
 ```
 
 Returns a condensed view: the most recent annotation for each AST-level unit in the file (or for the specified anchor), with only the `intent`, `constraints`, and `risk_notes` fields. Designed for broad orientation — an agent scanning a module to understand its shape before diving into a specific function.
@@ -134,7 +134,7 @@ All queries follow the same fundamental pipeline:
 
 ```
 ┌──────────────────────────────────────────────────────┐
-│                   ultragit read                      │
+│                   git chronicle read                      │
 ├──────────────────────────────────────────────────────┤
 │                                                       │
 │  1. Resolve scope                                     │
@@ -148,7 +148,7 @@ All queries follow the same fundamental pipeline:
 │                                                       │
 │  3. Fetch notes                                       │
 │     For each unique commit SHA:                       │
-│       git notes --ref=ultragit show <sha>            │
+│       git notes --ref=chronicle show <sha>            │
 │     → set of raw annotation JSON documents            │
 │                                                       │
 │  4. Filter regions                                    │
@@ -181,7 +181,7 @@ All queries follow the same fundamental pipeline:
 
 ### 5.2 Anchor Resolution
 
-When an anchor is specified (either as a positional argument or via `--anchor`), Ultragit parses the file with tree-sitter and searches for a matching semantic unit. The matching is flexible:
+When an anchor is specified (either as a positional argument or via `--anchor`), Chronicle parses the file with tree-sitter and searches for a matching semantic unit. The matching is flexible:
 
 - Exact match: `MqttClient::connect` matches `impl MqttClient { fn connect() }`
 - Unqualified match: `connect` matches `fn connect()`
@@ -205,9 +205,9 @@ The confidence score is included in the output for each region. Agents can use `
 
 ### 5.4 Token Budget Trimming
 
-When `--max-tokens` is specified, Ultragit must reduce the output to fit while guaranteeing the result is valid, parseable JSON. This is a hard constraint — a truncated or malformed response is worse than a smaller correct one.
+When `--max-tokens` is specified, Chronicle must reduce the output to fit while guaranteeing the result is valid, parseable JSON. This is a hard constraint — a truncated or malformed response is worse than a smaller correct one.
 
-**Token estimation.** Ultragit uses a simple heuristic: 1 token ≈ 4 characters of JSON output. This slightly overestimates for structured JSON (which has a high ratio of syntax characters to content), making it a conservative bound. The estimate is applied after serialization, not before — Ultragit builds the full output, measures it, and trims if needed.
+**Token estimation.** Chronicle uses a simple heuristic: 1 token ≈ 4 characters of JSON output. This slightly overestimates for structured JSON (which has a high ratio of syntax characters to content), making it a conservative bound. The estimate is applied after serialization, not before — Chronicle builds the full output, measures it, and trims if needed.
 
 **Trimming strategy: newest commits first.**
 
@@ -267,7 +267,7 @@ The invariant is: **if a region is present in the output, it always has `intent`
 
 ```json
 {
-  "$schema": "ultragit-read/v1",
+  "$schema": "chronicle-read/v1",
   "query": {
     "file": "src/mqtt/client.rs",
     "anchor": "MqttClient::connect",
@@ -456,7 +456,7 @@ Annotations are not immutable truths — agents that discover incorrect annotati
 **Flagging an annotation:**
 
 ```
-ultragit flag <PATH> [<ANCHOR>] --reason "Constraint about drain-before-reconnect is incorrect; verified safe to reconnect first"
+git chronicle flag <PATH> [<ANCHOR>] --reason "Constraint about drain-before-reconnect is incorrect; verified safe to reconnect first"
 ```
 
 This writes a correction note that the read path surfaces alongside the original annotation. The flagged annotation gets its confidence reduced. Future agents see both the original claim and the correction, allowing them to make informed decisions.
@@ -464,34 +464,34 @@ This writes a correction note that the read path surfaces alongside the original
 **Formal correction:**
 
 ```
-ultragit correct <SHA> --region "MqttClient::connect" --field constraints --remove "Must drain queue before reconnecting"
+git chronicle correct <SHA> --region "MqttClient::connect" --field constraints --remove "Must drain queue before reconnecting"
 ```
 
-`ultragit correct` targets a specific annotation by commit SHA and removes or amends individual fields. The correction is stored as a separate note linked to the original, preserving the history of what was believed and when it was corrected.
+`git chronicle correct` targets a specific annotation by commit SHA and removes or amends individual fields. The correction is stored as a separate note linked to the original, preserving the history of what was believed and when it was corrected.
 
-Both mechanisms ensure that annotations improve over time. An agent that encounters a constraint it can prove is wrong should `flag` it immediately. A more thorough correction via `ultragit correct` can be applied when the agent has identified the specific field and value to remove or amend.
+Both mechanisms ensure that annotations improve over time. An agent that encounters a constraint it can prove is wrong should `flag` it immediately. A more thorough correction via `git chronicle correct` can be applied when the agent has identified the specific field and value to remove or amend.
 
 ---
 
 ## 7. LLM Skill Definition
 
-The following skill definition is designed to be included in an agent's system prompt or skill library. It teaches the agent when and how to use `ultragit read`.
+The following skill definition is designed to be included in an agent's system prompt or skill library. It teaches the agent when and how to use `git chronicle read`.
 
 ---
 
 ```markdown
-# Skill: Ultragit — Semantic Code Context
+# Skill: Chronicle — Semantic Code Context
 
 ## What It Is
 
-Ultragit annotations capture the reasoning, intent, constraints, and semantic
-dependencies behind code changes at commit time. The `ultragit read` CLI
+Chronicle annotations capture the reasoning, intent, constraints, and semantic
+dependencies behind code changes at commit time. The `git chronicle read` CLI
 retrieves these annotations for code you're about to work with.
 
 ## When To Use It
 
 **Always use before modifying existing code.** Before changing any function,
-struct, module, or configuration, run `ultragit read` to understand why the
+struct, module, or configuration, run `git chronicle read` to understand why the
 code exists in its current form. This is especially important for:
 
 - Code with non-obvious structure or naming
@@ -499,13 +499,13 @@ code exists in its current form. This is especially important for:
 - Code that other modules depend on
 - Code you didn't write (or don't remember writing)
 
-**Always use before deleting or refactoring code.** Run `ultragit deps` to
+**Always use before deleting or refactoring code.** Run `git chronicle deps` to
 check if other code declares dependencies on what you're about to change.
 
-**Use `ultragit summary` when orienting on a new file or module.** Get a
+**Use `git chronicle summary` when orienting on a new file or module.** Get a
 high-level map of intent and constraints before diving into specifics.
 
-**Use `ultragit history` when debugging.** If current behavior is surprising,
+**Use `git chronicle history` when debugging.** If current behavior is surprising,
 the annotation timeline can reveal the reasoning chain that produced it.
 
 ## When Not To Use It
@@ -518,28 +518,28 @@ the annotation timeline can reveal the reasoning chain that produced it.
 
 ### Read annotations for a function
 ```
-ultragit read src/mqtt/client.rs MqttClient::connect
+git chronicle read src/mqtt/client.rs MqttClient::connect
 ```
 Returns intent, reasoning, constraints, dependencies, and risk notes for the
 specified function. Follow `related` entries for connected reasoning.
 
 ### Read annotations for a line range
 ```
-ultragit read src/mqtt/client.rs --lines 42:67
+git chronicle read src/mqtt/client.rs --lines 42:67
 ```
 Use when you don't know the function name, or the relevant code spans multiple
 functions.
 
 ### Read annotations for an entire file
 ```
-ultragit read src/mqtt/client.rs
+git chronicle read src/mqtt/client.rs
 ```
 Returns annotations for all annotated regions in the file. Use `--max-regions`
 to limit output if the file is large.
 
 ### Check what depends on this code
 ```
-ultragit deps src/tls/session.rs TlsSessionCache::max_sessions
+git chronicle deps src/tls/session.rs TlsSessionCache::max_sessions
 ```
 **Critical before modifying any function's behavior or signature.** Returns
 annotations from other code that explicitly declares assumptions about this
@@ -547,27 +547,27 @@ function. Failing to check this is the primary cause of regressions.
 
 ### Get the reasoning timeline
 ```
-ultragit history src/mqtt/client.rs MqttClient::connect --limit 5
+git chronicle history src/mqtt/client.rs MqttClient::connect --limit 5
 ```
 Returns the chain of annotations across commits that have modified this
 function. Useful for understanding how and why the code evolved.
 
 ### Broad orientation on a module
 ```
-ultragit summary src/mqtt/
+git chronicle summary src/mqtt/
 ```
 Returns condensed intent + constraints for each annotated unit in the module.
 
 ### Multi-file context for cross-cutting changes
 ```
-ultragit read src/mqtt/client.rs src/tls/session.rs src/mqtt/reconnect.rs
+git chronicle read src/mqtt/client.rs src/tls/session.rs src/mqtt/reconnect.rs
 ```
 Returns annotations for all specified files with cross-file dependencies and
 cross-cutting concerns surfaced automatically.
 
 ### Controlling output size
 ```
-ultragit read src/mqtt/client.rs --max-tokens 2000
+git chronicle read src/mqtt/client.rs --max-tokens 2000
 ```
 Limits output to approximately 2000 tokens. Use this when your context window
 is constrained or you're querying broad scopes. When output is trimmed, older
@@ -577,7 +577,7 @@ annotations explain why the code was originally designed this way. Check the
 individually if needed.
 
 ```
-ultragit read src/mqtt/client.rs connect --max-tokens 1000
+git chronicle read src/mqtt/client.rs connect --max-tokens 1000
 ```
 
 ## Reading the Output
@@ -617,16 +617,16 @@ incremental refinements that can be queried separately if needed.
 
 ## After Making Changes
 
-Use `ultragit commit` to commit with annotation context:
+Use `git chronicle commit` to commit with annotation context:
 
 ```bash
-ultragit commit -m "add connection pooling to MQTT client" \
+git chronicle commit -m "add connection pooling to MQTT client" \
   --reasoning "Chose bounded pool with LRU eviction because..." \
   --dependencies "Assumes max_sessions in TlsSessionCache is 4"
 ```
 
 This passes your reasoning directly to the Writing Agent, which creates
-richer annotations. If you relied on Ultragit annotations during your work,
+richer annotations. If you relied on Chronicle annotations during your work,
 reference them: the Writing Agent will link your new annotation to the ones
 you built on via `related_annotations`.
 ```
@@ -641,38 +641,38 @@ The primary integration is an agent that:
 
 1. Receives a task.
 2. Identifies the files and functions it needs to modify.
-3. Runs `ultragit read` or `ultragit deps` for each.
+3. Runs `git chronicle read` or `git chronicle deps` for each.
 4. Incorporates the annotations into its planning context.
 5. Makes changes.
-6. Commits via `ultragit commit` with reasoning and dependency context.
+6. Commits via `git chronicle commit` with reasoning and dependency context.
 7. The Writing Agent annotates the commit.
 
-Steps 3–4 are where `ultragit read` adds the most value. The annotations become part of the agent's working context alongside the code itself.
+Steps 3–4 are where `git chronicle read` adds the most value. The annotations become part of the agent's working context alongside the code itself.
 
 ### 8.2 MCP Server
 
-Ultragit will ship an MCP server that exposes `ultragit_read`, `ultragit_deps`, `ultragit_history`, and `ultragit_summary` as tools any MCP-connected agent can call directly. This is the preferred integration path — agents call Ultragit as a tool rather than shelling out to the CLI.
+Chronicle will ship an MCP server that exposes `chronicle_read`, `chronicle_deps`, `chronicle_history`, and `chronicle_summary` as tools any MCP-connected agent can call directly. This is the preferred integration path — agents call Chronicle as a tool rather than shelling out to the CLI.
 
 Installation:
 
 ```bash
-ultragit mcp install
+chronicle mcp install
 ```
 
 This registers the MCP server in the agent's MCP configuration. The tool interface mirrors the CLI: same arguments, same JSON output schema, same filtering and depth options.
 
 ### 8.3 Editor Integration (Future)
 
-An LSP-adjacent service that surfaces Ultragit annotations as inline hints, hover information, or diagnostic warnings ("3 other modules depend on this function's behavior"). Out of scope for the initial implementation but the CLI provides the data layer.
+An LSP-adjacent service that surfaces Chronicle annotations as inline hints, hover information, or diagnostic warnings ("3 other modules depend on this function's behavior"). Out of scope for the initial implementation but the CLI provides the data layer.
 
 ---
 
 ## 9. Crate Integration
 
-The read functionality lives in the same `ultragit` binary as the write side. The relevant additions to the crate structure:
+The read functionality lives in the same `chronicle` binary as the write side. The relevant additions to the crate structure:
 
 ```
-ultragit/
+chronicle/
 ├── src/
 │   ├── read.rs                 # Core retrieval pipeline (blame → notes → filter → score)
 │   ├── read_deps.rs            # Dependency inversion queries
@@ -692,6 +692,6 @@ Shares `ast_outline.rs`, `storage.rs`, `schema.rs`, and `config.rs` with the wri
 
 2. **Partial file blame.** `git blame` on a 10,000-line generated file is wasteful if the agent only cares about lines 50-60. Scoping blame to a line range is supported by `git blame -L`, but `gix` may not support this natively. May need to shell out for scoped blame.
 
-3. **Annotation staleness beyond confidence scoring.** If a function's signature has changed but the annotation still references the old signature, should `ultragit read` attempt to surface this as an explicit warning? Or is the reduced confidence score sufficient?
+3. **Annotation staleness beyond confidence scoring.** If a function's signature has changed but the annotation still references the old signature, should `git chronicle read` attempt to surface this as an explicit warning? Or is the reduced confidence score sufficient?
 
 4. **Trimming heuristic refinement.** The "newest commits first" trimming strategy is a good default, but some newer annotations may be more important than older ones (e.g., a recent annotation that says "WARNING: this function is being deprecated, use X instead"). Should the trimming order factor in annotation content signals beyond timestamp? Or is keeping the strategy simple and predictable more valuable?

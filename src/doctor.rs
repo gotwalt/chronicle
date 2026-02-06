@@ -68,25 +68,25 @@ fn check_version() -> DoctorCheck {
     DoctorCheck {
         name: "version".to_string(),
         status: DoctorStatus::Pass,
-        message: format!("ultragit {}", env!("CARGO_PKG_VERSION")),
+        message: format!("chronicle {}", env!("CARGO_PKG_VERSION")),
         fix_hint: None,
     }
 }
 
 /// Check: notes ref exists.
 fn check_notes_ref(git_ops: &dyn GitOps) -> DoctorCheck {
-    match git_ops.resolve_ref("refs/notes/ultragit") {
+    match git_ops.resolve_ref("refs/notes/chronicle") {
         Ok(_) => DoctorCheck {
             name: "notes_ref".to_string(),
             status: DoctorStatus::Pass,
-            message: "refs/notes/ultragit exists".to_string(),
+            message: "refs/notes/chronicle exists".to_string(),
             fix_hint: None,
         },
         Err(_) => DoctorCheck {
             name: "notes_ref".to_string(),
             status: DoctorStatus::Warn,
-            message: "refs/notes/ultragit not found (no annotations yet)".to_string(),
-            fix_hint: Some("Run `ultragit annotate --commit HEAD` to create the first annotation.".to_string()),
+            message: "refs/notes/chronicle not found (no annotations yet)".to_string(),
+            fix_hint: Some("Run `git chronicle annotate --commit HEAD` to create the first annotation.".to_string()),
         },
     }
 }
@@ -98,7 +98,7 @@ fn check_hooks(git_dir: &PathBuf) -> DoctorCheck {
 
     if post_commit.exists() {
         let content = std::fs::read_to_string(&post_commit).unwrap_or_default();
-        if content.contains("ultragit") {
+        if content.contains("chronicle") {
             DoctorCheck {
                 name: "hooks".to_string(),
                 status: DoctorStatus::Pass,
@@ -109,8 +109,8 @@ fn check_hooks(git_dir: &PathBuf) -> DoctorCheck {
             DoctorCheck {
                 name: "hooks".to_string(),
                 status: DoctorStatus::Warn,
-                message: "post-commit hook exists but does not reference ultragit".to_string(),
-                fix_hint: Some("Run `ultragit init` to reinstall hooks.".to_string()),
+                message: "post-commit hook exists but does not reference chronicle".to_string(),
+                fix_hint: Some("Run `git chronicle init` to reinstall hooks.".to_string()),
             }
         }
     } else {
@@ -118,7 +118,7 @@ fn check_hooks(git_dir: &PathBuf) -> DoctorCheck {
             name: "hooks".to_string(),
             status: DoctorStatus::Fail,
             message: "post-commit hook not installed".to_string(),
-            fix_hint: Some("Run `ultragit init` to install hooks.".to_string()),
+            fix_hint: Some("Run `git chronicle init` to install hooks.".to_string()),
         }
     }
 }
@@ -142,26 +142,26 @@ fn check_credentials() -> DoctorCheck {
     }
 }
 
-/// Check: ultragit config is valid.
+/// Check: chronicle config is valid.
 fn check_config(git_ops: &dyn GitOps) -> DoctorCheck {
-    match git_ops.config_get("ultragit.enabled") {
+    match git_ops.config_get("chronicle.enabled") {
         Ok(Some(val)) if val == "true" || val == "1" => DoctorCheck {
             name: "config".to_string(),
             status: DoctorStatus::Pass,
-            message: "ultragit is enabled".to_string(),
+            message: "chronicle is enabled".to_string(),
             fix_hint: None,
         },
         Ok(_) => DoctorCheck {
             name: "config".to_string(),
             status: DoctorStatus::Fail,
-            message: "ultragit is not enabled in git config".to_string(),
-            fix_hint: Some("Run `ultragit init` to initialize.".to_string()),
+            message: "chronicle is not enabled in git config".to_string(),
+            fix_hint: Some("Run `git chronicle init` to initialize.".to_string()),
         },
         Err(_) => DoctorCheck {
             name: "config".to_string(),
             status: DoctorStatus::Fail,
             message: "could not read git config".to_string(),
-            fix_hint: Some("Run `ultragit init` to initialize.".to_string()),
+            fix_hint: Some("Run `git chronicle init` to initialize.".to_string()),
         },
     }
 }

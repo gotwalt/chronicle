@@ -2,8 +2,8 @@ use snafu::Snafu;
 use std::path::PathBuf;
 
 #[derive(Debug, Snafu)]
-#[snafu(visibility(pub), module(ultragit_error))]
-pub enum UltragitError {
+#[snafu(visibility(pub), module(chronicle_error))]
+pub enum ChronicleError {
     #[snafu(display("not a git repository: {}", path.display()))]
     NotARepository {
         path: PathBuf,
@@ -11,7 +11,7 @@ pub enum UltragitError {
         location: snafu::Location,
     },
 
-    #[snafu(display("ultragit not initialized (run `ultragit init` first)"))]
+    #[snafu(display("chronicle not initialized (run `git chronicle init` first)"))]
     NotInitialized {
         #[snafu(implicit)]
         location: snafu::Location,
@@ -250,4 +250,4 @@ pub enum AstError {
     },
 }
 
-pub type Result<T, E = UltragitError> = std::result::Result<T, E>;
+pub type Result<T, E = ChronicleError> = std::result::Result<T, E>;

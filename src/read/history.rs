@@ -156,7 +156,7 @@ pub fn build_timeline(git: &dyn GitOps, query: &HistoryQuery) -> Result<HistoryO
     }
 
     Ok(HistoryOutput {
-        schema: "ultragit-history/v1".to_string(),
+        schema: "chronicle-history/v1".to_string(),
         query: QueryEcho {
             file: query.file.clone(),
             anchor: query.anchor.clone(),
@@ -242,7 +242,7 @@ mod tests {
 
     fn make_annotation(commit: &str, timestamp: &str, regions: Vec<RegionAnnotation>) -> Annotation {
         Annotation {
-            schema: "ultragit/v1".to_string(),
+            schema: "chronicle/v1".to_string(),
             commit: commit.to_string(),
             timestamp: timestamp.to_string(),
             task: None,

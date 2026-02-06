@@ -1,8 +1,8 @@
-# Ultragit Annotate Skill
+# Chronicle Annotate Skill
 
 ## When to Use
 
-After you create a git commit, annotate it using the `ultragit_annotate` MCP tool. This captures your intent, reasoning, and constraints as structured metadata stored alongside the commit.
+After you create a git commit, annotate it using the `chronicle_annotate` MCP tool. This captures your intent, reasoning, and constraints as structured metadata stored alongside the commit.
 
 **Always annotate when:**
 - You created a commit that adds, modifies, or removes code
@@ -11,11 +11,11 @@ After you create a git commit, annotate it using the `ultragit_annotate` MCP too
 **Skip annotation when:**
 - The commit only changes lockfiles, generated files, or vendored dependencies
 - The commit is a merge commit with no manual conflict resolution
-- The `ultragit_annotate` tool is not available
+- The `chronicle_annotate` tool is not available
 
 ## How to Annotate
 
-Call the `ultragit_annotate` MCP tool with:
+Call the `chronicle_annotate` MCP tool with:
 
 ```json
 {
@@ -86,10 +86,10 @@ The handler will resolve your anchor against the AST and correct the line number
 
 ## Fallback
 
-If the `ultragit_annotate` MCP tool is not available, fall back to the CLI:
+If the `chronicle_annotate` MCP tool is not available, fall back to the CLI:
 
 ```bash
-ultragit annotate --commit HEAD
+git chronicle annotate --commit HEAD
 ```
 
 This uses the batch path (LLM-based) which is slower and costs API tokens, but works without the MCP server.

@@ -2,9 +2,9 @@
 
 ## Overview
 
-This feature covers the mechanisms by which Ultragit integrates into the git commit workflow: hook installation, hook chaining with existing hooks, the `ultragit commit` wrapper command, the `ultragit context set` command, the `pending-context.json` lifecycle, environment variable fallbacks, pre-LLM filtering of trivial commits, async/sync execution models, and the `ultragit init` orchestration command.
+This feature covers the mechanisms by which Chronicle integrates into the git commit workflow: hook installation, hook chaining with existing hooks, the `git chronicle commit` wrapper command, the `git chronicle context set` command, the `pending-context.json` lifecycle, environment variable fallbacks, pre-LLM filtering of trivial commits, async/sync execution models, and the `git chronicle init` orchestration command.
 
-Hooks are the entry point for the entire write path. Without them, annotations don't happen. The design priorities are: never break the user's existing git workflow, never block the terminal by default, degrade gracefully when anything goes wrong, and make the common case (agent commits with context) require zero configuration after `ultragit init`.
+Hooks are the entry point for the entire write path. Without them, annotations don't happen. The design priorities are: never break the user's existing git workflow, never block the terminal by default, degrade gracefully when anything goes wrong, and make the common case (agent commits with context) require zero configuration after `git chronicle init`.
 
 ---
 
@@ -12,7 +12,7 @@ Hooks are the entry point for the entire write path. Without them, annotations d
 
 | Feature | What it provides |
 |---------|-----------------|
-| 01 CLI & Config | CLI framework, `UltragitConfig`, clap subcommand structure |
+| 01 CLI & Config | CLI framework, `ChronicleConfig`, clap subcommand structure |
 | 02 Git Operations | Notes ref creation, git config read/write, diff extraction (for pre-LLM filtering) |
 | 05 Writing Agent | `annotate_commit()` — the function hooks ultimately invoke |
 
@@ -22,12 +22,12 @@ Hooks are the entry point for the entire write path. Without them, annotations d
 
 ### CLI Commands
 
-#### `ultragit init`
+#### `git chronicle init`
 
 ```
-ultragit init [OPTIONS]
+git chronicle init [OPTIONS]
 
-Initializes Ultragit in the current git repository.
+Initializes Chronicle in the current git repository.
 
 Options:
   --provider <NAME>       Pin LLM provider (anthropic, openai, gemini, openrouter)
@@ -40,25 +40,25 @@ Options:
 
 Actions:
   1. Install git hooks (post-commit, prepare-commit-msg, post-rewrite)
-  2. Create refs/notes/ultragit if it doesn't exist
-  3. Create .git/ultragit/ directory
-  4. Write [ultragit] section to .git/config
-  5. Check for .ultragit-config.toml and apply defaults
+  2. Create refs/notes/chronicle if it doesn't exist
+  3. Create .git/chronicle/ directory
+  4. Write [chronicle] section to .git/config
+  5. Check for .chronicle-config.toml and apply defaults
   6. Check for existing remote annotations and auto-configure sync
   7. Run credential check
   8. Optionally run a dry-run annotation test
 ```
 
-#### `ultragit commit`
+#### `git chronicle commit`
 
 ```
-ultragit commit [GIT_COMMIT_OPTIONS] [ULTRAGIT_OPTIONS]
+git chronicle commit [GIT_COMMIT_OPTIONS] [CHRONICLE_OPTIONS]
 
 Wraps `git commit` with context capture. Writes context to
-.git/ultragit/pending-context.json, then invokes `git commit`
+.git/chronicle/pending-context.json, then invokes `git commit`
 with all pass-through flags.
 
-Ultragit-specific options:
+Chronicle-specific options:
   --task <TEXT>            Task identifier or description
   --reasoning <TEXT>       Reasoning, rejected alternatives, tradeoffs
   --dependencies <TEXT>    Semantic dependencies the author is aware of
@@ -72,12 +72,12 @@ All other options are passed through to `git commit`:
   ... (any git commit flag)
 ```
 
-#### `ultragit context set`
+#### `git chronicle context set`
 
 ```
-ultragit context set [OPTIONS]
+git chronicle context set [OPTIONS]
 
-Writes context to .git/ultragit/pending-context.json without committing.
+Writes context to .git/chronicle/pending-context.json without committing.
 The next `git commit` will pick up and consume the context.
 
 Options:
@@ -127,20 +127,20 @@ pub enum HookType {
 
 ### Hook Installation
 
-`ultragit init` installs three hooks into `.git/hooks/`:
+`git chronicle init` installs three hooks into `.git/hooks/`:
 
 #### `post-commit`
 
 ```bash
 #!/bin/sh
-# ultragit post-commit hook
-# Installed by: ultragit init
-# To remove: ultragit uninstall
+# chronicle post-commit hook
+# Installed by: git chronicle init
+# To remove: chronicle uninstall
 
 # Run annotation in background by default.
-# ultragit handles its own error logging.
-if command -v ultragit >/dev/null 2>&1; then
-  ultragit annotate --commit HEAD --async 2>/dev/null &
+# chronicle handles its own error logging.
+if command -v chronicle >/dev/null 2>&1; then
+  git chronicle annotate --commit HEAD --async 2>/dev/null &
 fi
 ```
 
@@ -148,8 +148,8 @@ When `--sync` mode is configured:
 
 ```bash
 #!/bin/sh
-if command -v ultragit >/dev/null 2>&1; then
-  ultragit annotate --commit HEAD --sync
+if command -v chronicle >/dev/null 2>&1; then
+  git chronicle annotate --commit HEAD --sync
 fi
 ```
 
@@ -157,58 +157,58 @@ fi
 
 ```bash
 #!/bin/sh
-# ultragit prepare-commit-msg hook
+# chronicle prepare-commit-msg hook
 # Detects squash merges and records source commits.
 
 COMMIT_MSG_FILE="$1"
 COMMIT_SOURCE="$2"
 
-if command -v ultragit >/dev/null 2>&1; then
-  ultragit hook prepare-commit-msg "$COMMIT_MSG_FILE" "$COMMIT_SOURCE" 2>/dev/null
+if command -v chronicle >/dev/null 2>&1; then
+  git chronicle hook prepare-commit-msg "$COMMIT_MSG_FILE" "$COMMIT_SOURCE" 2>/dev/null
 fi
 ```
 
-The `ultragit hook prepare-commit-msg` subcommand:
+The `git chronicle hook prepare-commit-msg` subcommand:
 1. Checks if `$COMMIT_SOURCE` is `squash` or `merge`.
 2. Checks for `.git/SQUASH_MSG` (present during `git merge --squash`).
-3. If squash detected: resolves source commit SHAs, writes `.git/ultragit/pending-squash.json`.
+3. If squash detected: resolves source commit SHAs, writes `.git/chronicle/pending-squash.json`.
 4. Exits silently if not a squash.
 
 #### `post-rewrite`
 
 ```bash
 #!/bin/sh
-# ultragit post-rewrite hook
+# chronicle post-rewrite hook
 # Migrates annotations when commits are amended.
 
-if command -v ultragit >/dev/null 2>&1; then
-  ultragit hook post-rewrite "$1" 2>/dev/null
+if command -v chronicle >/dev/null 2>&1; then
+  git chronicle hook post-rewrite "$1" 2>/dev/null
 fi
 ```
 
-The `ultragit hook post-rewrite` subcommand:
+The `git chronicle hook post-rewrite` subcommand:
 1. Reads old-SHA → new-SHA pairs from stdin (git provides these).
 2. For each pair: reads annotation from old SHA, passes it (along with new diff) to the annotation agent for migration.
 3. Writes migrated annotation on new SHA.
 
 ### Chaining with Existing Hooks
 
-If a hook file already exists when `ultragit init` runs:
+If a hook file already exists when `git chronicle init` runs:
 
-1. **Check if it's already an Ultragit hook.** Look for the `# ultragit` marker comment. If found, replace the Ultragit section (upgrade).
+1. **Check if it's already an Chronicle hook.** Look for the `# chronicle` marker comment. If found, replace the Chronicle section (upgrade).
 
 2. **Check if it's a different hook.** Read the existing content.
 
-3. **Append Ultragit invocation.** Add the Ultragit block at the end of the existing script, separated by a comment:
+3. **Append Chronicle invocation.** Add the Chronicle block at the end of the existing script, separated by a comment:
 
 ```bash
 # --- existing hook content above ---
 
-# --- ultragit hook (added by ultragit init) ---
-if command -v ultragit >/dev/null 2>&1; then
-  ultragit annotate --commit HEAD --async 2>/dev/null &
+# --- git chronicle hook (added by git chronicle init) ---
+if command -v chronicle >/dev/null 2>&1; then
+  git chronicle annotate --commit HEAD --async 2>/dev/null &
 fi
-# --- end ultragit hook ---
+# --- end git chronicle hook ---
 ```
 
 4. **Preserve the shebang.** If the existing hook uses `#!/bin/bash` or `#!/usr/bin/env python`, keep it. Only add a shebang if the file doesn't have one.
@@ -220,27 +220,27 @@ fi
 ✓ Appended to existing post-rewrite hook
 ```
 
-**Removal:** `ultragit uninstall` removes only the content between the `# --- ultragit hook` markers, preserving the rest of the hook.
+**Removal:** `git chronicle uninstall` removes only the content between the `# --- git chronicle hook` markers, preserving the rest of the hook.
 
 **Hook manager detection:** If Husky (`.husky/` directory), Lefthook (`.lefthook.yml`), or pre-commit (`.pre-commit-config.yaml`) are detected, warn the user:
 
 ```
-⚠ Detected Lefthook hook manager. Ultragit hooks may conflict.
-  Consider using `ultragit init --no-hooks` and adding Ultragit
+⚠ Detected Lefthook hook manager. Chronicle hooks may conflict.
+  Consider using `git chronicle init --no-hooks` and adding Chronicle
   to your Lefthook configuration instead:
 
   # .lefthook.yml
   post-commit:
     commands:
-      ultragit:
-        run: ultragit annotate --commit HEAD --async
+      chronicle:
+        run: git chronicle annotate --commit HEAD --async
 ```
 
-### `ultragit commit` Implementation
+### `git chronicle commit` Implementation
 
-1. Parse arguments: separate Ultragit-specific flags (`--task`, `--reasoning`, `--dependencies`, `--tags`) from git commit flags (everything else).
+1. Parse arguments: separate Chronicle-specific flags (`--task`, `--reasoning`, `--dependencies`, `--tags`) from git commit flags (everything else).
 
-2. Write `PendingContext` to `.git/ultragit/pending-context.json`:
+2. Write `PendingContext` to `.git/chronicle/pending-context.json`:
    ```json
    {
      "task": "PROJ-442: implement connection pooling",
@@ -255,30 +255,30 @@ fi
 
 4. If `git commit` exits non-zero (commit aborted, pre-commit hook failed, etc.), delete `pending-context.json` to avoid stale context leaking to a future commit. Return the same exit code.
 
-5. If `git commit` succeeds, the post-commit hook fires and invokes `ultragit annotate`. The annotate command reads and deletes `pending-context.json`.
+5. If `git commit` succeeds, the post-commit hook fires and invokes `git chronicle annotate`. The annotate command reads and deletes `pending-context.json`.
 
-**Flag collision handling:** If the user passes `--task` as a git commit flag (unlikely but possible), Ultragit consumes it. Document this. If this becomes a real issue, use `--ultragit-task` prefixed names.
+**Flag collision handling:** If the user passes `--task` as a git commit flag (unlikely but possible), Chronicle consumes it. Document this. If this becomes a real issue, use `--chronicle-task` prefixed names.
 
-### `ultragit context set` Implementation
+### `git chronicle context set` Implementation
 
 1. Parse `--task`, `--reasoning`, `--dependencies`, `--tags`.
-2. If `--clear` is passed, delete `.git/ultragit/pending-context.json` and exit.
+2. If `--clear` is passed, delete `.git/chronicle/pending-context.json` and exit.
 3. If `pending-context.json` already exists, merge new fields into it (don't overwrite fields not specified in this call).
-4. Write `.git/ultragit/pending-context.json`.
+4. Write `.git/chronicle/pending-context.json`.
 5. Print confirmation: `Context saved. Will be consumed by the next commit.`
 
 ### `pending-context.json` Lifecycle
 
 ```
-ultragit commit --task "..." --reasoning "..."
-  ├── Writes .git/ultragit/pending-context.json
+git chronicle commit --task "..." --reasoning "..."
+  ├── Writes .git/chronicle/pending-context.json
   ├── Calls git commit -m "..."
   │   ├── pre-commit hooks run
   │   ├── Commit created (new SHA)
   │   └── post-commit hook fires
-  │       └── ultragit annotate --commit HEAD
-  │           ├── Reads .git/ultragit/pending-context.json
-  │           ├── Deletes .git/ultragit/pending-context.json
+  │       └── git chronicle annotate --commit HEAD
+  │           ├── Reads .git/chronicle/pending-context.json
+  │           ├── Deletes .git/chronicle/pending-context.json
   │           ├── Passes context to annotation agent
   │           └── Stores annotation as git note
   └── Returns exit code from git commit
@@ -287,32 +287,32 @@ ultragit commit --task "..." --reasoning "..."
 **Staleness protection:** If `pending-context.json` has a `timestamp` older than 10 minutes, log a warning:
 
 ```
-[ultragit] ⚠ pending-context.json is 47 minutes old. It may be from a previous
-           failed commit. Using it anyway. Run `ultragit context set --clear`
+[chronicle] ⚠ pending-context.json is 47 minutes old. It may be from a previous
+           failed commit. Using it anyway. Run `git chronicle context set --clear`
            to discard.
 ```
 
-This handles the case where `ultragit context set` was called but then no commit happened.
+This handles the case where `git chronicle context set` was called but then no commit happened.
 
-### ULTRAGIT_* Environment Variable Fallback
+### CHRONICLE_* Environment Variable Fallback
 
 When `pending-context.json` doesn't exist, check environment variables:
 
 ```rust
-fn read_author_context(ultragit_dir: &Path) -> Option<AuthorContext> {
+fn read_author_context(chronicle_dir: &Path) -> Option<AuthorContext> {
     // Priority 1: pending-context.json
-    let pending_path = ultragit_dir.join("pending-context.json");
+    let pending_path = chronicle_dir.join("pending-context.json");
     if pending_path.exists() {
         if let Ok(ctx) = read_and_delete_pending_context(&pending_path) {
             return Some(ctx);
         }
     }
 
-    // Priority 2: ULTRAGIT_* environment variables
-    let task = std::env::var("ULTRAGIT_TASK").ok();
-    let reasoning = std::env::var("ULTRAGIT_REASONING").ok();
-    let dependencies = std::env::var("ULTRAGIT_DEPENDENCIES").ok();
-    let tags = std::env::var("ULTRAGIT_TAGS").ok()
+    // Priority 2: CHRONICLE_* environment variables
+    let task = std::env::var("CHRONICLE_TASK").ok();
+    let reasoning = std::env::var("CHRONICLE_REASONING").ok();
+    let dependencies = std::env::var("CHRONICLE_DEPENDENCIES").ok();
+    let tags = std::env::var("CHRONICLE_TAGS").ok()
         .map(|t| t.split(',').map(|s| s.trim().to_string()).collect());
 
     if task.is_some() || reasoning.is_some() || dependencies.is_some() {
@@ -333,7 +333,7 @@ Before making the LLM API call, apply heuristics to avoid wasting API calls on t
 pub fn filter_commit(
     diff: &CommitDiff,
     commit_message: &str,
-    config: &UltragitConfig,
+    config: &ChronicleConfig,
 ) -> FilterDecision {
     // 1. Check if diff only touches excluded paths
     if all_files_excluded(diff, config) {
@@ -386,7 +386,7 @@ fn count_meaningful_changed_lines(diff: &CommitDiff) -> usize {
 
 ```json
 {
-  "$schema": "ultragit/v1",
+  "$schema": "chronicle/v1",
   "commit": "<sha>",
   "timestamp": "<iso8601>",
   "summary": "Trivial change: version bump in Cargo.toml",
@@ -406,10 +406,10 @@ fn count_meaningful_changed_lines(diff: &CommitDiff) -> usize {
 The hook script uses `&` to background the process:
 
 ```bash
-ultragit annotate --commit HEAD --async 2>/dev/null &
+git chronicle annotate --commit HEAD --async 2>/dev/null &
 ```
 
-Inside `ultragit annotate --async`:
+Inside `git chronicle annotate --async`:
 
 1. Fork a background process using `daemonize` or `nohup` semantics:
    ```rust
@@ -436,7 +436,7 @@ Inside `ultragit annotate --async`:
 
 2. Alternatively, use `std::process::Command` to spawn a detached child:
    ```rust
-   std::process::Command::new("ultragit")
+   std::process::Command::new("chronicle")
        .args(["annotate", "--commit", &sha, "--detached"])
        .stdin(Stdio::null())
        .stdout(Stdio::null())
@@ -446,7 +446,7 @@ Inside `ultragit annotate --async`:
 
    The `--detached` flag tells the spawned process it's already detached and should run synchronously in its own process.
 
-**Prefer the `Command::spawn` approach** — it's simpler, portable, and avoids `unsafe`. The hook script still backgrounds the initial `ultragit` invocation with `&`, and the `--async` flag within `ultragit annotate` spawns the long-running annotation in a fully detached child process.
+**Prefer the `Command::spawn` approach** — it's simpler, portable, and avoids `unsafe`. The hook script still backgrounds the initial `chronicle` invocation with `&`, and the `--async` flag within `git chronicle annotate` spawns the long-running annotation in a fully detached child process.
 
 #### Windows
 
@@ -459,7 +459,7 @@ fn spawn_detached(sha: &str) -> Result<()> {
     const CREATE_NEW_PROCESS_GROUP: u32 = 0x00000200;
     const DETACHED_PROCESS: u32 = 0x00000008;
 
-    std::process::Command::new("ultragit")
+    std::process::Command::new("chronicle")
         .args(["annotate", "--commit", sha, "--detached"])
         .creation_flags(CREATE_NEW_PROCESS_GROUP | DETACHED_PROCESS)
         .stdin(Stdio::null())
@@ -488,7 +488,7 @@ fn is_ci() -> bool {
 When CI is detected and `--async` is specified, log a note and run synchronously:
 
 ```
-[ultragit] CI environment detected. Running annotation synchronously.
+[chronicle] CI environment detected. Running annotation synchronously.
 ```
 
 ### Race Condition Handling
@@ -500,11 +500,11 @@ Concurrent commits (e.g., multiple worktrees, or an agent committing rapidly) ca
 ```rust
 use std::fs::OpenOptions;
 
-fn write_pending_context(ultragit_dir: &Path, ctx: &PendingContext) -> Result<()> {
-    let lock_path = ultragit_dir.join("pending-context.lock");
+fn write_pending_context(chronicle_dir: &Path, ctx: &PendingContext) -> Result<()> {
+    let lock_path = chronicle_dir.join("pending-context.lock");
     let _lock = FileLock::acquire(&lock_path, Duration::from_secs(5))?;
 
-    let ctx_path = ultragit_dir.join("pending-context.json");
+    let ctx_path = chronicle_dir.join("pending-context.json");
     let content = serde_json::to_string_pretty(ctx)?;
     std::fs::write(&ctx_path, content)?;
     Ok(())
@@ -524,7 +524,7 @@ Use a simple lockfile mechanism (`flock` on Unix, `LockFileEx` on Windows) rathe
 
 **Notes ref locking:** Git handles notes ref locking internally. Concurrent `git notes add` commands will fail with a lock error. The retry wrapper in the storage layer (Feature 02) handles this with a short retry.
 
-### `ultragit init` Orchestration
+### `git chronicle init` Orchestration
 
 The init command performs a sequence of checks and installations:
 
@@ -532,10 +532,10 @@ The init command performs a sequence of checks and installations:
 pub fn run_init(opts: &InitOptions) -> Result<()> {
     let repo_root = find_git_repo_root()?;
     let git_dir = repo_root.join(".git");
-    let ultragit_dir = git_dir.join("ultragit");
+    let chronicle_dir = git_dir.join("chronicle");
 
-    // 1. Create .git/ultragit/ directory
-    fs::create_dir_all(&ultragit_dir)?;
+    // 1. Create .git/chronicle/ directory
+    fs::create_dir_all(&chronicle_dir)?;
 
     // 2. Install hooks (unless --no-hooks)
     if !opts.no_hooks {
@@ -547,19 +547,19 @@ pub fn run_init(opts: &InitOptions) -> Result<()> {
     // 3. Create notes ref if it doesn't exist
     create_notes_ref(&repo_root)?;
 
-    // 4. Write [ultragit] config to .git/config
+    // 4. Write [chronicle] config to .git/config
     write_git_config(&git_dir, opts)?;
 
-    // 5. Check for .ultragit-config.toml
+    // 5. Check for .chronicle-config.toml
     if let Some(shared_config) = read_shared_config(&repo_root)? {
         // Prompt to apply shared config (in interactive mode)
         // Apply silently in non-interactive mode
     }
 
     // 6. Check for existing remote annotations
-    if let Ok(true) = remote_has_ultragit_notes(&repo_root) {
+    if let Ok(true) = remote_has_chronicle_notes(&repo_root) {
         configure_notes_sync(&git_dir)?;
-        println!("  ✓ Detected existing Ultragit annotations on origin");
+        println!("  ✓ Detected existing Chronicle annotations on origin");
         println!("  ✓ Sync configured automatically");
     }
 
@@ -573,13 +573,13 @@ pub fn run_init(opts: &InitOptions) -> Result<()> {
         }
         Err(ProviderError::NoCredentials) => {
             println!("  ✗ No LLM credentials found.");
-            println!("    Run: ultragit auth check");
+            println!("    Run: chronicle auth check");
         }
         Err(e) => println!("  ✗ Credential error: {}", e),
     }
 
     // 8. First-commit confirmation
-    println!("\n  Ultragit is ready. Your next commit will be annotated.");
+    println!("\n  Chronicle is ready. Your next commit will be annotated.");
 
     Ok(())
 }
@@ -591,8 +591,8 @@ pub fn run_init(opts: &InitOptions) -> Result<()> {
 [dry run] Would install post-commit hook to .git/hooks/post-commit
 [dry run] Would install prepare-commit-msg hook to .git/hooks/prepare-commit-msg
 [dry run] Would install post-rewrite hook to .git/hooks/post-rewrite
-[dry run] Would create refs/notes/ultragit
-[dry run] Would write [ultragit] config to .git/config
+[dry run] Would create refs/notes/chronicle
+[dry run] Would write [chronicle] config to .git/config
 ```
 
 ---
@@ -601,29 +601,29 @@ pub fn run_init(opts: &InitOptions) -> Result<()> {
 
 | Failure Mode | Handling |
 |-------------|----------|
-| Not in a git repository | `ultragit init` exits with error: "not a git repository" |
+| Not in a git repository | `git chronicle init` exits with error: "not a git repository" |
 | Hook file exists but not writable | Error with guidance: "cannot write to .git/hooks/post-commit (permission denied)" |
 | Hook file exists and is a symlink (e.g., Husky) | Warn and suggest `--no-hooks` |
-| `ultragit` not on PATH when hook fires | Hook's `command -v` check fails silently. No annotation, no error. |
+| `chronicle` not on PATH when hook fires | Hook's `command -v` check fails silently. No annotation, no error. |
 | `pending-context.json` is corrupt | Log warning, skip context (treat as inferred). Delete the corrupt file. |
 | `pending-context.json` lock timeout | Log warning, skip context. Don't block the commit. |
-| `git commit` fails after `pending-context.json` is written | `ultragit commit` deletes `pending-context.json` on non-zero exit. |
-| Async annotation process crashes | Error is logged to `.git/ultragit/failed.log`. Commit is unaffected. |
-| Pre-LLM filter incorrectly skips a non-trivial commit | Acceptable false negative. User can re-annotate with `ultragit annotate --commit <sha>`. |
-| `ultragit init` in a bare repository | Error: "ultragit init requires a working tree" |
-| Two `ultragit init` runs in sequence | Idempotent. Second run detects existing hooks and reports "already installed" or upgrades. |
+| `git commit` fails after `pending-context.json` is written | `git chronicle commit` deletes `pending-context.json` on non-zero exit. |
+| Async annotation process crashes | Error is logged to `.git/chronicle/failed.log`. Commit is unaffected. |
+| Pre-LLM filter incorrectly skips a non-trivial commit | Acceptable false negative. User can re-annotate with `git chronicle annotate --commit <sha>`. |
+| `git chronicle init` in a bare repository | Error: "git chronicle init requires a working tree" |
+| Two `git chronicle init` runs in sequence | Idempotent. Second run detects existing hooks and reports "already installed" or upgrades. |
 
 ---
 
 ## Configuration
 
-### Git Config (`[ultragit]` section, written by `ultragit init`)
+### Git Config (`[chronicle]` section, written by `git chronicle init`)
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | `enabled` | bool | `true` | Master enable/disable switch |
 | `async` | bool | `true` | Async annotation (background process) |
-| `noteref` | string | `refs/notes/ultragit` | Notes reference namespace |
+| `noteref` | string | `refs/notes/chronicle` | Notes reference namespace |
 | `provider` | string | (auto) | Pinned LLM provider |
 | `model` | string | (auto) | Pinned model |
 | `include` | string | (none) | Comma-separated glob patterns for files to annotate |
@@ -632,39 +632,39 @@ pub fn run_init(opts: &InitOptions) -> Result<()> {
 | `skipTrivial` | bool | `true` | Enable pre-LLM trivial commit filtering |
 | `trivialThreshold` | integer | 3 | Min meaningful changed lines to annotate |
 
-### `.ultragit-config.toml` (shared, checked into repo)
+### `.chronicle-config.toml` (shared, checked into repo)
 
 ```toml
-[ultragit]
+[chronicle]
 enabled = true
 async = true
 
-[ultragit.model]
+[chronicle.model]
 provider = "anthropic"
 model = "claude-sonnet-4-5-20250929"
 backfill_model = "claude-haiku-4-5-20251001"
 
-[ultragit.scope]
+[chronicle.scope]
 include = ["src/**", "lib/**", "config/**"]
 exclude = ["*.generated.*", "vendor/**", "node_modules/**"]
 max_diff_lines = 2000
 
-[ultragit.sync]
+[chronicle.sync]
 auto_sync = true
 ```
 
-When both `.git/config` and `.ultragit-config.toml` exist, `.git/config` takes precedence (local overrides shared).
+When both `.git/config` and `.chronicle-config.toml` exist, `.git/config` takes precedence (local overrides shared).
 
 ### Environment Variables
 
 | Variable | Description |
 |----------|-------------|
-| `ULTRAGIT_TASK` | Task identifier for the next commit |
-| `ULTRAGIT_REASONING` | Reasoning text for the next commit |
-| `ULTRAGIT_DEPENDENCIES` | Dependency declarations for the next commit |
-| `ULTRAGIT_TAGS` | Comma-separated tags for the next commit |
-| `ULTRAGIT_SQUASH_SOURCES` | Source commit SHAs for squash annotation |
-| `ULTRAGIT_DISABLED` | If set to `1` or `true`, skip annotation entirely |
+| `CHRONICLE_TASK` | Task identifier for the next commit |
+| `CHRONICLE_REASONING` | Reasoning text for the next commit |
+| `CHRONICLE_DEPENDENCIES` | Dependency declarations for the next commit |
+| `CHRONICLE_TAGS` | Comma-separated tags for the next commit |
+| `CHRONICLE_SQUASH_SOURCES` | Source commit SHAs for squash annotation |
+| `CHRONICLE_DISABLED` | If set to `1` or `true`, skip annotation entirely |
 
 ---
 
@@ -674,10 +674,10 @@ When both `.git/config` and `.ultragit-config.toml` exist, `.git/config` takes p
 - Implement `install_hook(git_dir, hook_type, sync)` — writes hook script, chains with existing hooks.
 - Implement existing hook detection and marker-based append/upgrade.
 - Implement hook manager detection (Husky, Lefthook, pre-commit) with warnings.
-- Unit tests: install to empty hooks dir, append to existing hook, upgrade existing Ultragit hook, detect hook managers.
+- Unit tests: install to empty hooks dir, append to existing hook, upgrade existing Chronicle hook, detect hook managers.
 - **PR scope:** `src/hooks/install.rs`.
 
-### Step 2: `ultragit init` orchestration
+### Step 2: `git chronicle init` orchestration
 - Implement the full init sequence: create dirs, install hooks, create notes ref, write config, check shared config, check remote annotations, check credentials.
 - Implement `--dry-run`, `--no-hooks`, `--sync`, `--provider`, `--model`, `--include`, `--exclude`.
 - Integration test: run init in a fresh test repository, verify all artifacts are created.
@@ -690,20 +690,20 @@ When both `.git/config` and `.ultragit-config.toml` exist, `.git/config` takes p
 - Unit tests: write/read/delete lifecycle, staleness warning, lock contention.
 - **PR scope:** Part of `src/hooks/mod.rs` or `src/annotate/gather.rs`.
 
-### Step 4: `ultragit commit` command
-- Implement argument parsing: separate Ultragit flags from git commit flags.
+### Step 4: `git chronicle commit` command
+- Implement argument parsing: separate Chronicle flags from git commit flags.
 - Write pending-context.json, execute `git commit`, handle exit codes.
 - Delete pending-context.json on commit failure.
 - Integration test: commit with context, verify pending-context.json is created and consumed.
 - **PR scope:** `src/cli/commit.rs`.
 
-### Step 5: `ultragit context set` command
+### Step 5: `git chronicle context set` command
 - Implement context writing, merging, and `--clear`.
 - Unit tests: set context, set partial context (merge), clear context.
 - **PR scope:** `src/cli/context.rs`.
 
 ### Step 6: Environment variable fallback
-- Implement `read_author_context()` — check pending-context.json first, then ULTRAGIT_* env vars.
+- Implement `read_author_context()` — check pending-context.json first, then CHRONICLE_* env vars.
 - Unit tests: verify priority (file over env), verify env parsing.
 - **PR scope:** Part of `src/annotate/gather.rs`.
 
@@ -729,8 +729,8 @@ When both `.git/config` and `.ultragit-config.toml` exist, `.git/config` takes p
 - **PR scope:** `src/hooks/post_commit.rs`.
 
 ### Step 10: Uninstall command
-- Implement `ultragit uninstall`: remove hook markers, remove config section, remove `.git/ultragit/` directory.
-- Verify existing non-Ultragit hook content is preserved.
+- Implement `git chronicle uninstall`: remove hook markers, remove config section, remove `.git/chronicle/` directory.
+- Verify existing non-Chronicle hook content is preserved.
 - **PR scope:** `src/cli/init.rs` (or separate uninstall.rs).
 
 ---
@@ -741,9 +741,9 @@ When both `.git/config` and `.ultragit-config.toml` exist, `.git/config` takes p
 
 **Hook installation:**
 - Install into empty `.git/hooks/` — hook file is created with correct content and is executable.
-- Install when hook already exists — Ultragit section is appended between markers.
-- Install when Ultragit hook already exists — section is replaced (upgrade).
-- Uninstall removes only Ultragit markers, preserves other content.
+- Install when hook already exists — Chronicle section is appended between markers.
+- Install when Chronicle hook already exists — section is replaced (upgrade).
+- Uninstall removes only Chronicle markers, preserves other content.
 - Hook scripts contain `command -v` guard.
 
 **Pending context lifecycle:**
@@ -763,10 +763,10 @@ When both `.git/config` and `.ultragit-config.toml` exist, `.git/config` takes p
 - All files match exclude patterns → `Skip`.
 - Mix of excluded and included files → `Annotate` (for included files).
 
-**`ultragit commit` argument parsing:**
-- `ultragit commit -m "msg" --task "T" --reasoning "R"` → context has task and reasoning, git gets `-m "msg"`.
-- `ultragit commit -am "msg"` → no context, git gets `-am "msg"`.
-- `ultragit commit --amend --task "T"` → context has task, git gets `--amend`.
+**`git chronicle commit` argument parsing:**
+- `git chronicle commit -m "msg" --task "T" --reasoning "R"` → context has task and reasoning, git gets `-m "msg"`.
+- `git chronicle commit -am "msg"` → no context, git gets `-am "msg"`.
+- `git chronicle commit --amend --task "T"` → context has task, git gets `--amend`.
 - Unknown flags pass through to git.
 
 **CI detection:**
@@ -776,21 +776,21 @@ When both `.git/config` and `.ultragit-config.toml` exist, `.git/config` takes p
 
 ### Integration Tests
 
-- **Full init cycle:** Create temp repo, run `ultragit init`, verify hooks exist and are executable, verify notes ref exists, verify config is written.
-- **Init with existing hooks:** Create temp repo with pre-existing post-commit hook, run `ultragit init`, verify both hooks fire.
-- **Init idempotency:** Run `ultragit init` twice, verify no duplicate hook content.
-- **Commit with context:** Run `ultragit init`, use `ultragit commit -m "test" --task "T"`, verify pending-context.json is created then consumed.
-- **Context set then commit:** Run `ultragit context set --task "T"`, then `git commit`, verify context is consumed.
-- **Uninstall:** Run `ultragit init`, then `ultragit uninstall`, verify hooks are cleaned up, config is removed, existing hook content preserved.
+- **Full init cycle:** Create temp repo, run `git chronicle init`, verify hooks exist and are executable, verify notes ref exists, verify config is written.
+- **Init with existing hooks:** Create temp repo with pre-existing post-commit hook, run `git chronicle init`, verify both hooks fire.
+- **Init idempotency:** Run `git chronicle init` twice, verify no duplicate hook content.
+- **Commit with context:** Run `git chronicle init`, use `git chronicle commit -m "test" --task "T"`, verify pending-context.json is created then consumed.
+- **Context set then commit:** Run `git chronicle context set --task "T"`, then `git commit`, verify context is consumed.
+- **Uninstall:** Run `git chronicle init`, then `git chronicle uninstall`, verify hooks are cleaned up, config is removed, existing hook content preserved.
 
 ### Edge Cases
 
 - Repository with `core.hooksPath` set to a custom directory.
 - Repository with `.git` as a file (worktree).
-- Running `ultragit commit` outside a git repository.
+- Running `git chronicle commit` outside a git repository.
 - `pending-context.json` exists from a previous session (staleness).
 - Very rapid sequential commits (context from commit N leaking to commit N+1 — prevented by read-and-delete).
-- `ultragit commit --amend` with existing pending context.
+- `git chronicle commit --amend` with existing pending context.
 - Commit with no changed files (`--allow-empty`).
 - Hook script is not executable (chmod issue on some systems).
 
@@ -798,17 +798,17 @@ When both `.git/config` and `.ultragit-config.toml` exist, `.git/config` takes p
 
 ## Acceptance Criteria
 
-1. `ultragit init` installs all three hooks, creates the notes ref, writes config, and reports status including credential check.
-2. `ultragit init` correctly chains with existing hooks without overwriting them.
-3. `ultragit init --no-hooks` skips hook installation.
-4. `ultragit init --dry-run` shows what would happen without making changes.
-5. `ultragit commit -m "msg" --task "T" --reasoning "R"` writes pending-context.json, runs `git commit`, and the post-commit hook consumes the context.
-6. `ultragit context set --task "T"` writes pending-context.json, and the next `git commit` consumes it.
+1. `git chronicle init` installs all three hooks, creates the notes ref, writes config, and reports status including credential check.
+2. `git chronicle init` correctly chains with existing hooks without overwriting them.
+3. `git chronicle init --no-hooks` skips hook installation.
+4. `git chronicle init --dry-run` shows what would happen without making changes.
+5. `git chronicle commit -m "msg" --task "T" --reasoning "R"` writes pending-context.json, runs `git commit`, and the post-commit hook consumes the context.
+6. `git chronicle context set --task "T"` writes pending-context.json, and the next `git commit` consumes it.
 7. `pending-context.json` is deleted after being read by the post-commit hook, even if annotation fails.
-8. ULTRAGIT_* environment variables are used as fallback when pending-context.json doesn't exist.
+8. CHRONICLE_* environment variables are used as fallback when pending-context.json doesn't exist.
 9. Pre-LLM filtering correctly skips lockfile-only, WIP, fixup, and below-threshold commits without making API calls.
 10. Async mode returns control to the terminal immediately; annotation completes in the background.
 11. In CI environments, annotation runs synchronously regardless of the `async` config setting.
 12. File locking prevents race conditions on pending-context.json during concurrent operations.
-13. `ultragit uninstall` cleanly removes Ultragit hooks and config while preserving existing hook content.
-14. `ultragit init` detects hook managers (Husky, Lefthook) and warns the user.
+13. `git chronicle uninstall` cleanly removes Chronicle hooks and config while preserving existing hook content.
+14. `git chronicle init` detects hook managers (Husky, Lefthook) and warns the user.

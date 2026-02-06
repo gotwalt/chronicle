@@ -7,7 +7,7 @@ use super::{MatchedRegion, ReadQuery};
 /// Retrieve matching region annotations for a file from git notes.
 ///
 /// 1. Find commits that touched the file via `git log --follow`
-/// 2. For each commit, try to read the ultragit note
+/// 2. For each commit, try to read the chronicle note
 /// 3. Parse the note as an Annotation
 /// 4. Filter regions matching the query (file path, anchor, line range)
 /// 5. Return results sorted newest-first (preserving git log order)
@@ -107,7 +107,7 @@ mod tests {
         let git = MockGitOps {
             shas: vec!["abc123".to_string()],
             note: Some(serde_json::to_string(&Annotation {
-                schema: "ultragit/v1".to_string(),
+                schema: "chronicle/v1".to_string(),
                 commit: "abc123".to_string(),
                 timestamp: "2025-01-01T00:00:00Z".to_string(),
                 task: None,
@@ -170,7 +170,7 @@ mod tests {
         let git = MockGitOps {
             shas: vec!["abc123".to_string()],
             note: Some(serde_json::to_string(&Annotation {
-                schema: "ultragit/v1".to_string(),
+                schema: "chronicle/v1".to_string(),
                 commit: "abc123".to_string(),
                 timestamp: "2025-01-01T00:00:00Z".to_string(),
                 task: None,
@@ -232,7 +232,7 @@ mod tests {
         let git = MockGitOps {
             shas: vec!["abc123".to_string()],
             note: Some(serde_json::to_string(&Annotation {
-                schema: "ultragit/v1".to_string(),
+                schema: "chronicle/v1".to_string(),
                 commit: "abc123".to_string(),
                 timestamp: "2025-01-01T00:00:00Z".to_string(),
                 task: None,

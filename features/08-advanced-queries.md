@@ -8,9 +8,9 @@
 
 Feature 08 builds three specialized query commands on top of the read pipeline (Feature 07):
 
-- **`ultragit deps`** — Dependency inversion: "what other code depends on assumptions about this code?" Answers the highest-value question for preventing regressions.
-- **`ultragit history`** — Timeline reconstruction: the reasoning chain across commits that touched a code region. `git log` for intent.
-- **`ultragit summary`** — Condensed view: most recent annotation per AST unit, trimmed to intent + constraints + risk_notes. Fast orientation on an unfamiliar module.
+- **`git chronicle deps`** — Dependency inversion: "what other code depends on assumptions about this code?" Answers the highest-value question for preventing regressions.
+- **`git chronicle history`** — Timeline reconstruction: the reasoning chain across commits that touched a code region. `git log` for intent.
+- **`git chronicle summary`** — Condensed view: most recent annotation per AST unit, trimmed to intent + constraints + risk_notes. Fast orientation on an unfamiliar module.
 
 All three commands share infrastructure with the read pipeline: blame integration, note fetching, and confidence scoring. They differ in traversal strategy and output shape.
 
@@ -32,15 +32,15 @@ Feature 08 extends Feature 07. It reuses `blame_scope()`, `fetch_notes()`, `comp
 
 ## 3. Public API
 
-### 3.1 `ultragit deps`
+### 3.1 `git chronicle deps`
 
 ```
-ultragit deps [OPTIONS] <PATH> [<ANCHOR>]
+git chronicle deps [OPTIONS] <PATH> [<ANCHOR>]
 ```
 
 Returns annotations from **other code** whose `semantic_dependencies` reference the specified file+anchor. This is the inverse of a normal read — instead of "what does this code depend on?", it answers "what depends on this code?"
 
-**Arguments:** Same as `ultragit read` for PATH and ANCHOR.
+**Arguments:** Same as `git chronicle read` for PATH and ANCHOR.
 
 **Options:**
 
@@ -54,7 +54,7 @@ Returns annotations from **other code** whose `semantic_dependencies` reference 
 
 ```json
 {
-  "$schema": "ultragit-deps/v1",
+  "$schema": "chronicle-deps/v1",
   "query": {
     "file": "src/tls/session.rs",
     "anchor": "TlsSessionCache::max_sessions"
@@ -78,15 +78,15 @@ Returns annotations from **other code** whose `semantic_dependencies` reference 
 }
 ```
 
-### 3.2 `ultragit history`
+### 3.2 `git chronicle history`
 
 ```
-ultragit history [OPTIONS] <PATH> [<ANCHOR>]
+git chronicle history [OPTIONS] <PATH> [<ANCHOR>]
 ```
 
 Returns the chronological chain of annotations across commits that touched the specified code region. Follows `related_annotations` links to include connected reasoning from commits that didn't directly modify the code.
 
-**Arguments:** Same as `ultragit read` for PATH and ANCHOR.
+**Arguments:** Same as `git chronicle read` for PATH and ANCHOR.
 
 **Options:**
 
@@ -100,7 +100,7 @@ Returns the chronological chain of annotations across commits that touched the s
 
 ```json
 {
-  "$schema": "ultragit-history/v1",
+  "$schema": "chronicle-history/v1",
   "query": {
     "file": "src/mqtt/client.rs",
     "anchor": "MqttClient::connect"
@@ -146,15 +146,15 @@ Returns the chronological chain of annotations across commits that touched the s
 }
 ```
 
-### 3.3 `ultragit summary`
+### 3.3 `git chronicle summary`
 
 ```
-ultragit summary [OPTIONS] <PATH> [<ANCHOR>]
+git chronicle summary [OPTIONS] <PATH> [<ANCHOR>]
 ```
 
 Returns a condensed view: the most recent annotation per AST unit in the file (or for a single anchor), with only `intent`, `constraints`, and `risk_notes` fields. Designed for broad orientation.
 
-**Arguments:** Same as `ultragit read` for PATH and ANCHOR. PATH can also be a directory for module-level summaries.
+**Arguments:** Same as `git chronicle read` for PATH and ANCHOR. PATH can also be a directory for module-level summaries.
 
 **Options:**
 
@@ -166,7 +166,7 @@ Returns a condensed view: the most recent annotation per AST unit in the file (o
 
 ```json
 {
-  "$schema": "ultragit-summary/v1",
+  "$schema": "chronicle-summary/v1",
   "query": {
     "file": "src/mqtt/client.rs"
   },
@@ -214,7 +214,7 @@ Returns a condensed view: the most recent annotation per AST unit in the file (o
 ```rust
 /// Dependency inversion query result.
 pub struct DepsOutput {
-    pub schema: String,             // "ultragit-deps/v1"
+    pub schema: String,             // "chronicle-deps/v1"
     pub query: QueryEcho,
     pub dependents: Vec<DependentEntry>,
     pub stats: DepsStats,
@@ -283,7 +283,7 @@ The `deps` query inverts the direction of `semantic_dependencies`. Instead of as
 1. Resolve the query scope (file + anchor) to a canonical identifier:
    "src/tls/session.rs:TlsSessionCache::max_sessions"
 
-2. Walk refs/notes/ultragit, reading the most recent `scan_limit` annotated commits.
+2. Walk refs/notes/chronicle, reading the most recent `scan_limit` annotated commits.
 
 3. For each annotation, for each region, for each semantic_dependency:
    - Normalize the dependency's file + anchor to the same format.
@@ -297,12 +297,12 @@ The `deps` query inverts the direction of `semantic_dependencies`. Instead of as
 6. Apply --max-results cap.
 ```
 
-**Walking the notes ref.** The notes under `refs/notes/ultragit` are stored as a tree of git objects. We enumerate them by:
-1. Resolving `refs/notes/ultragit` to a tree.
+**Walking the notes ref.** The notes under `refs/notes/chronicle` are stored as a tree of git objects. We enumerate them by:
+1. Resolving `refs/notes/chronicle` to a tree.
 2. Walking the tree entries (each entry's name encodes a commit SHA).
 3. Reading the blob for each entry.
 
-Alternatively, use `git log --format=%H refs/notes/ultragit` to list all annotated commits, then read notes for the most recent N.
+Alternatively, use `git log --format=%H refs/notes/chronicle` to list all annotated commits, then read notes for the most recent N.
 
 **Performance target:** <2s for a repository with 500 annotated commits. Each note read is a git object lookup (~1-2ms). 500 reads = ~1s. JSON parsing and string matching add overhead but should stay under 2s total.
 
@@ -312,11 +312,11 @@ Alternatively, use `git log --format=%H refs/notes/ultragit` to list all annotat
 
 The linear scan doesn't scale past ~1000 annotated commits. The reverse index makes `deps` O(1) + O(k) where k is the number of dependents.
 
-**Storage.** A separate notes ref: `refs/notes/ultragit-deps`. This ref contains a single JSON document (or a set of documents keyed by file path) that maps dependency targets to the commits that depend on them:
+**Storage.** A separate notes ref: `refs/notes/chronicle-deps`. This ref contains a single JSON document (or a set of documents keyed by file path) that maps dependency targets to the commits that depend on them:
 
 ```json
 {
-  "$schema": "ultragit-deps-index/v1",
+  "$schema": "chronicle-deps-index/v1",
   "entries": {
     "src/tls/session.rs:TlsSessionCache::max_sessions": [
       {
@@ -371,7 +371,7 @@ pub fn update_reverse_index(
 **Query with reverse index:**
 
 ```
-1. Read the reverse index from refs/notes/ultragit-deps.
+1. Read the reverse index from refs/notes/chronicle-deps.
 2. Look up the canonical key for the queried file+anchor.
 3. Return the entries. Each entry has the commit SHA, so we can
    fetch the full annotation if the caller wants more detail.
@@ -379,7 +379,7 @@ pub fn update_reverse_index(
 
 This is O(1) for the lookup plus O(k) for serializing k entries. No scanning.
 
-**Migration.** When the reverse index doesn't exist (fresh install or upgrade from v1), `deps` falls back to linear scan. A `ultragit index build` command (or automatic background task) can build the index from existing annotations.
+**Migration.** When the reverse index doesn't exist (fresh install or upgrade from v1), `deps` falls back to linear scan. A `git chronicle index build` command (or automatic background task) can build the index from existing annotations.
 
 ```rust
 pub fn build_reverse_index(repo: &git::Repository) -> Result<()> {
@@ -435,7 +435,7 @@ The history query reconstructs the reasoning chain for a code region across comm
    - related_context (resolved inline)
 ```
 
-**Difference from `ultragit read`:** The read pipeline returns the current state — the best available annotations for the code as it exists now. The history query returns the temporal sequence — how the reasoning evolved over time. Read is for "what should I know before modifying?". History is for "how did this code get here?"
+**Difference from `git chronicle read`:** The read pipeline returns the current state — the best available annotations for the code as it exists now. The history query returns the temporal sequence — how the reasoning evolved over time. Read is for "what should I know before modifying?". History is for "how did this code get here?"
 
 **Performance target:** <1s. The blame provides the commit set; note fetches are bounded by `--limit`. Related annotations add some overhead but are bounded by the timeline length.
 
@@ -550,7 +550,7 @@ The `deps` command doesn't use blame on the queried code directly — it scans o
 ## 6. Configuration
 
 ```ini
-[ultragit]
+[chronicle]
     # v1 linear scan limit for deps queries
     depsScanLimit = 500
 
@@ -562,8 +562,8 @@ The `deps` command doesn't use blame on the queried code directly — it scans o
 ```
 
 ```toml
-# .ultragit-config.toml
-[ultragit.queries]
+# .chronicle-config.toml
+[chronicle.queries]
 deps_scan_limit = 500
 deps_use_reverse_index = true
 history_default_limit = 10
@@ -574,25 +574,25 @@ history_default_limit = 10
 ## 7. Implementation Steps
 
 ### Step 1: `deps` v1 — Linear Scan
-**Scope:** Implement `ultragit deps` in `src/read/deps.rs` and `src/cli/deps.rs`. Walk annotated commits via the notes ref, scan `semantic_dependencies` for matches, deduplicate, score, output. Reuse scope resolution from Feature 07. Tests: basic dependency found, no dependencies, scan limit, unqualified anchor matching.
+**Scope:** Implement `git chronicle deps` in `src/read/deps.rs` and `src/cli/deps.rs`. Walk annotated commits via the notes ref, scan `semantic_dependencies` for matches, deduplicate, score, output. Reuse scope resolution from Feature 07. Tests: basic dependency found, no dependencies, scan limit, unqualified anchor matching.
 
 ### Step 2: `history` — Timeline Reconstruction
-**Scope:** Implement `ultragit history` in `src/read/history.rs` and `src/cli/history.rs`. Blame-based timeline assembly. Related annotation following. Chronological sort. `--limit` cap. Tests: single-commit history, multi-commit timeline, related annotations included, `--limit` respected.
+**Scope:** Implement `git chronicle history` in `src/read/history.rs` and `src/cli/history.rs`. Blame-based timeline assembly. Related annotation following. Chronological sort. `--limit` cap. Tests: single-commit history, multi-commit timeline, related annotations included, `--limit` respected.
 
 ### Step 3: `summary` — Condensed View
-**Scope:** Implement `ultragit summary` in `src/read/summary.rs` and `src/cli/summary.rs`. AST outline extraction. Per-unit blame and note lookup. Most-recent-annotation selection. Field trimming to intent/constraints/risk_notes. Tests: single file, directory recursion, unannotated units reported.
+**Scope:** Implement `git chronicle summary` in `src/read/summary.rs` and `src/cli/summary.rs`. AST outline extraction. Per-unit blame and note lookup. Most-recent-annotation selection. Field trimming to intent/constraints/risk_notes. Tests: single file, directory recursion, unannotated units reported.
 
 ### Step 4: Summary Optimization — Shared Blame Pass
 **Scope:** Optimize the summary pipeline to run blame once for the entire file and partition results by AST unit. Benchmark before/after on a repo with 50+ functions in a single file.
 
 ### Step 5: `deps` v1.1 — Reverse Index Write Path
-**Scope:** Implement `update_reverse_index()` called by the writing agent after annotation. Store under `refs/notes/ultragit-deps`. JSON schema for the index. Tests: index updated after annotation, multiple deps tracked, duplicate handling.
+**Scope:** Implement `update_reverse_index()` called by the writing agent after annotation. Store under `refs/notes/chronicle-deps`. JSON schema for the index. Tests: index updated after annotation, multiple deps tracked, duplicate handling.
 
 ### Step 6: `deps` v1.1 — Reverse Index Read Path
 **Scope:** Modify `deps` to check for the reverse index first. If present, use O(1) lookup. If missing, fall back to linear scan. Report `scan_method` in stats. Tests: lookup with index, fallback without index, index build from existing annotations.
 
-### Step 7: `ultragit index build` Command
-**Scope:** Implement `ultragit index build` in `src/cli/` that walks all existing annotations and builds the reverse index from scratch. Progress reporting. Tests: build on empty repo, build with existing annotations, idempotent rebuild.
+### Step 7: `git chronicle index build` Command
+**Scope:** Implement `git chronicle index build` in `src/cli/` that walks all existing annotations and builds the reverse index from scratch. Progress reporting. Tests: build on empty repo, build with existing annotations, idempotent rebuild.
 
 ---
 
@@ -638,50 +638,50 @@ history_default_limit = 10
 **deps end-to-end:**
 1. Create a repo with two files: `session.rs` and `reconnect.rs`.
 2. Write an annotation for `reconnect.rs` that declares a `semantic_dependency` on `session.rs:max_sessions`.
-3. Run `ultragit deps src/session.rs max_sessions`.
+3. Run `git chronicle deps src/session.rs max_sessions`.
 4. Verify the dependency from `reconnect.rs` appears in output.
 
 **history end-to-end:**
 1. Create a repo. Make 3 commits modifying the same function.
 2. Write annotations for each commit.
-3. Run `ultragit history src/file.rs function_name`.
+3. Run `git chronicle history src/file.rs function_name`.
 4. Verify timeline contains 3 entries in chronological order.
 
 **summary end-to-end:**
 1. Create a repo with a file containing multiple functions.
 2. Write annotations for some commits.
-3. Run `ultragit summary src/file.rs`.
+3. Run `git chronicle summary src/file.rs`.
 4. Verify output lists each AST unit with its most recent annotation.
 
 **reverse index end-to-end:**
 1. Create a repo with annotations containing `semantic_dependencies`.
-2. Run `ultragit index build`.
-3. Run `ultragit deps` and verify `scan_method: "reverse_index"`.
+2. Run `git chronicle index build`.
+3. Run `git chronicle deps` and verify `scan_method: "reverse_index"`.
 4. Add a new annotation with a new dependency.
-5. Run `ultragit deps` again and verify the new dependency appears.
+5. Run `git chronicle deps` again and verify the new dependency appears.
 
 ---
 
 ## 9. Acceptance Criteria
 
-1. `ultragit deps src/tls/session.rs max_sessions` returns all annotations whose `semantic_dependencies` reference that file+anchor, within 2s for a repo with 500 annotated commits (v1 linear scan).
+1. `git chronicle deps src/tls/session.rs max_sessions` returns all annotations whose `semantic_dependencies` reference that file+anchor, within 2s for a repo with 500 annotated commits (v1 linear scan).
 
-2. `ultragit deps` with the reverse index (v1.1) completes in <100ms regardless of repository size.
+2. `git chronicle deps` with the reverse index (v1.1) completes in <100ms regardless of repository size.
 
-3. `ultragit history src/mqtt/client.rs connect --limit 5` returns up to 5 chronologically-ordered annotations, including related annotations, within 1s.
+3. `git chronicle history src/mqtt/client.rs connect --limit 5` returns up to 5 chronologically-ordered annotations, including related annotations, within 1s.
 
-4. `ultragit summary src/mqtt/client.rs` returns the most recent annotation per AST unit with only intent, constraints, and risk_notes, within 500ms.
+4. `git chronicle summary src/mqtt/client.rs` returns the most recent annotation per AST unit with only intent, constraints, and risk_notes, within 500ms.
 
-5. `ultragit summary src/mqtt/` (directory) recurses into all files and aggregates results.
+5. `git chronicle summary src/mqtt/` (directory) recurses into all files and aggregates results.
 
-6. All three commands share blame, note-fetching, and scoring infrastructure with `ultragit read` — no duplicated pipeline logic.
+6. All three commands share blame, note-fetching, and scoring infrastructure with `git chronicle read` — no duplicated pipeline logic.
 
 7. The reverse index is updated at write time when a new annotation contains `semantic_dependencies`.
 
-8. `ultragit index build` constructs the reverse index from all existing annotations.
+8. `git chronicle index build` constructs the reverse index from all existing annotations.
 
 9. When the reverse index is missing, `deps` falls back to linear scan without error.
 
-10. Output JSON matches the documented schemas (`ultragit-deps/v1`, `ultragit-history/v1`, `ultragit-summary/v1`).
+10. Output JSON matches the documented schemas (`chronicle-deps/v1`, `chronicle-history/v1`, `chronicle-summary/v1`).
 
 11. All commands degrade gracefully with zero annotations: empty results with informative stats, not errors.

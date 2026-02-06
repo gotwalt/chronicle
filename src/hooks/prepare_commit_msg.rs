@@ -1,7 +1,7 @@
 use std::path::Path;
 
 use crate::annotate::squash::{write_pending_squash, PendingSquash};
-use crate::error::ultragit_error::IoSnafu;
+use crate::error::chronicle_error::IoSnafu;
 use crate::error::Result;
 use snafu::ResultExt;
 
@@ -13,7 +13,7 @@ use snafu::ResultExt;
 /// Detection signals (any one sufficient):
 /// 1. `commit_source` argument is "squash"
 /// 2. `.git/SQUASH_MSG` file exists
-/// 3. `ULTRAGIT_SQUASH_SOURCES` environment variable is set
+/// 3. `CHRONICLE_SQUASH_SOURCES` environment variable is set
 pub fn handle_prepare_commit_msg(
     git_dir: &Path,
     commit_source: Option<&str>,
@@ -60,7 +60,7 @@ fn detect_squash(
     }
 
     // Check 3: environment variable
-    if let Ok(sources) = std::env::var("ULTRAGIT_SQUASH_SOURCES") {
+    if let Ok(sources) = std::env::var("CHRONICLE_SQUASH_SOURCES") {
         if !sources.is_empty() {
             return Ok(Some(parse_squash_sources_env(&sources)));
         }
@@ -122,7 +122,7 @@ fn parse_squash_msg_commits(content: &str) -> Vec<String> {
         .collect()
 }
 
-/// Parse source commits from the ULTRAGIT_SQUASH_SOURCES env var.
+/// Parse source commits from the CHRONICLE_SQUASH_SOURCES env var.
 /// Supports comma-separated SHA list.
 fn parse_squash_sources_env(sources: &str) -> Vec<String> {
     sources
@@ -236,7 +236,7 @@ Date:   Mon Dec 15 10:35:00 2025 +0000
 
         handle_prepare_commit_msg(git_dir, Some("squash")).unwrap();
 
-        let pending_path = git_dir.join("ultragit").join("pending-squash.json");
+        let pending_path = git_dir.join("chronicle").join("pending-squash.json");
         assert!(pending_path.exists());
 
         let content = std::fs::read_to_string(pending_path).unwrap();
@@ -252,7 +252,7 @@ Date:   Mon Dec 15 10:35:00 2025 +0000
 
         handle_prepare_commit_msg(git_dir, Some("message")).unwrap();
 
-        let pending_path = git_dir.join("ultragit").join("pending-squash.json");
+        let pending_path = git_dir.join("chronicle").join("pending-squash.json");
         assert!(!pending_path.exists());
     }
 }

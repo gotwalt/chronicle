@@ -3,17 +3,17 @@ use std::path::PathBuf;
 use crate::error::Result;
 use crate::sync::{enable_sync, get_sync_config, get_sync_status, pull_notes};
 
-/// Run `ultragit sync enable`.
+/// Run `git chronicle sync enable`.
 pub fn run_enable(remote: &str) -> Result<()> {
     let repo_dir = repo_dir()?;
     enable_sync(&repo_dir, remote)?;
     eprintln!("sync enabled for remote '{remote}'");
-    eprintln!("  push refspec:  refs/notes/ultragit -> {remote}");
-    eprintln!("  fetch refspec: +refs/notes/ultragit:refs/notes/ultragit");
+    eprintln!("  push refspec:  refs/notes/chronicle -> {remote}");
+    eprintln!("  fetch refspec: +refs/notes/chronicle:refs/notes/chronicle");
     Ok(())
 }
 
-/// Run `ultragit sync status`.
+/// Run `git chronicle sync status`.
 pub fn run_status(remote: &str) -> Result<()> {
     let repo_dir = repo_dir()?;
     let config = get_sync_config(&repo_dir, remote)?;
@@ -29,7 +29,7 @@ pub fn run_status(remote: &str) -> Result<()> {
         }
     } else {
         println!("Notes sync: not configured");
-        println!("  Run `ultragit sync enable` to set up sync.");
+        println!("  Run `git chronicle sync enable` to set up sync.");
     }
 
     println!("  Local notes:   {} annotated commits", status.local_count);
@@ -42,7 +42,7 @@ pub fn run_status(remote: &str) -> Result<()> {
     Ok(())
 }
 
-/// Run `ultragit sync pull`.
+/// Run `git chronicle sync pull`.
 pub fn run_pull(remote: &str) -> Result<()> {
     let repo_dir = repo_dir()?;
     pull_notes(&repo_dir, remote)?;
@@ -51,7 +51,7 @@ pub fn run_pull(remote: &str) -> Result<()> {
 }
 
 fn repo_dir() -> Result<PathBuf> {
-    std::env::current_dir().map_err(|e| crate::error::UltragitError::Io {
+    std::env::current_dir().map_err(|e| crate::error::ChronicleError::Io {
         source: e,
         location: snafu::Location::default(),
     })

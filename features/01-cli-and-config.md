@@ -2,9 +2,9 @@
 
 ## Overview
 
-The CLI framework is the foundation of Ultragit. It defines the binary's entry point, all subcommand definitions, argument parsing, configuration loading with proper precedence, and error output formatting. Every other feature plugs into the structure defined here.
+The CLI framework is the foundation of Chronicle. It defines the binary's entry point, all subcommand definitions, argument parsing, configuration loading with proper precedence, and error output formatting. Every other feature plugs into the structure defined here.
 
-This feature produces a compilable `ultragit` binary with all subcommands wired up to stub handlers that return `unimplemented!()` or placeholder output. The configuration system is fully functional — later features consume it, they don't build it.
+This feature produces a compilable `chronicle` binary with all subcommands wired up to stub handlers that return `unimplemented!()` or placeholder output. The configuration system is fully functional — later features consume it, they don't build it.
 
 ---
 
@@ -24,7 +24,7 @@ The binary uses `clap` with derive macros. The top-level command:
 use clap::{Parser, Subcommand};
 
 #[derive(Parser)]
-#[command(name = "ultragit", version, about = "Semantic memory for codebases")]
+#[command(name = "chronicle", version, about = "Semantic memory for codebases")]
 pub struct Cli {
     /// Output format for machine-consumed commands
     #[arg(long, global = true, default_value = "auto")]
@@ -60,7 +60,7 @@ pub enum OutputFormat {
 ```rust
 #[derive(Subcommand)]
 pub enum Command {
-    /// Initialize Ultragit in the current repository
+    /// Initialize Chronicle in the current repository
     Init(InitArgs),
 
     /// Commit with annotation context
@@ -530,7 +530,7 @@ pub struct BackfillArgs {
 Configuration comes from three sources with strict precedence:
 
 ```
-CLI flags > .git/config [ultragit] section > .ultragit-config.toml > compiled defaults
+CLI flags > .git/config [chronicle] section > .chronicle-config.toml > compiled defaults
 ```
 
 #### Resolved Config Type
@@ -539,7 +539,7 @@ All configuration resolves into a single struct:
 
 ```rust
 #[derive(Debug, Clone)]
-pub struct UltragitConfig {
+pub struct ChronicleConfig {
     pub enabled: bool,
     pub async_mode: bool,
     pub provider: Option<String>,
@@ -554,7 +554,7 @@ pub struct UltragitConfig {
     pub auto_sync: bool,
 }
 
-impl Default for UltragitConfig {
+impl Default for ChronicleConfig {
     fn default() -> Self {
         Self {
             enabled: true,
@@ -562,7 +562,7 @@ impl Default for UltragitConfig {
             provider: None,
             model: None,
             backfill_model: None,
-            note_ref: "refs/notes/ultragit".into(),
+            note_ref: "refs/notes/chronicle".into(),
             include: vec![],
             exclude: vec![],
             max_diff_lines: 2000,
@@ -576,15 +576,15 @@ impl Default for UltragitConfig {
 
 #### `.git/config` Integration
 
-The `[ultragit]` section in `.git/config`:
+The `[chronicle]` section in `.git/config`:
 
 ```ini
-[ultragit]
+[chronicle]
     enabled = true
     async = true
     provider = anthropic
     model = claude-sonnet-4-5-20250929
-    noteref = refs/notes/ultragit
+    noteref = refs/notes/chronicle
     include = src/**,lib/**
     exclude = tests/**,*.generated.*
     maxDiffLines = 2000
@@ -592,28 +592,28 @@ The `[ultragit]` section in `.git/config`:
     trivialThreshold = 3
 ```
 
-Read via `gix` config parsing or `git config --get ultragit.<key>` fallback. Written via `gix` or `git config ultragit.<key> <value>`.
+Read via `gix` config parsing or `git config --get chronicle.<key>` fallback. Written via `gix` or `git config chronicle.<key> <value>`.
 
-#### `.ultragit-config.toml` Parsing
+#### `.chronicle-config.toml` Parsing
 
 Shared team config checked into the repository root:
 
 ```toml
-[ultragit]
+[chronicle]
 enabled = true
 async = true
 
-[ultragit.model]
+[chronicle.model]
 provider = "anthropic"
 model = "claude-sonnet-4-5-20250929"
 backfill_model = "claude-haiku-4-5-20251001"
 
-[ultragit.scope]
+[chronicle.scope]
 include = ["src/**", "lib/**", "config/**"]
 exclude = ["*.generated.*", "vendor/**", "node_modules/**"]
 max_diff_lines = 2000
 
-[ultragit.sync]
+[chronicle.sync]
 auto_sync = true
 ```
 
@@ -622,15 +622,15 @@ Parsed with the `toml` crate into a `SharedConfig` struct, then merged into the 
 #### Config Resolution Flow
 
 ```
-fn load_config(cli: &Cli, repo_root: &Path) -> Result<UltragitConfig> {
-    let mut config = UltragitConfig::default();
+fn load_config(cli: &Cli, repo_root: &Path) -> Result<ChronicleConfig> {
+    let mut config = ChronicleConfig::default();
 
-    // Layer 1: .ultragit-config.toml (if present)
+    // Layer 1: .chronicle-config.toml (if present)
     if let Some(shared) = load_shared_config(repo_root)? {
         config.merge_shared(shared);
     }
 
-    // Layer 2: .git/config [ultragit] section
+    // Layer 2: .git/config [chronicle] section
     if let Some(git) = load_git_config(repo_root)? {
         config.merge_git(git);
     }
@@ -646,7 +646,7 @@ CLI flags are not merged generically because they are command-specific. Each sub
 
 ### Error Output Formatting
 
-Ultragit outputs to two channels:
+Chronicle outputs to two channels:
 
 - **stdout** — structured data (markdown or JSON). Consumed by agents and scripts.
 - **stderr** — human-readable status, progress, errors. Uses color when stderr is a TTY.
@@ -703,7 +703,7 @@ fn main() {
     let config = if let Some(root) = &repo_root {
         load_config(&cli, root)?
     } else {
-        UltragitConfig::default()
+        ChronicleConfig::default()
     };
 
     // 5. Dispatch to subcommand handler
@@ -727,14 +727,14 @@ Commands that don't require a repository (`--version`, `--help`) work without on
 use snafu::{Snafu, ResultExt, Location};
 
 #[derive(Debug, Snafu)]
-pub enum UltragitError {
+pub enum ChronicleError {
     #[snafu(display("Not a git repository (run from a directory containing .git), at {location}"))]
     NotARepository {
         #[snafu(implicit)]
         location: Location,
     },
 
-    #[snafu(display("Ultragit is not initialized in this repository (run `ultragit init`), at {location}"))]
+    #[snafu(display("Chronicle is not initialized in this repository (run `git chronicle init`), at {location}"))]
     NotInitialized {
         #[snafu(implicit)]
         location: Location,
@@ -794,8 +794,8 @@ pub enum UltragitError {
 ### Failure Modes
 
 - **Not in a git repository.** Print clear error to stderr, exit 3. Do not panic.
-- **`.ultragit-config.toml` is malformed.** Print parse error with line number, exit 5. Do not silently ignore.
-- **`.git/config` has invalid ultragit values.** Warn to stderr, fall back to defaults for the invalid keys, continue.
+- **`.chronicle-config.toml` is malformed.** Print parse error with line number, exit 5. Do not silently ignore.
+- **`.git/config` has invalid chronicle values.** Warn to stderr, fall back to defaults for the invalid keys, continue.
 - **Unknown subcommand.** Handled by clap with usage help.
 - **Missing required arguments.** Handled by clap with per-command help.
 
@@ -812,7 +812,7 @@ All config keys and their meanings:
 | `provider` | string | auto-detect | git/toml/cli | LLM provider name. |
 | `model` | string | provider default | git/toml/cli | LLM model identifier. |
 | `backfill_model` | string | same as `model` | git/toml/cli | Model for backfill (can be cheaper). |
-| `noteref` | string | `refs/notes/ultragit` | git/toml | Git notes ref namespace. |
+| `noteref` | string | `refs/notes/chronicle` | git/toml | Git notes ref namespace. |
 | `include` | string[] | `[]` (all files) | git/toml/cli | Glob patterns for files to annotate. |
 | `exclude` | string[] | `[]` | git/toml/cli | Glob patterns for files to skip. |
 | `maxDiffLines` | u32 | `2000` | git/toml | Skip annotation for diffs larger than this. |
@@ -832,13 +832,13 @@ Create `Cargo.toml` with all dependencies. Create `src/main.rs` with a minimal c
 
 ### Step 2: Subcommand Definitions
 
-Define all subcommand arg structs in `src/cli/`. Wire the `Command` enum to dispatch to stub handlers that print "not yet implemented" and exit 0. Every subcommand should be reachable via `ultragit <command> --help`.
+Define all subcommand arg structs in `src/cli/`. Wire the `Command` enum to dispatch to stub handlers that print "not yet implemented" and exit 0. Every subcommand should be reachable via `git chronicle <command> --help`.
 
-**Deliverable:** All subcommands parse and show help. `ultragit init --dry-run` prints a placeholder message.
+**Deliverable:** All subcommands parse and show help. `git chronicle init --dry-run` prints a placeholder message.
 
 ### Step 3: Error Types and Output Formatting
 
-Implement `UltragitError` with snafu. Every error variant gets a `location: Location` field (auto-captured via `#[snafu(implicit)]`) and a display message ending in `, at {location}`. Source errors from other crates are linked with `#[snafu(source)]`. Implement `Output` struct with `data()`, `status()`, `success()`, `warn()`, `error()` methods. Wire into main so all subcommands use `Output` consistently. Implement exit code mapping.
+Implement `ChronicleError` with snafu. Every error variant gets a `location: Location` field (auto-captured via `#[snafu(implicit)]`) and a display message ending in `, at {location}`. Source errors from other crates are linked with `#[snafu(source)]`. Implement `Output` struct with `data()`, `status()`, `success()`, `warn()`, `error()` methods. Wire into main so all subcommands use `Output` consistently. Implement exit code mapping.
 
 **Deliverable:** Errors display properly in both TTY and piped modes. JSON error output works.
 
@@ -846,31 +846,31 @@ Implement `UltragitError` with snafu. Every error variant gets a `location: Loca
 
 Implement `discover_repo()` using `gix::discover()` with fallback to `git rev-parse --show-toplevel`. Subcommands that need a repo fail cleanly when not in one.
 
-**Deliverable:** `ultragit config list` outside a repo prints error and exits 3.
+**Deliverable:** `git chronicle config list` outside a repo prints error and exits 3.
 
-### Step 5: `.ultragit-config.toml` Parser
+### Step 5: `.chronicle-config.toml` Parser
 
-Define `SharedConfig` serde struct matching the TOML schema. Implement `load_shared_config()` that reads from `{repo_root}/.ultragit-config.toml` if it exists.
+Define `SharedConfig` serde struct matching the TOML schema. Implement `load_shared_config()` that reads from `{repo_root}/.chronicle-config.toml` if it exists.
 
 **Deliverable:** Unit tests parsing valid, invalid, and missing TOML files.
 
 ### Step 6: `.git/config` Reader
 
-Implement `load_git_config()` that reads `[ultragit]` keys from `.git/config` via `gix` config API, with fallback to `git config --get`. Handle missing section, missing keys, and invalid values.
+Implement `load_git_config()` that reads `[chronicle]` keys from `.git/config` via `gix` config API, with fallback to `git config --get`. Handle missing section, missing keys, and invalid values.
 
 **Deliverable:** Unit tests for config reading with various key combinations. Integration test with a real `.git/config`.
 
-### Step 7: Config Merge and `UltragitConfig`
+### Step 7: Config Merge and `ChronicleConfig`
 
 Implement the merge logic: defaults -> shared config -> git config. Implement `config get`, `config set`, and `config list` subcommands that read/write the git config layer.
 
-**Deliverable:** `ultragit config set provider anthropic` writes to `.git/config`. `ultragit config list` shows merged config with source annotations.
+**Deliverable:** `git chronicle config set provider anthropic` writes to `.git/config`. `git chronicle config list` shows merged config with source annotations.
 
 ### Step 8: Tracing Setup
 
 Configure `tracing-subscriber` based on `--verbose` flag levels. `-v` = info, `-vv` = debug, `-vvv` = trace. Default = warn. Integrate with `Output` so tracing events go to stderr.
 
-**Deliverable:** `ultragit -vvv config list` shows debug-level config loading trace.
+**Deliverable:** `git chronicle -vvv config list` shows debug-level config loading trace.
 
 ---
 
@@ -886,29 +886,29 @@ Configure `tracing-subscriber` based on `--verbose` flag levels. `-v` = info, `-
 ### Integration Tests
 
 - **Repository discovery:** Create a temp git repo, verify `discover_repo()` finds it from a subdirectory. Verify failure outside a repo.
-- **Config round-trip:** `ultragit init` writes config, `ultragit config list` reads it back, values match.
-- **TOML + git config interaction:** Place `.ultragit-config.toml` in repo root, set different value in `.git/config`, verify merged config respects precedence.
+- **Config round-trip:** `git chronicle init` writes config, `git chronicle config list` reads it back, values match.
+- **TOML + git config interaction:** Place `.chronicle-config.toml` in repo root, set different value in `.git/config`, verify merged config respects precedence.
 
 ### Edge Cases
 
 - Binary run outside any git repository.
-- `.ultragit-config.toml` exists but is not valid TOML.
-- `.git/config` has `[ultragit]` section with unknown keys (should be ignored, not error).
+- `.chronicle-config.toml` exists but is not valid TOML.
+- `.git/config` has `[chronicle]` section with unknown keys (should be ignored, not error).
 - Config values with unusual characters (paths with spaces, glob patterns with `**`).
-- `ultragit commit` with complex passthrough args (`-a`, `--amend`, `--no-edit`).
+- `git chronicle commit` with complex passthrough args (`-a`, `--amend`, `--no-edit`).
 
 ---
 
 ## Acceptance Criteria
 
-1. `cargo install --path .` produces a working `ultragit` binary.
-2. `ultragit --version` prints version.
-3. `ultragit --help` lists all subcommands with descriptions.
-4. `ultragit <subcommand> --help` shows help for every subcommand.
-5. `ultragit config set <key> <value>` writes to `.git/config` `[ultragit]` section.
-6. `ultragit config get <key>` reads merged config and reports the value.
-7. `ultragit config list` shows all config keys, values, and their source (default/toml/git/cli).
-8. Config precedence is verifiable: set conflicting values in `.ultragit-config.toml` and `.git/config`, confirm git config wins.
+1. `cargo install --path .` produces a working `chronicle` binary.
+2. `git chronicle --version` prints version.
+3. `git chronicle --help` lists all subcommands with descriptions.
+4. `git chronicle <subcommand> --help` shows help for every subcommand.
+5. `git chronicle config set <key> <value>` writes to `.git/config` `[chronicle]` section.
+6. `git chronicle config get <key>` reads merged config and reports the value.
+7. `git chronicle config list` shows all config keys, values, and their source (default/toml/git/cli).
+8. Config precedence is verifiable: set conflicting values in `.chronicle-config.toml` and `.git/config`, confirm git config wins.
 9. Running any subcommand outside a git repository produces a clear error and exit code 3.
 10. `--format json` produces valid JSON on stdout for commands that emit data.
 11. All subcommands are wired (even as stubs) — no `unimplemented!()` panics at the dispatch level; stubs return a structured "not yet implemented" response.

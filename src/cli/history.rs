@@ -9,7 +9,7 @@ pub fn run(
     follow_related: bool,
     format: String,
 ) -> Result<()> {
-    let repo_dir = std::env::current_dir().map_err(|e| crate::error::UltragitError::Io {
+    let repo_dir = std::env::current_dir().map_err(|e| crate::error::ChronicleError::Io {
         source: e,
         location: snafu::Location::default(),
     })?;
@@ -22,7 +22,7 @@ pub fn run(
         follow_related,
     };
 
-    let result = build_timeline(&git_ops, &query).map_err(|e| crate::error::UltragitError::Git {
+    let result = build_timeline(&git_ops, &query).map_err(|e| crate::error::ChronicleError::Git {
         source: e,
         location: snafu::Location::default(),
     })?;
@@ -32,7 +32,7 @@ pub fn run(
     } else {
         serde_json::to_string(&result)
     }
-    .map_err(|e| crate::error::UltragitError::Json {
+    .map_err(|e| crate::error::ChronicleError::Json {
         source: e,
         location: snafu::Location::default(),
     })?;

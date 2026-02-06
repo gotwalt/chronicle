@@ -3,7 +3,7 @@ use crate::git::{CliOps, GitOps};
 use crate::schema::annotation::Annotation;
 use crate::schema::correction::{Correction, CorrectionType, resolve_author};
 
-/// Run the `ultragit flag` command.
+/// Run the `git chronicle flag` command.
 ///
 /// Flags the most recent annotation for a code region as potentially inaccurate.
 /// 1. Find commits that touched the file via git log --follow.
@@ -11,7 +11,7 @@ use crate::schema::correction::{Correction, CorrectionType, resolve_author};
 /// 3. Append a Flag correction to that region.
 /// 4. Write the updated annotation back.
 pub fn run(path: String, anchor: Option<String>, reason: String) -> Result<()> {
-    let repo_dir = std::env::current_dir().map_err(|e| crate::error::UltragitError::Io {
+    let repo_dir = std::env::current_dir().map_err(|e| crate::error::ChronicleError::Io {
         source: e,
         location: snafu::Location::default(),
     })?;
@@ -20,7 +20,7 @@ pub fn run(path: String, anchor: Option<String>, reason: String) -> Result<()> {
     // Find commits that touched this file
     let shas = git_ops
         .log_for_file(&path)
-        .map_err(|e| crate::error::UltragitError::Git {
+        .map_err(|e| crate::error::ChronicleError::Git {
             source: e,
             location: snafu::Location::default(),
         })?;
@@ -29,7 +29,7 @@ pub fn run(path: String, anchor: Option<String>, reason: String) -> Result<()> {
     for sha in &shas {
         let note_content = match git_ops
             .note_read(sha)
-            .map_err(|e| crate::error::UltragitError::Git {
+            .map_err(|e| crate::error::ChronicleError::Git {
                 source: e,
                 location: snafu::Location::default(),
             })? {
@@ -38,7 +38,7 @@ pub fn run(path: String, anchor: Option<String>, reason: String) -> Result<()> {
         };
 
         let mut annotation: Annotation = serde_json::from_str(&note_content).map_err(|e| {
-            crate::error::UltragitError::Json {
+            crate::error::ChronicleError::Json {
                 source: e,
                 location: snafu::Location::default(),
             }
@@ -70,7 +70,7 @@ pub fn run(path: String, anchor: Option<String>, reason: String) -> Result<()> {
 
         let updated_json =
             serde_json::to_string_pretty(&annotation).map_err(|e| {
-                crate::error::UltragitError::Json {
+                crate::error::ChronicleError::Json {
                     source: e,
                     location: snafu::Location::default(),
                 }
@@ -78,7 +78,7 @@ pub fn run(path: String, anchor: Option<String>, reason: String) -> Result<()> {
 
         git_ops
             .note_write(sha, &updated_json)
-            .map_err(|e| crate::error::UltragitError::Git {
+            .map_err(|e| crate::error::ChronicleError::Git {
                 source: e,
                 location: snafu::Location::default(),
             })?;
@@ -86,7 +86,7 @@ pub fn run(path: String, anchor: Option<String>, reason: String) -> Result<()> {
         let short_sha = &sha[..7.min(sha.len())];
         eprintln!("Flagged annotation on commit {short_sha} for {anchor_display}");
         eprintln!("  Reason: {reason}");
-        eprintln!("  Correction stored in refs/notes/ultragit");
+        eprintln!("  Correction stored in refs/notes/chronicle");
         return Ok(());
     }
 
@@ -95,7 +95,7 @@ pub fn run(path: String, anchor: Option<String>, reason: String) -> Result<()> {
         Some(a) => format!("{path}:{a}"),
         None => path.clone(),
     };
-    Err(crate::error::UltragitError::Config {
+    Err(crate::error::ChronicleError::Config {
         message: format!(
             "No annotation found for '{target}'. No commits with matching annotations were found."
         ),
@@ -140,7 +140,7 @@ mod tests {
     #[test]
     fn test_find_matching_region_by_anchor() {
         let annotation = Annotation {
-            schema: "ultragit/v1".to_string(),
+            schema: "chronicle/v1".to_string(),
             commit: "abc123".to_string(),
             timestamp: "2025-01-01T00:00:00Z".to_string(),
             task: None,
@@ -211,7 +211,7 @@ mod tests {
     #[test]
     fn test_find_matching_region_no_anchor() {
         let annotation = Annotation {
-            schema: "ultragit/v1".to_string(),
+            schema: "chronicle/v1".to_string(),
             commit: "abc123".to_string(),
             timestamp: "2025-01-01T00:00:00Z".to_string(),
             task: None,
@@ -258,7 +258,7 @@ mod tests {
     #[test]
     fn test_find_matching_region_dot_slash_normalization() {
         let annotation = Annotation {
-            schema: "ultragit/v1".to_string(),
+            schema: "chronicle/v1".to_string(),
             commit: "abc123".to_string(),
             timestamp: "2025-01-01T00:00:00Z".to_string(),
             task: None,

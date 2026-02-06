@@ -1,4 +1,4 @@
-use ultragit::ast::{self, AnchorMatch, Language, OutlineEntry, SemanticKind};
+use chronicle::ast::{self, AnchorMatch, Language, OutlineEntry, SemanticKind};
 
 const SAMPLE_RUST: &str = r#"
 fn standalone() {

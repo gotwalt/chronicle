@@ -1,5 +1,5 @@
 use clap::Parser;
-use ultragit::cli::{Cli, Commands, SyncAction};
+use chronicle::cli::{Cli, Commands, SyncAction};
 
 #[tokio::main]
 async fn main() {
@@ -9,56 +9,53 @@ async fn main() {
 
     let result = match cli.command {
         Commands::Init { sync, no_hooks, provider, model } => {
-            ultragit::cli::init::run(sync, no_hooks, provider, model)
-        }
-        Commands::Commit { message, task, reasoning, dependencies, tags, git_args } => {
-            ultragit::cli::commit::run(message, task, reasoning, dependencies, tags, git_args)
+            chronicle::cli::init::run(sync, no_hooks, provider, model)
         }
         Commands::Context { action } => {
-            ultragit::cli::context::run(action)
+            chronicle::cli::context::run(action)
         }
         Commands::Annotate { commit, sync, live, squash_sources, amend_source } => {
-            ultragit::cli::annotate::run(commit, sync, live, squash_sources, amend_source).await
+            chronicle::cli::annotate::run(commit, sync, live, squash_sources, amend_source).await
         }
         Commands::Read { path, anchor, lines } => {
-            ultragit::cli::read::run(path, anchor, lines)
+            chronicle::cli::read::run(path, anchor, lines)
         }
         Commands::Flag { path, anchor, reason } => {
-            ultragit::cli::flag::run(path, anchor, reason)
+            chronicle::cli::flag::run(path, anchor, reason)
         }
         Commands::Correct { sha, region, field, remove, amend } => {
-            ultragit::cli::correct::run(sha, region, field, remove, amend)
+            chronicle::cli::correct::run(sha, region, field, remove, amend)
         }
         Commands::Sync { action } => {
             match action {
                 SyncAction::Enable { remote } => {
-                    ultragit::cli::sync::run_enable(&remote)
+                    chronicle::cli::sync::run_enable(&remote)
                 }
                 SyncAction::Status { remote } => {
-                    ultragit::cli::sync::run_status(&remote)
+                    chronicle::cli::sync::run_status(&remote)
                 }
                 SyncAction::Pull { remote } => {
-                    ultragit::cli::sync::run_pull(&remote)
+                    chronicle::cli::sync::run_pull(&remote)
                 }
             }
         }
         Commands::Export { output } => {
-            ultragit::cli::export::run(output)
+            chronicle::cli::export::run(output)
         }
         Commands::Import { file, force, dry_run } => {
-            ultragit::cli::import::run(file, force, dry_run)
+            chronicle::cli::import::run(file, force, dry_run)
         }
         Commands::Doctor { json } => {
-            ultragit::cli::doctor::run(json)
+            chronicle::cli::doctor::run(json)
         }
         Commands::Deps { path, anchor, format, max_results, scan_limit } => {
-            ultragit::cli::deps::run(path, anchor, max_results, scan_limit, format)
+            chronicle::cli::deps::run(path, anchor, max_results, scan_limit, format)
         }
         Commands::History { path, anchor, limit, format, follow_related } => {
-            ultragit::cli::history::run(path, anchor, limit, follow_related, format)
+            chronicle::cli::history::run(path, anchor, limit, follow_related, format)
         }
         Commands::Summary { path, anchor, format } => {
-            ultragit::cli::summary::run(path, anchor, format)
+            chronicle::cli::summary::run(path, anchor, format)
         }
     };
 

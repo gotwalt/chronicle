@@ -1,6 +1,6 @@
 use std::io::BufRead;
 
-use crate::error::ultragit_error::GitSnafu;
+use crate::error::chronicle_error::GitSnafu;
 use crate::error::Result;
 use crate::export::ExportEntry;
 use crate::git::GitOps;
@@ -35,7 +35,7 @@ pub fn import_annotations<R: BufRead>(
     };
 
     for line in reader.lines() {
-        let line = line.map_err(|e| crate::error::UltragitError::Io {
+        let line = line.map_err(|e| crate::error::ChronicleError::Io {
             source: e,
             location: snafu::Location::default(),
         })?;
@@ -81,7 +81,7 @@ pub fn import_annotations<R: BufRead>(
 
         if !dry_run {
             let content = serde_json::to_string(&entry.annotation).map_err(|e| {
-                crate::error::UltragitError::Json {
+                crate::error::ChronicleError::Json {
                     source: e,
                     location: snafu::Location::default(),
                 }

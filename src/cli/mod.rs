@@ -1,5 +1,4 @@
 pub mod init;
-pub mod commit;
 pub mod context;
 pub mod annotate;
 pub mod read;
@@ -16,7 +15,7 @@ pub mod summary;
 use clap::{Parser, Subcommand};
 
 #[derive(Parser)]
-#[command(name = "ultragit", version, about = "AI-powered commit annotation")]
+#[command(name = "git-chronicle", version, about = "AI-powered commit annotation")]
 pub struct Cli {
     #[command(subcommand)]
     pub command: Commands,
@@ -24,7 +23,7 @@ pub struct Cli {
 
 #[derive(Subcommand)]
 pub enum Commands {
-    /// Initialize ultragit in the current repository
+    /// Initialize chronicle in the current repository
     Init {
         /// Run annotations synchronously (default: async)
         #[arg(long)]
@@ -41,33 +40,6 @@ pub enum Commands {
         /// LLM model to use
         #[arg(long)]
         model: Option<String>,
-    },
-
-    /// Commit with annotation context (wraps git commit)
-    Commit {
-        /// Commit message
-        #[arg(short, long)]
-        message: Option<String>,
-
-        /// Task identifier for the commit
-        #[arg(long)]
-        task: Option<String>,
-
-        /// Reasoning behind the changes
-        #[arg(long)]
-        reasoning: Option<String>,
-
-        /// Dependencies affected
-        #[arg(long)]
-        dependencies: Option<String>,
-
-        /// Tags for the annotation
-        #[arg(long)]
-        tags: Vec<String>,
-
-        /// Additional args passed through to git commit
-        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
-        git_args: Vec<String>,
     },
 
     /// Manage annotation context
@@ -175,7 +147,7 @@ pub enum Commands {
         dry_run: bool,
     },
 
-    /// Run diagnostic checks on the ultragit setup
+    /// Run diagnostic checks on the chronicle setup
     Doctor {
         /// Output as JSON
         #[arg(long)]

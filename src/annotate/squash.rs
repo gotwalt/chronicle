@@ -3,7 +3,7 @@ use std::path::Path;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use crate::error::ultragit_error::{IoSnafu, JsonSnafu};
+use crate::error::chronicle_error::{IoSnafu, JsonSnafu};
 use crate::error::Result;
 use crate::git::GitOps;
 use crate::schema::{
@@ -15,7 +15,7 @@ use snafu::ResultExt;
 /// Expiry time for pending-squash.json files, in seconds.
 const PENDING_SQUASH_EXPIRY_SECS: i64 = 60;
 
-/// Written to .git/ultragit/pending-squash.json by prepare-commit-msg.
+/// Written to .git/chronicle/pending-squash.json by prepare-commit-msg.
 /// Consumed and deleted by post-commit.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PendingSquash {
@@ -54,10 +54,10 @@ pub struct AmendMigrationContext {
 }
 
 fn pending_squash_path(git_dir: &Path) -> std::path::PathBuf {
-    git_dir.join("ultragit").join("pending-squash.json")
+    git_dir.join("chronicle").join("pending-squash.json")
 }
 
-/// Write pending-squash.json to .git/ultragit/.
+/// Write pending-squash.json to .git/chronicle/.
 pub fn write_pending_squash(git_dir: &Path, pending: &PendingSquash) -> Result<()> {
     let path = pending_squash_path(git_dir);
     if let Some(parent) = path.parent() {
@@ -201,7 +201,7 @@ pub fn synthesize_squash_annotation(ctx: &SquashSynthesisContext) -> Annotation 
     };
 
     Annotation {
-        schema: "ultragit/v1".to_string(),
+        schema: "chronicle/v1".to_string(),
         commit: ctx.squash_commit.clone(),
         timestamp: Utc::now().to_rfc3339(),
         task: None,
@@ -296,7 +296,7 @@ mod tests {
 
     fn make_test_annotation(commit: &str, file: &str, anchor: &str) -> Annotation {
         Annotation {
-            schema: "ultragit/v1".to_string(),
+            schema: "chronicle/v1".to_string(),
             commit: commit.to_string(),
             timestamp: Utc::now().to_rfc3339(),
             task: None,
@@ -347,7 +347,7 @@ mod tests {
     fn test_pending_squash_roundtrip() {
         let dir = tempfile::tempdir().unwrap();
         let git_dir = dir.path();
-        std::fs::create_dir_all(git_dir.join("ultragit")).unwrap();
+        std::fs::create_dir_all(git_dir.join("chronicle")).unwrap();
 
         let pending = PendingSquash {
             source_commits: vec!["abc123".to_string(), "def456".to_string()],
@@ -373,7 +373,7 @@ mod tests {
     fn test_pending_squash_stale_file() {
         let dir = tempfile::tempdir().unwrap();
         let git_dir = dir.path();
-        std::fs::create_dir_all(git_dir.join("ultragit")).unwrap();
+        std::fs::create_dir_all(git_dir.join("chronicle")).unwrap();
 
         let pending = PendingSquash {
             source_commits: vec!["abc123".to_string()],
@@ -392,9 +392,9 @@ mod tests {
     fn test_pending_squash_invalid_json() {
         let dir = tempfile::tempdir().unwrap();
         let git_dir = dir.path();
-        let ultragit_dir = git_dir.join("ultragit");
-        std::fs::create_dir_all(&ultragit_dir).unwrap();
-        std::fs::write(ultragit_dir.join("pending-squash.json"), "not json").unwrap();
+        let chronicle_dir = git_dir.join("chronicle");
+        std::fs::create_dir_all(&chronicle_dir).unwrap();
+        std::fs::write(chronicle_dir.join("pending-squash.json"), "not json").unwrap();
 
         let result = read_pending_squash(git_dir).unwrap();
         assert!(result.is_none());

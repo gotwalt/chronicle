@@ -2,15 +2,15 @@ use std::io::{BufReader, Cursor};
 use std::path::Path;
 use std::process::Command;
 
-use ultragit::doctor::{run_doctor, DoctorStatus};
-use ultragit::export::export_annotations;
-use ultragit::git::{CliOps, GitOps};
-use ultragit::import::import_annotations;
-use ultragit::schema::annotation::{
+use chronicle::doctor::{run_doctor, DoctorStatus};
+use chronicle::export::export_annotations;
+use chronicle::git::{CliOps, GitOps};
+use chronicle::import::import_annotations;
+use chronicle::schema::annotation::{
     Annotation, AstAnchor, ContextLevel, CrossCuttingConcern, CrossCuttingRegionRef, LineRange,
     Provenance, ProvenanceOperation, RegionAnnotation,
 };
-use ultragit::sync::{enable_sync, get_sync_config, get_sync_status};
+use chronicle::sync::{enable_sync, get_sync_config, get_sync_status};
 
 fn create_temp_repo() -> (tempfile::TempDir, CliOps) {
     let dir = tempfile::tempdir().unwrap();
@@ -49,7 +49,7 @@ fn add_and_commit(dir: &Path, filename: &str, content: &str, message: &str) {
 
 fn make_test_annotation(commit: &str) -> Annotation {
     Annotation {
-        schema: "ultragit/v1".to_string(),
+        schema: "chronicle/v1".to_string(),
         commit: commit.to_string(),
         timestamp: "2025-12-15T10:30:00Z".to_string(),
         task: Some("TEST-1".to_string()),
@@ -115,8 +115,8 @@ fn sync_enable_adds_refspecs() {
     // After enable
     let config = get_sync_config(&repo_dir, "origin").unwrap();
     assert!(config.is_enabled());
-    assert!(config.push_refspec.unwrap().contains("refs/notes/ultragit"));
-    assert!(config.fetch_refspec.unwrap().contains("refs/notes/ultragit"));
+    assert!(config.push_refspec.unwrap().contains("refs/notes/chronicle"));
+    assert!(config.fetch_refspec.unwrap().contains("refs/notes/chronicle"));
 }
 
 #[test]
@@ -182,7 +182,7 @@ fn export_import_roundtrip() {
     // Export
     // We need to construct the JSONL manually since list_annotated_commits
     // shells out to git directly from the cwd (not the test repo).
-    let entry = ultragit::export::ExportEntry {
+    let entry = chronicle::export::ExportEntry {
         commit_sha: sha.clone(),
         timestamp: annotation.timestamp.clone(),
         annotation: annotation.clone(),
@@ -197,7 +197,7 @@ fn export_import_roundtrip() {
         .args([
             "notes",
             "--ref",
-            "refs/notes/ultragit",
+            "refs/notes/chronicle",
             "remove",
             &sha,
         ])
@@ -236,7 +236,7 @@ fn import_skips_existing_notes_without_force() {
     ops.note_write(&sha, &content).unwrap();
 
     // Build JSONL
-    let entry = ultragit::export::ExportEntry {
+    let entry = chronicle::export::ExportEntry {
         commit_sha: sha.clone(),
         timestamp: annotation.timestamp.clone(),
         annotation,
@@ -262,7 +262,7 @@ fn import_with_force_overwrites() {
 
     // Build JSONL with a proper annotation
     let annotation = make_test_annotation(&sha);
-    let entry = ultragit::export::ExportEntry {
+    let entry = chronicle::export::ExportEntry {
         commit_sha: sha.clone(),
         timestamp: annotation.timestamp.clone(),
         annotation,
@@ -288,7 +288,7 @@ fn import_skips_unknown_commits() {
 
     // Build JSONL with a non-existent SHA
     let annotation = make_test_annotation("0000000000000000000000000000000000000000");
-    let entry = ultragit::export::ExportEntry {
+    let entry = chronicle::export::ExportEntry {
         commit_sha: "0000000000000000000000000000000000000000".to_string(),
         timestamp: annotation.timestamp.clone(),
         annotation,
@@ -322,7 +322,7 @@ fn import_dry_run_does_not_write() {
     let sha = ops.resolve_ref("HEAD").unwrap();
 
     let annotation = make_test_annotation(&sha);
-    let entry = ultragit::export::ExportEntry {
+    let entry = chronicle::export::ExportEntry {
         commit_sha: sha.clone(),
         timestamp: annotation.timestamp.clone(),
         annotation,
@@ -365,8 +365,8 @@ fn doctor_on_initialized_repo() {
     let (dir, ops) = create_temp_repo();
     add_and_commit(dir.path(), "init.txt", "init\n", "Init");
 
-    // Initialize ultragit
-    ops.config_set("ultragit.enabled", "true").unwrap();
+    // Initialize chronicle
+    ops.config_set("chronicle.enabled", "true").unwrap();
 
     let git_dir = dir.path().join(".git");
     let report = run_doctor(&ops, &git_dir).unwrap();
@@ -394,12 +394,12 @@ fn doctor_hooks_check_detects_installed_hooks() {
     let (dir, ops) = create_temp_repo();
     add_and_commit(dir.path(), "init.txt", "init\n", "Init");
 
-    // Install a post-commit hook that references ultragit
+    // Install a post-commit hook that references chronicle
     let hooks_dir = dir.path().join(".git").join("hooks");
     std::fs::create_dir_all(&hooks_dir).unwrap();
     std::fs::write(
         hooks_dir.join("post-commit"),
-        "#!/bin/sh\nultragit annotate --commit HEAD\n",
+        "#!/bin/sh\ngit-chronicle annotate --commit HEAD\n",
     )
     .unwrap();
 
@@ -420,7 +420,7 @@ fn doctor_json_output_is_valid() {
 
     // Serialize to JSON and back
     let json = serde_json::to_string(&report).unwrap();
-    let parsed: ultragit::doctor::DoctorReport = serde_json::from_str(&json).unwrap();
+    let parsed: chronicle::doctor::DoctorReport = serde_json::from_str(&json).unwrap();
     assert_eq!(parsed.version, report.version);
     assert_eq!(parsed.checks.len(), report.checks.len());
 }

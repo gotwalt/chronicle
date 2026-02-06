@@ -1,4 +1,4 @@
-# Ultragit Implementation Plan
+# Chronicle Implementation Plan
 
 ## Feature Breakdown & Dependency Graph
 
@@ -6,10 +6,10 @@
 
 ## Architecture
 
-Ultragit is a single Rust binary distributed via `cargo install`, Homebrew, or prebuilt release binaries. It installs as git hooks and a CLI, communicates with LLM providers over HTTP, parses code with tree-sitter, and stores annotations as git notes.
+Chronicle is a single Rust binary distributed via `cargo install`, Homebrew, or prebuilt release binaries. It installs as git hooks and a CLI, communicates with LLM providers over HTTP, parses code with tree-sitter, and stores annotations as git notes.
 
 ```
-ultragit (Rust binary)
+chronicle (Rust binary)
 ├── CLI layer (clap)              Feature 01
 ├── Git operations (gix + fallback) Feature 02
 ├── AST parsing (tree-sitter)       Feature 03
@@ -31,17 +31,17 @@ ultragit (Rust binary)
 
 | # | Feature | File | Est. Complexity | Description |
 |---|---------|------|-----------------|-------------|
-| 01 | CLI Framework & Config | `01-cli-and-config.md` | Medium | clap-based CLI skeleton, all subcommands, git config management, `.ultragit-config.toml` |
+| 01 | CLI Framework & Config | `01-cli-and-config.md` | Medium | clap-based CLI skeleton, all subcommands, git config management, `.chronicle-config.toml` |
 | 02 | Git Operations Layer | `02-git-operations.md` | High | gix integration for diff, blame, notes, config; git CLI fallback; notes read/write |
 | 03 | Tree-sitter AST Parsing | `03-ast-parsing.md` | Medium | Grammar loading, outline extraction, anchor resolution, language fallback |
 | 04 | LLM Provider Abstraction | `04-llm-providers.md` | High | Provider trait, credential discovery, Anthropic/OpenAI/Gemini/OpenRouter, tool-use normalization |
 | 05 | Writing Agent | `05-writing-agent.md` | High | System prompt, tool definitions, agent loop, annotation schema production |
-| 06 | Hooks & Context Capture | `06-hooks-and-context.md` | Medium | Hook installation/chaining, `ultragit commit`, `ultragit context set`, pre-LLM filtering, async model |
+| 06 | Hooks & Context Capture | `06-hooks-and-context.md` | Medium | Hook installation/chaining, `git chronicle commit`, `git chronicle context set`, pre-LLM filtering, async model |
 | 07 | Read Pipeline | `07-read-pipeline.md` | High | Blame retrieval, note fetching, region filtering, confidence scoring, token trimming, output schema |
 | 08 | Advanced Queries | `08-advanced-queries.md` | Medium | `deps`, `history`, `summary`, multi-file queries, reverse index (v1.1) |
 | 09 | History Rewrite Handling | `09-history-rewrites.md` | High | Squash detection/synthesis, amend migration, merge annotation, CI squash, provenance |
-| 10 | Team Operations | `10-team-operations.md` | Medium | Notes sync, auto-sync, backfill, export/import, `ultragit doctor`, skill install |
-| 11 | Annotation Corrections | `11-corrections.md` | Low-Medium | `ultragit flag`, `ultragit correct`, correction storage, read-path surfacing |
+| 10 | Team Operations | `10-team-operations.md` | Medium | Notes sync, auto-sync, backfill, export/import, `git chronicle doctor`, skill install |
+| 11 | Annotation Corrections | `11-corrections.md` | Low-Medium | `git chronicle flag`, `git chronicle correct`, correction storage, read-path surfacing |
 | 12 | MCP Server | `12-mcp-server.md` | Medium | MCP protocol, tool definitions, server lifecycle, registration |
 | 13 | Claude Code Integration | `13-claude-code-integration.md` | Low-Medium | MCP annotate tool, Claude Code skill, post-commit hook |
 
@@ -123,37 +123,37 @@ Phase 5 features (08-12) are largely independent and can be distributed across t
 ## Crate Structure
 
 ```
-ultragit/
+chronicle/
 ├── Cargo.toml
 ├── src/
 │   ├── main.rs                  # CLI entrypoint (clap)
 │   ├── cli/
 │   │   ├── mod.rs               # Subcommand dispatch
-│   │   ├── init.rs              # `ultragit init`
-│   │   ├── commit.rs            # `ultragit commit`
-│   │   ├── context.rs           # `ultragit context set`
-│   │   ├── annotate.rs          # `ultragit annotate`
-│   │   ├── read.rs              # `ultragit read`
-│   │   ├── deps.rs              # `ultragit deps`
-│   │   ├── history.rs           # `ultragit history`
-│   │   ├── summary.rs           # `ultragit summary`
-│   │   ├── backfill.rs          # `ultragit backfill`
-│   │   ├── inspect.rs           # `ultragit inspect`
-│   │   ├── flag.rs              # `ultragit flag`
-│   │   ├── correct.rs           # `ultragit correct`
-│   │   ├── doctor.rs            # `ultragit doctor`
-│   │   ├── sync.rs              # `ultragit sync`
-│   │   ├── export.rs            # `ultragit export`
-│   │   ├── import.rs            # `ultragit import`
-│   │   ├── skill.rs             # `ultragit skill`
-│   │   ├── auth.rs              # `ultragit auth`
-│   │   ├── config_cmd.rs        # `ultragit config`
-│   │   └── mcp.rs               # `ultragit mcp`
+│   │   ├── init.rs              # `git chronicle init`
+│   │   ├── commit.rs            # `git chronicle commit`
+│   │   ├── context.rs           # `git chronicle context set`
+│   │   ├── annotate.rs          # `git chronicle annotate`
+│   │   ├── read.rs              # `git chronicle read`
+│   │   ├── deps.rs              # `git chronicle deps`
+│   │   ├── history.rs           # `git chronicle history`
+│   │   ├── summary.rs           # `git chronicle summary`
+│   │   ├── backfill.rs          # `git chronicle backfill`
+│   │   ├── inspect.rs           # `git chronicle inspect`
+│   │   ├── flag.rs              # `git chronicle flag`
+│   │   ├── correct.rs           # `git chronicle correct`
+│   │   ├── doctor.rs            # `git chronicle doctor`
+│   │   ├── sync.rs              # `git chronicle sync`
+│   │   ├── export.rs            # `git chronicle export`
+│   │   ├── import.rs            # `git chronicle import`
+│   │   ├── skill.rs             # `git chronicle skill`
+│   │   ├── auth.rs              # `git chronicle auth`
+│   │   ├── config_cmd.rs        # `git chronicle config`
+│   │   └── mcp.rs               # `git chronicle mcp`
 │   ├── git/
 │   │   ├── mod.rs               # Git operation abstractions
 │   │   ├── diff.rs              # Diff extraction (gix + fallback)
 │   │   ├── blame.rs             # Blame wrapper with line-range support
-│   │   ├── notes.rs             # Notes read/write under refs/notes/ultragit
+│   │   ├── notes.rs             # Notes read/write under refs/notes/chronicle
 │   │   ├── config.rs            # Git config read/write
 │   │   └── refs.rs              # Ref management
 │   ├── ast/
@@ -199,8 +199,8 @@ ultragit/
 │   │   └── output.rs            # Read output schema
 │   ├── config/
 │   │   ├── mod.rs               # Configuration management
-│   │   ├── git_config.rs        # [ultragit] section in .git/config
-│   │   └── shared_config.rs     # .ultragit-config.toml parsing
+│   │   ├── git_config.rs        # [chronicle] section in .git/config
+│   │   └── shared_config.rs     # .chronicle-config.toml parsing
 │   ├── sync/
 │   │   ├── mod.rs               # Notes sync management
 │   │   ├── push_fetch.rs        # Refspec configuration
@@ -263,7 +263,7 @@ Each feature file includes its own test plan. The global testing approach:
 
 **Integration tests:** In `tests/integration/`. Create temporary git repositories, make real commits, run hooks, verify annotations. Use recorded HTTP responses (via `wiremock` or similar) for LLM provider tests.
 
-**End-to-end tests:** A small shell script test suite that installs ultragit in a fresh repo, makes commits, reads annotations, verifies the full loop. Run in CI.
+**End-to-end tests:** A small shell script test suite that installs chronicle in a fresh repo, makes commits, reads annotations, verifies the full loop. Run in CI.
 
 **Property tests:** For the confidence scoring algorithm and token trimming logic, property-based tests (via `proptest`) ensure invariants hold across diverse inputs.
 
@@ -289,7 +289,7 @@ Before merging each feature:
 
 - **Record LLM responses for tests.** Integration tests should never make real API calls. Record sample request/response pairs and replay them. This makes tests fast, deterministic, and free.
 
-- **Schema versioning from day one.** The annotation schema includes `"$schema": "ultragit/v1"`. Parse this on read and handle unknown versions gracefully (warn, don't crash).
+- **Schema versioning from day one.** The annotation schema includes `"$schema": "chronicle/v1"`. Parse this on read and handle unknown versions gracefully (warn, don't crash).
 
 - **Feature flags via Cargo features.** Language grammars should be optional Cargo features so users can build a smaller binary if they only need specific languages.
 

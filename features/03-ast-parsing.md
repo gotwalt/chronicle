@@ -2,7 +2,7 @@
 
 ## Overview
 
-The AST parsing layer gives Ultragit structural understanding of source code. Instead of operating on raw lines and diffs, Ultragit can identify semantic units — functions, methods, structs, classes, impl blocks, constants, type definitions — by name, signature, and line range. This enables two critical capabilities:
+The AST parsing layer gives Chronicle structural understanding of source code. Instead of operating on raw lines and diffs, Chronicle can identify semantic units — functions, methods, structs, classes, impl blocks, constants, type definitions — by name, signature, and line range. This enables two critical capabilities:
 
 1. **Outline extraction** — the writing agent uses outlines to anchor annotations to named code elements rather than brittle line numbers.
 2. **Anchor resolution** — the read pipeline resolves a name like `MqttClient::connect` to a line range, then feeds that range to blame.
@@ -13,7 +13,7 @@ Both capabilities use tree-sitter for parsing. Tree-sitter is fast (single-digit
 
 ## Dependencies
 
-- **Feature 01 (CLI & Config):** Uses `UltragitConfig` for repository root. Language grammars are selected via Cargo features defined in the project's `Cargo.toml`.
+- **Feature 01 (CLI & Config):** Uses `ChronicleConfig` for repository root. Language grammars are selected via Cargo features defined in the project's `Cargo.toml`.
 
 ---
 
@@ -245,7 +245,7 @@ pub fn load_grammar_runtime(path: &Path) -> Result<TsLanguage> {
 }
 ```
 
-The infrastructure for this (a grammar registry, a search path like `~/.ultragit/grammars/`) is deferred. The API surface is reserved so that adding it later doesn't break the trait.
+The infrastructure for this (a grammar registry, a search path like `~/.chronicle/grammars/`) is deferred. The API surface is reserved so that adding it later doesn't break the trait.
 
 ### Outline Extraction
 
@@ -461,7 +461,7 @@ fn levenshtein(a: &str, b: &str) -> u32 {
 
 Tree-sitter is error-tolerant — it produces a tree even when the source has syntax errors. Error nodes appear in the tree as `ERROR` type nodes. The strategy:
 
-1. **Parse always succeeds.** `tree_sitter::Parser::parse()` returns a tree even for invalid source. It returns `None` only when cancelled (which Ultragit never does) or on allocation failure.
+1. **Parse always succeeds.** `tree_sitter::Parser::parse()` returns a tree even for invalid source. It returns `None` only when cancelled (which Chronicle never does) or on allocation failure.
 2. **ERROR nodes in the tree.** Walk the tree normally. Skip `ERROR` nodes and their children — don't attempt to extract outline entries from malformed regions.
 3. **Log warnings.** If `ERROR` nodes are present, emit a `tracing::warn` with the line number and a snippet of the error region. The outline may be incomplete but the valid parts are still usable.
 4. **Partial outlines are fine.** An outline missing one function because it has a syntax error is better than no outline at all. Callers (the writing agent, the read pipeline) handle incomplete outlines gracefully.
@@ -553,7 +553,7 @@ pub enum AstError {
 
 No runtime configuration. Language support is determined by compiled Cargo features. The mapping from extensions to languages is hardcoded and not user-configurable (adding configuration here would be over-engineering for the initial version).
 
-Future: if users need custom extension-to-language mappings, add an `[ultragit.languages]` config section. Not in v1.
+Future: if users need custom extension-to-language mappings, add an `[chronicle.languages]` config section. Not in v1.
 
 ---
 

@@ -3,7 +3,7 @@ use crate::git::{CliOps, GitOps};
 use crate::schema::annotation::Annotation;
 use crate::schema::correction::{Correction, CorrectionType, resolve_author};
 
-/// Run the `ultragit correct` command.
+/// Run the `git chronicle correct` command.
 ///
 /// Applies a precise correction to a specific field in a region annotation.
 pub fn run(
@@ -14,13 +14,13 @@ pub fn run(
     amend: Option<String>,
 ) -> Result<()> {
     if remove.is_none() && amend.is_none() {
-        return Err(crate::error::UltragitError::Config {
+        return Err(crate::error::ChronicleError::Config {
             message: "At least one of --remove or --amend must be specified.".to_string(),
             location: snafu::Location::default(),
         });
     }
 
-    let repo_dir = std::env::current_dir().map_err(|e| crate::error::UltragitError::Io {
+    let repo_dir = std::env::current_dir().map_err(|e| crate::error::ChronicleError::Io {
         source: e,
         location: snafu::Location::default(),
     })?;
@@ -29,7 +29,7 @@ pub fn run(
     // Resolve short SHA to full if needed
     let full_sha = git_ops
         .resolve_ref(&sha)
-        .map_err(|e| crate::error::UltragitError::Git {
+        .map_err(|e| crate::error::ChronicleError::Git {
             source: e,
             location: snafu::Location::default(),
         })?;
@@ -37,7 +37,7 @@ pub fn run(
     // Read the existing annotation
     let note_opt = git_ops
         .note_read(&full_sha)
-        .map_err(|e| crate::error::UltragitError::Git {
+        .map_err(|e| crate::error::ChronicleError::Git {
             source: e,
             location: snafu::Location::default(),
         })?;
@@ -45,7 +45,7 @@ pub fn run(
     let note = match note_opt {
         Some(n) => n,
         None => {
-            return Err(crate::error::UltragitError::Config {
+            return Err(crate::error::ChronicleError::Config {
                 message: format!(
                     "No annotation found for commit {sha}. Cannot apply correction."
                 ),
@@ -55,7 +55,7 @@ pub fn run(
     };
 
     let mut annotation: Annotation =
-        serde_json::from_str(&note).map_err(|e| crate::error::UltragitError::Json {
+        serde_json::from_str(&note).map_err(|e| crate::error::ChronicleError::Json {
             source: e,
             location: snafu::Location::default(),
         })?;
@@ -74,7 +74,7 @@ pub fn run(
                 .iter()
                 .map(|r| r.ast_anchor.name.as_str())
                 .collect();
-            return Err(crate::error::UltragitError::Config {
+            return Err(crate::error::ChronicleError::Config {
                 message: format!(
                     "No region matching '{}' found in annotation for commit {}. Available regions: {}",
                     region_anchor,
@@ -124,14 +124,14 @@ pub fn run(
     annotation.regions[region_idx].corrections.push(correction);
 
     let updated_json =
-        serde_json::to_string_pretty(&annotation).map_err(|e| crate::error::UltragitError::Json {
+        serde_json::to_string_pretty(&annotation).map_err(|e| crate::error::ChronicleError::Json {
             source: e,
             location: snafu::Location::default(),
         })?;
 
     git_ops
         .note_write(&full_sha, &updated_json)
-        .map_err(|e| crate::error::UltragitError::Git {
+        .map_err(|e| crate::error::ChronicleError::Git {
             source: e,
             location: snafu::Location::default(),
         })?;
@@ -147,7 +147,7 @@ pub fn run(
     if let Some(ref val) = amend {
         eprintln!("  Amended: \"{val}\"");
     }
-    eprintln!("  Correction stored in refs/notes/ultragit");
+    eprintln!("  Correction stored in refs/notes/chronicle");
 
     Ok(())
 }
@@ -165,7 +165,7 @@ fn validate_field(
         "semantic_dependencies" => region.semantic_dependencies.is_empty(),
         "tags" => region.tags.is_empty(),
         other => {
-            return Err(crate::error::UltragitError::Config {
+            return Err(crate::error::ChronicleError::Config {
                 message: format!(
                     "Unknown field '{}'. Valid fields: intent, reasoning, constraints, risk_notes, semantic_dependencies, tags",
                     other
@@ -176,7 +176,7 @@ fn validate_field(
     };
 
     if is_empty {
-        return Err(crate::error::UltragitError::Config {
+        return Err(crate::error::ChronicleError::Config {
             message: format!(
                 "Field '{}' is empty in region '{}'. Nothing to correct.",
                 field,

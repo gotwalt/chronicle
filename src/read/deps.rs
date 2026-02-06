@@ -92,7 +92,7 @@ pub fn find_dependents(git: &dyn GitOps, query: &DepsQuery) -> Result<DepsOutput
     let dependencies_found = dependents.len() as u32;
 
     Ok(DepsOutput {
-        schema: "ultragit-deps/v1".to_string(),
+        schema: "chronicle-deps/v1".to_string(),
         query: QueryEcho {
             file: query.file.clone(),
             anchor: query.anchor.clone(),
@@ -207,7 +207,7 @@ mod tests {
 
     fn make_annotation(commit: &str, timestamp: &str, regions: Vec<RegionAnnotation>) -> Annotation {
         Annotation {
-            schema: "ultragit/v1".to_string(),
+            schema: "chronicle/v1".to_string(),
             commit: commit.to_string(),
             timestamp: timestamp.to_string(),
             task: None,

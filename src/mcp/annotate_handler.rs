@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use snafu::ResultExt;
 
 use crate::ast::{self, AnchorMatch, Language};
-use crate::error::{ultragit_error, Result};
+use crate::error::{chronicle_error, Result};
 use crate::git::GitOps;
 use crate::schema::{
     Annotation, AstAnchor, Constraint, ConstraintSource, ContextLevel, CrossCuttingConcern,
@@ -132,7 +132,7 @@ pub fn handle_annotate(git_ops: &dyn GitOps, input: AnnotateInput) -> Result<Ann
     // 1. Resolve commit ref to full SHA
     let full_sha = git_ops
         .resolve_ref(&input.commit)
-        .context(ultragit_error::GitSnafu)?;
+        .context(chronicle_error::GitSnafu)?;
 
     // 2. Quality warnings (non-blocking)
     let warnings = check_quality(&input);
@@ -150,7 +150,7 @@ pub fn handle_annotate(git_ops: &dyn GitOps, input: AnnotateInput) -> Result<Ann
 
     // 4. Build annotation
     let annotation = Annotation {
-        schema: "ultragit/v1".to_string(),
+        schema: "chronicle/v1".to_string(),
         commit: full_sha.clone(),
         timestamp: chrono::Utc::now().to_rfc3339(),
         task: input.task.clone(),
@@ -168,7 +168,7 @@ pub fn handle_annotate(git_ops: &dyn GitOps, input: AnnotateInput) -> Result<Ann
 
     // 5. Validate (reject on structural errors)
     annotation.validate().map_err(|msg| {
-        crate::error::UltragitError::Validation {
+        crate::error::ChronicleError::Validation {
             message: msg,
             location: snafu::Location::new(file!(), line!(), 0),
         }
@@ -176,10 +176,10 @@ pub fn handle_annotate(git_ops: &dyn GitOps, input: AnnotateInput) -> Result<Ann
 
     // 6. Serialize and write git note
     let json = serde_json::to_string_pretty(&annotation)
-        .context(ultragit_error::JsonSnafu)?;
+        .context(chronicle_error::JsonSnafu)?;
     git_ops
         .note_write(&full_sha, &json)
-        .context(ultragit_error::GitSnafu)?;
+        .context(chronicle_error::GitSnafu)?;
 
     Ok(AnnotateResult {
         success: true,
@@ -495,7 +495,7 @@ impl Config {
 
         // Verify the note is valid JSON with the expected schema
         let annotation: Annotation = serde_json::from_str(&notes[0].1).unwrap();
-        assert_eq!(annotation.schema, "ultragit/v1");
+        assert_eq!(annotation.schema, "chronicle/v1");
         assert_eq!(annotation.commit, "abc123def456");
         assert_eq!(annotation.context_level, ContextLevel::Enhanced);
         assert_eq!(annotation.task, Some("TASK-123".to_string()));

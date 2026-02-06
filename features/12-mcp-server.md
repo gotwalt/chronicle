@@ -2,9 +2,9 @@
 
 ## Overview
 
-The MCP (Model Context Protocol) server exposes Ultragit's read operations as tools that any MCP-connected agent can call directly. Instead of an agent shelling out to the `ultragit` CLI and parsing stdout, the MCP server provides a native tool interface: the agent calls `ultragit_read` as a tool, receives structured JSON, and incorporates the annotations into its reasoning.
+The MCP (Model Context Protocol) server exposes Chronicle's read operations as tools that any MCP-connected agent can call directly. Instead of an agent shelling out to the `chronicle` CLI and parsing stdout, the MCP server provides a native tool interface: the agent calls `chronicle_read` as a tool, receives structured JSON, and incorporates the annotations into its reasoning.
 
-This is the cleanest integration path for agents that support MCP. The agent's framework handles tool discovery, invocation, and result parsing. Ultragit appears as just another tool in the agent's toolbox, alongside file reading, code search, and terminal access.
+This is the cleanest integration path for agents that support MCP. The agent's framework handles tool discovery, invocation, and result parsing. Chronicle appears as just another tool in the agent's toolbox, alongside file reading, code search, and terminal access.
 
 The MCP server is a thin wrapper around the existing read pipeline (Feature 07) and advanced query modules (Feature 08). It translates MCP tool invocations into read pipeline calls and formats the results as MCP tool responses. No new annotation logic — just a protocol adapter.
 
@@ -15,7 +15,7 @@ The MCP server is a thin wrapper around the existing read pipeline (Feature 07) 
 | Feature | Reason |
 |---------|--------|
 | 07 Read Pipeline | All tool implementations delegate to the read pipeline for blame, note retrieval, filtering, scoring, and output assembly |
-| 08 Advanced Queries | `ultragit_deps`, `ultragit_history`, and `ultragit_summary` tools delegate to the advanced query modules |
+| 08 Advanced Queries | `chronicle_deps`, `chronicle_history`, and `chronicle_summary` tools delegate to the advanced query modules |
 | 01 CLI Framework & Config | Server reads repository configuration (notes ref, filter settings) |
 | 02 Git Operations Layer | All read operations are git operations |
 
@@ -25,28 +25,28 @@ The MCP server is a thin wrapper around the existing read pipeline (Feature 07) 
 
 ### CLI Commands
 
-#### `ultragit mcp start`
+#### `git chronicle mcp start`
 
 Starts the MCP server as a long-lived process.
 
 ```
-ultragit mcp start [OPTIONS]
+chronicle mcp start [OPTIONS]
 ```
 
 **Flags:**
 - `--repo <PATH>` — repository root. Default: current working directory.
-- `--noteref <REF>` — notes ref to read. Default: `refs/notes/ultragit`.
+- `--noteref <REF>` — notes ref to read. Default: `refs/notes/chronicle`.
 
 **Behavior:** The server runs as a stdio-based JSON-RPC process. It reads MCP requests from stdin and writes MCP responses to stdout. It stays alive until stdin is closed or the process is signaled.
 
 This is not a command users run directly. It is invoked by the MCP client (e.g., Claude Desktop, Claude Code, or another MCP host) based on the server configuration.
 
-#### `ultragit mcp install`
+#### `git chronicle mcp install`
 
-Registers the Ultragit MCP server in the agent's MCP configuration.
+Registers the Chronicle MCP server in the agent's MCP configuration.
 
 ```
-ultragit mcp install [OPTIONS]
+chronicle mcp install [OPTIONS]
 ```
 
 **Flags:**
@@ -55,13 +55,13 @@ ultragit mcp install [OPTIONS]
   - `~/.config/claude/claude_desktop_config.json` (for Claude Desktop)
 - `--global` — install globally (Claude Desktop config) rather than per-repository.
 
-**Effect:** Adds or updates the Ultragit server entry in the MCP configuration:
+**Effect:** Adds or updates the Chronicle server entry in the MCP configuration:
 
 ```json
 {
   "mcpServers": {
-    "ultragit": {
-      "command": "ultragit",
+    "chronicle": {
+      "command": "chronicle",
       "args": ["mcp", "start"],
       "cwd": "/path/to/repo"
     }
@@ -75,14 +75,14 @@ If the entry already exists with the same command, do nothing (idempotent). If i
 
 The server exposes five tools, mirroring the CLI read commands plus a write tool for agent-authored annotations.
 
-#### `ultragit_read`
+#### `chronicle_read`
 
 Retrieves annotations for a code region.
 
 ```json
 {
-  "name": "ultragit_read",
-  "description": "Retrieve Ultragit annotations for a file or code region. Returns intent, reasoning, constraints, semantic dependencies, and risk notes captured at commit time. Use before modifying existing code.",
+  "name": "chronicle_read",
+  "description": "Retrieve Chronicle annotations for a file or code region. Returns intent, reasoning, constraints, semantic dependencies, and risk notes captured at commit time. Use before modifying existing code.",
   "inputSchema": {
     "type": "object",
     "properties": {
@@ -108,13 +108,13 @@ Retrieves annotations for a code region.
 }
 ```
 
-#### `ultragit_deps`
+#### `chronicle_deps`
 
 Returns semantic dependencies on a code region — what other code assumes about this code.
 
 ```json
 {
-  "name": "ultragit_deps",
+  "name": "chronicle_deps",
   "description": "Find code that depends on behavioral assumptions about the specified function or region. Critical before modifying any function's behavior or signature.",
   "inputSchema": {
     "type": "object",
@@ -133,13 +133,13 @@ Returns semantic dependencies on a code region — what other code assumes about
 }
 ```
 
-#### `ultragit_history`
+#### `chronicle_history`
 
 Returns the annotation timeline for a code region.
 
 ```json
 {
-  "name": "ultragit_history",
+  "name": "chronicle_history",
   "description": "Show the reasoning timeline for a code region: what changed and why at each step. Use when debugging surprising behavior.",
   "inputSchema": {
     "type": "object",
@@ -162,13 +162,13 @@ Returns the annotation timeline for a code region.
 }
 ```
 
-#### `ultragit_summary`
+#### `chronicle_summary`
 
 Returns a condensed overview of a file or module.
 
 ```json
 {
-  "name": "ultragit_summary",
+  "name": "chronicle_summary",
   "description": "Get a condensed view of intent and constraints for all annotated regions in a file or directory. Use for broad orientation on an unfamiliar module.",
   "inputSchema": {
     "type": "object",
@@ -187,14 +187,14 @@ Returns a condensed overview of a file or module.
 }
 ```
 
-#### `ultragit_annotate`
+#### `chronicle_annotate`
 
 Writes an annotation for a commit. This is the "live path" — intended for agents that have just authored and committed code and can provide intent, reasoning, and constraints directly. Zero LLM cost.
 
 ```json
 {
-  "name": "ultragit_annotate",
-  "description": "Write an Ultragit annotation for a commit you just created. Provide the commit SHA, a summary of the change, and per-region intent, reasoning, and constraints. The handler resolves AST anchors, validates the annotation, and writes it as a git note. Use this immediately after committing code you authored.",
+  "name": "chronicle_annotate",
+  "description": "Write an Chronicle annotation for a commit you just created. Provide the commit SHA, a summary of the change, and per-region intent, reasoning, and constraints. The handler resolves AST anchors, validates the annotation, and writes it as a git note. Use this immediately after committing code you authored.",
   "inputSchema": {
     "type": "object",
     "properties": {
@@ -343,7 +343,7 @@ impl McpServer {
 ### Message Flow
 
 ```
-MCP Client (stdin)                    Ultragit MCP Server
+MCP Client (stdin)                    Chronicle MCP Server
      │                                       │
      │── initialize ──────────────────────>  │
      │<── initialize result ──────────────── │
@@ -351,7 +351,7 @@ MCP Client (stdin)                    Ultragit MCP Server
      │── tools/list ──────────────────────>  │
      │<── tool definitions ───────────────── │
      │                                       │
-     │── tools/call (ultragit_read) ──────>  │
+     │── tools/call (chronicle_read) ──────>  │
      │      { path, anchor, max_tokens }     │
      │                                       │
      │           ┌─── ReadPipeline ───┐      │
@@ -362,7 +362,7 @@ MCP Client (stdin)                    Ultragit MCP Server
      │                                       │
      │<── tool result (annotation JSON) ──── │
      │                                       │
-     │── tools/call (ultragit_deps) ──────>  │
+     │── tools/call (chronicle_deps) ──────>  │
      │           ...                         │
 ```
 
@@ -376,7 +376,7 @@ MCP Client (stdin)                    Ultragit MCP Server
   "id": 1,
   "method": "tools/call",
   "params": {
-    "name": "ultragit_read",
+    "name": "chronicle_read",
     "arguments": {
       "path": "src/mqtt/client.rs",
       "anchor": "MqttClient::connect",
@@ -396,7 +396,7 @@ MCP Client (stdin)                    Ultragit MCP Server
     "content": [
       {
         "type": "text",
-        "text": "{\"$schema\":\"ultragit-read/v1\",\"query\":{...},\"regions\":[...],\"stats\":{...}}"
+        "text": "{\"$schema\":\"chronicle-read/v1\",\"query\":{...},\"regions\":[...],\"stats\":{...}}"
       }
     ]
   }
@@ -433,11 +433,11 @@ async fn dispatch_tool(
     arguments: serde_json::Value,
 ) -> Result<ToolResult> {
     match tool_name {
-        "ultragit_read" => self.handle_read(arguments).await,
-        "ultragit_deps" => self.handle_deps(arguments).await,
-        "ultragit_history" => self.handle_history(arguments).await,
-        "ultragit_summary" => self.handle_summary(arguments).await,
-        "ultragit_annotate" => self.handle_annotate(arguments).await,
+        "chronicle_read" => self.handle_read(arguments).await,
+        "chronicle_deps" => self.handle_deps(arguments).await,
+        "chronicle_history" => self.handle_history(arguments).await,
+        "chronicle_summary" => self.handle_summary(arguments).await,
+        "chronicle_annotate" => self.handle_annotate(arguments).await,
         _ => Err(McpError::UnknownTool(tool_name.to_string())),
     }
 }
@@ -512,7 +512,7 @@ pub async fn run(&self) -> Result<()> {
 
 ### Server Registration
 
-`ultragit mcp install` writes the server configuration to the appropriate MCP config file.
+`git chronicle mcp install` writes the server configuration to the appropriate MCP config file.
 
 ```rust
 pub struct McpServerConfig {
@@ -528,8 +528,8 @@ pub fn install_mcp_config(
 ) -> Result<()> {
     let mut config = read_mcp_config(config_path)?;
 
-    config.servers.insert("ultragit".to_string(), McpServerConfig {
-        command: "ultragit".to_string(),
+    config.servers.insert("chronicle".to_string(), McpServerConfig {
+        command: "chronicle".to_string(),
         args: vec!["mcp".to_string(), "start".to_string()],
         cwd: Some(repo_root.to_path_buf()),
     });
@@ -548,7 +548,7 @@ pub fn install_mcp_config(
 | Linux | — | `~/.config/claude/claude_desktop_config.json` |
 | Windows | — | `%APPDATA%\Claude\claude_desktop_config.json` |
 
-The install command creates the config file if it doesn't exist. If it exists, it reads the JSON, adds or updates the `ultragit` entry under `mcpServers`, and writes back. Other server entries are preserved.
+The install command creates the config file if it doesn't exist. If it exists, it reads the JSON, adds or updates the `chronicle` entry under `mcpServers`, and writes back. Other server entries are preserved.
 
 ### Stdin/Stdout Protocol Details
 
@@ -601,17 +601,17 @@ The MCP server must remain alive across individual tool failures. A bad tool cal
 
 ## Configuration
 
-The MCP server reads configuration from the repository's `.git/config` and `.ultragit-config.toml`:
+The MCP server reads configuration from the repository's `.git/config` and `.chronicle-config.toml`:
 
 | Source | Key | Effect |
 |--------|-----|--------|
 | CLI arg | `--repo` | Repository root path |
 | CLI arg | `--noteref` | Notes ref to read |
-| `.git/config` | `ultragit.noteref` | Default notes ref |
-| `.git/config` | `ultragit.include` | File include patterns (applied to queries) |
-| `.git/config` | `ultragit.exclude` | File exclude patterns (applied to queries) |
+| `.git/config` | `chronicle.noteref` | Default notes ref |
+| `.git/config` | `chronicle.include` | File include patterns (applied to queries) |
+| `.git/config` | `chronicle.exclude` | File exclude patterns (applied to queries) |
 
-The server does not have its own configuration section. It reuses the existing Ultragit configuration.
+The server does not have its own configuration section. It reuses the existing Chronicle configuration.
 
 ---
 
@@ -640,35 +640,35 @@ The server does not have its own configuration section. It reuses the existing U
 - Implement `tools/list` handler: return the five tool definitions.
 - Tests: verify tool definitions match the expected schema.
 
-### Step 4: ultragit_read Tool
+### Step 4: chronicle_read Tool
 **Scope:** `src/mcp/tools.rs`
 
-- Parse `ultragit_read` arguments.
+- Parse `chronicle_read` arguments.
 - Map to `ReadQuery` and call the read pipeline.
 - Serialize result as JSON string in MCP tool result format.
 - Handle errors (missing path, no annotations, etc.).
 - Tests: mock the read pipeline, verify tool input/output mapping.
 
-### Step 5: ultragit_deps Tool
+### Step 5: chronicle_deps Tool
 **Scope:** `src/mcp/tools.rs`
 
-- Parse `ultragit_deps` arguments.
+- Parse `chronicle_deps` arguments.
 - Call the deps query module (Feature 08).
 - Serialize result.
 - Tests: mock the deps pipeline, verify tool output.
 
-### Step 6: ultragit_history Tool
+### Step 6: chronicle_history Tool
 **Scope:** `src/mcp/tools.rs`
 
-- Parse `ultragit_history` arguments.
+- Parse `chronicle_history` arguments.
 - Call the history query module (Feature 08).
 - Serialize result.
 - Tests: mock the history pipeline, verify tool output.
 
-### Step 7: ultragit_summary Tool
+### Step 7: chronicle_summary Tool
 **Scope:** `src/mcp/tools.rs`
 
-- Parse `ultragit_summary` arguments.
+- Parse `chronicle_summary` arguments.
 - Call the summary query module (Feature 08).
 - Serialize result.
 - Tests: mock the summary pipeline, verify tool output.
@@ -676,8 +676,8 @@ The server does not have its own configuration section. It reuses the existing U
 ### Step 8: CLI Integration (mcp start, mcp install)
 **Scope:** `src/cli/mcp.rs`
 
-- Implement `ultragit mcp start` subcommand that initializes the `McpServer` and calls `run()`.
-- Implement `ultragit mcp install` that writes MCP config to the appropriate file.
+- Implement `git chronicle mcp start` subcommand that initializes the `McpServer` and calls `run()`.
+- Implement `git chronicle mcp install` that writes MCP config to the appropriate file.
 - Config file discovery logic (per-repo, global, platform-specific paths).
 - Idempotent install (don't duplicate entries).
 - Tests: install into new config file, install into existing config with other servers, idempotent reinstall.
@@ -705,44 +705,44 @@ The server does not have its own configuration section. It reuses the existing U
 ### Integration Tests
 
 - **Full protocol handshake:**
-  1. Spawn `ultragit mcp start` as a subprocess.
+  1. Spawn `git chronicle mcp start` as a subprocess.
   2. Send `initialize` request, verify response.
   3. Send `tools/list`, verify five tools returned.
   4. Send `tools/call` for each tool with valid arguments.
   5. Verify responses contain expected annotation data.
   6. Close stdin, verify process exits cleanly.
 
-- **ultragit_read via MCP:**
+- **chronicle_read via MCP:**
   1. Create a test repo with a commit and annotation.
   2. Start MCP server.
-  3. Call `ultragit_read` with the file path.
-  4. Verify the response contains the annotation data matching what `ultragit read` CLI would return.
+  3. Call `chronicle_read` with the file path.
+  4. Verify the response contains the annotation data matching what `git chronicle read` CLI would return.
 
-- **ultragit_deps via MCP:**
+- **chronicle_deps via MCP:**
   1. Create a test repo with annotations containing semantic dependencies.
-  2. Call `ultragit_deps` for the target function.
+  2. Call `chronicle_deps` for the target function.
   3. Verify dependencies are returned.
 
-- **ultragit_history via MCP:**
+- **chronicle_history via MCP:**
   1. Create a test repo with multiple commits touching the same function.
-  2. Call `ultragit_history`.
+  2. Call `chronicle_history`.
   3. Verify the timeline is returned in chronological order.
 
-- **ultragit_summary via MCP:**
+- **chronicle_summary via MCP:**
   1. Create a test repo with multiple annotated functions.
-  2. Call `ultragit_summary` for the file.
+  2. Call `chronicle_summary` for the file.
   3. Verify condensed output with intent and constraints for each region.
 
 - **Error handling end-to-end:**
-  1. Call `ultragit_read` with a non-existent file.
+  1. Call `chronicle_read` with a non-existent file.
   2. Verify error response with `isError: true`.
   3. Call another tool after the error — verify server is still responsive.
 
 - **MCP install round-trip:**
   1. Create a temp directory with no `.mcp.json`.
-  2. Run `ultragit mcp install`.
+  2. Run `git chronicle mcp install`.
   3. Verify `.mcp.json` was created with correct content.
-  4. Run `ultragit mcp install` again.
+  4. Run `git chronicle mcp install` again.
   5. Verify file unchanged (idempotent).
 
 ### Protocol Conformance Tests
@@ -767,18 +767,18 @@ The server does not have its own configuration section. It reuses the existing U
 
 ## Acceptance Criteria
 
-1. `ultragit mcp start` runs as a long-lived stdio process that speaks JSON-RPC.
+1. `git chronicle mcp start` runs as a long-lived stdio process that speaks JSON-RPC.
 2. The server responds to `initialize` with its capabilities (tools list).
-3. `tools/list` returns exactly five tools: `ultragit_read`, `ultragit_deps`, `ultragit_history`, `ultragit_summary`, `ultragit_annotate`.
+3. `tools/list` returns exactly five tools: `chronicle_read`, `chronicle_deps`, `chronicle_history`, `chronicle_summary`, `chronicle_annotate`.
 4. Each tool's `inputSchema` accurately describes its required and optional parameters.
-5. `ultragit_read` returns the same annotation data as `ultragit read` CLI for the same query.
-6. `ultragit_deps` returns the same dependency data as `ultragit deps` CLI.
-7. `ultragit_history` returns the same timeline data as `ultragit history` CLI.
-8. `ultragit_summary` returns the same summary data as `ultragit summary` CLI.
+5. `chronicle_read` returns the same annotation data as `git chronicle read` CLI for the same query.
+6. `chronicle_deps` returns the same dependency data as `git chronicle deps` CLI.
+7. `chronicle_history` returns the same timeline data as `git chronicle history` CLI.
+8. `chronicle_summary` returns the same summary data as `git chronicle summary` CLI.
 9. Tool errors return MCP error responses with `isError: true` and descriptive messages. The server remains alive after errors.
 10. The server handles malformed JSON-RPC input without crashing.
 11. The server exits cleanly when stdin is closed.
-12. `ultragit mcp install` creates or updates MCP configuration with the correct server entry. Installation is idempotent.
+12. `git chronicle mcp install` creates or updates MCP configuration with the correct server entry. Installation is idempotent.
 13. The server produces no output on stdout except valid JSON-RPC messages. Diagnostic output goes to stderr.
 14. The server has sub-second latency for typical single-file queries (same as CLI read path — no protocol overhead beyond JSON serialization).
-15. An MCP-connected agent (e.g., Claude Desktop or Claude Code) can discover and invoke Ultragit tools after running `ultragit mcp install`.
+15. An MCP-connected agent (e.g., Claude Desktop or Claude Code) can discover and invoke Chronicle tools after running `git chronicle mcp install`.

@@ -5,9 +5,9 @@ use crate::error::Result;
 use crate::export::export_annotations;
 use crate::git::CliOps;
 
-/// Run `ultragit export`.
+/// Run `git chronicle export`.
 pub fn run(output: Option<String>) -> Result<()> {
-    let repo_dir = std::env::current_dir().map_err(|e| crate::error::UltragitError::Io {
+    let repo_dir = std::env::current_dir().map_err(|e| crate::error::ChronicleError::Io {
         source: e,
         location: snafu::Location::default(),
     })?;
@@ -15,7 +15,7 @@ pub fn run(output: Option<String>) -> Result<()> {
 
     let count = match output {
         Some(path) => {
-            let file = File::create(&path).map_err(|e| crate::error::UltragitError::Io {
+            let file = File::create(&path).map_err(|e| crate::error::ChronicleError::Io {
                 source: e,
                 location: snafu::Location::default(),
             })?;

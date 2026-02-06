@@ -2,9 +2,9 @@
 
 ## Overview
 
-The writing agent is the core intelligence of Ultragit's write path. It is a tool-using LLM agent that receives a git commit and produces structured annotations — one per semantic code unit affected by the commit — stored as git notes under `refs/notes/ultragit`.
+The writing agent is the core intelligence of Chronicle's write path. It is a tool-using LLM agent that receives a git commit and produces structured annotations — one per semantic code unit affected by the commit — stored as git notes under `refs/notes/chronicle`.
 
-The agent is not a procedural analyzer. It is given tools to inspect the diff, read files, examine AST structure, and retrieve existing annotations, then makes judgment calls about what to annotate, at what depth, and how to connect new annotations to existing ones. The output is a well-structured JSON document conforming to the `ultragit/v1` schema.
+The agent is not a procedural analyzer. It is given tools to inspect the diff, read files, examine AST structure, and retrieve existing annotations, then makes judgment calls about what to annotate, at what depth, and how to connect new annotations to existing ones. The output is a well-structured JSON document conforming to the `chronicle/v1` schema.
 
 This feature encompasses the system prompt, tool definitions, agent loop orchestration, annotation schema production, token budget management, and large-diff handling. It depends on the LLM provider layer (Feature 04) for model communication, the AST parser (Feature 03) for code structure, and the git operations layer (Feature 02) for diff extraction, file reading, and notes storage.
 
@@ -32,7 +32,7 @@ pub async fn annotate_commit(
     commit_sha: &str,
     context: &AnnotationContext,
     provider: &dyn LlmProvider,
-    config: &UltragitConfig,
+    config: &ChronicleConfig,
 ) -> Result<Annotation, AgentError>;
 ```
 
@@ -50,7 +50,7 @@ pub struct AnnotationContext {
     pub file_contents: HashMap<String, String>,
     /// AST outlines for affected files (if parseable).
     pub ast_outlines: HashMap<String, Vec<AstUnit>>,
-    /// Author-provided context from pending-context.json or ULTRAGIT_* env vars.
+    /// Author-provided context from pending-context.json or CHRONICLE_* env vars.
     pub author_context: Option<AuthorContext>,
     /// Existing annotations on recent commits touching these files.
     /// Used by the agent to populate `related_annotations`.
@@ -86,7 +86,7 @@ pub struct ExistingAnnotation {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Annotation {
     #[serde(rename = "$schema")]
-    pub schema: String, // "ultragit/v1"
+    pub schema: String, // "chronicle/v1"
     pub commit: String,
     pub timestamp: String,
     pub task: Option<String>,
@@ -253,7 +253,7 @@ pub enum AgentError {
 The system prompt is constructed from a template with context-level-specific additions:
 
 ```
-You are a code annotation agent for Ultragit. Your job is to analyze a git commit
+You are a code annotation agent for Chronicle. Your job is to analyze a git commit
 and produce structured metadata that captures the reasoning, intent, constraints,
 and semantic dependencies behind the changes.
 
@@ -430,7 +430,7 @@ Returns existing annotations on recent commits touching a file.
 ```json
 {
   "name": "get_recent_annotations",
-  "description": "Returns Ultragit annotations from the most recent N commits that touched the given file. Use this to discover existing annotations and create related_annotations links.",
+  "description": "Returns Chronicle annotations from the most recent N commits that touched the given file. Use this to discover existing annotations and create related_annotations links.",
   "input_schema": {
     "type": "object",
     "properties": {
@@ -667,7 +667,7 @@ Before returning, validate the assembled `Annotation`:
 - Every constraint has a non-empty `text` and valid `source`.
 - Every semantic dependency has non-empty `file`, `anchor`, `nature`.
 - File paths in regions are relative and correspond to files in the commit.
-- `$schema` is set to `"ultragit/v1"`.
+- `$schema` is set to `"chronicle/v1"`.
 - `commit` matches the input commit SHA.
 - `timestamp` is valid ISO 8601.
 
@@ -758,7 +758,7 @@ Validation failures log warnings but don't fail the annotation — partial annot
 - Unit tests with mock provider.
 - **PR scope:** `src/agent/structured.rs`.
 
-### Step 9: `ultragit annotate` CLI command
+### Step 9: `git chronicle annotate` CLI command
 - Wire up the CLI subcommand: parse `--commit`, `--async`/`--sync`, `--squash-sources`.
 - Call `annotate_commit()`, write result to git notes.
 - Handle async spawning (for the post-commit hook path).
@@ -830,7 +830,7 @@ Validation failures log warnings but don't fail the annotation — partial annot
 
 ## Acceptance Criteria
 
-1. `annotate_commit()` produces a valid `ultragit/v1` JSON annotation for a typical commit (5-10 files, 100-300 changed lines) in under 30 seconds.
+1. `annotate_commit()` produces a valid `chronicle/v1` JSON annotation for a typical commit (5-10 files, 100-300 changed lines) in under 30 seconds.
 2. Enhanced annotations include author-provided task, reasoning, and constraints with `source: "author"`.
 3. Inferred annotations produce useful intent and constraints with `source: "inferred"` from diff analysis alone.
 4. The agent correctly uses tools to inspect diffs, read files, examine AST structure, and discover existing annotations.
@@ -839,5 +839,5 @@ Validation failures log warnings but don't fail the annotation — partial annot
 7. Large commits (>2,000 lines or >10 files) are handled via chunking without exceeding the context window.
 8. The agent loop terminates within `maxAgentTurns` turns.
 9. Invalid annotations are logged and skipped; partial results are returned rather than failing entirely.
-10. The annotation is stored as a git note under `refs/notes/ultragit` and is retrievable via `git notes --ref=ultragit show <sha>`.
+10. The annotation is stored as a git note under `refs/notes/chronicle` and is retrievable via `git notes --ref=chronicle show <sha>`.
 11. `provenance.operation` is set correctly: `"initial"` for fresh annotations, `"squash"` and `"amend"` for derived ones (though squash/amend assembly is Feature 09's responsibility, the schema supports it here).

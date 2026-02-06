@@ -5,35 +5,35 @@ use serde::{Deserialize, Serialize};
 use std::path::Path;
 
 use crate::annotate::gather::AuthorContext;
-use crate::error::ultragit_error::{IoSnafu, JsonSnafu};
+use crate::error::chronicle_error::{IoSnafu, JsonSnafu};
 use crate::error::Result;
 use snafu::ResultExt;
 
-const HOOK_BEGIN_MARKER: &str = "# --- ultragit hook begin ---";
-const HOOK_END_MARKER: &str = "# --- ultragit hook end ---";
+const HOOK_BEGIN_MARKER: &str = "# --- chronicle hook begin ---";
+const HOOK_END_MARKER: &str = "# --- chronicle hook end ---";
 
-const POST_COMMIT_SCRIPT: &str = r#"# --- ultragit hook begin ---
-# Installed by ultragit. Do not edit between these markers.
-if command -v ultragit >/dev/null 2>&1; then
-    ultragit annotate --commit HEAD --sync &
+const POST_COMMIT_SCRIPT: &str = r#"# --- chronicle hook begin ---
+# Installed by chronicle. Do not edit between these markers.
+if command -v git-chronicle >/dev/null 2>&1; then
+    git-chronicle annotate --commit HEAD --sync &
 fi
-# --- ultragit hook end ---"#;
+# --- chronicle hook end ---"#;
 
-const PREPARE_COMMIT_MSG_SCRIPT: &str = r#"# --- ultragit hook begin ---
-# Installed by ultragit. Do not edit between these markers.
-if command -v ultragit >/dev/null 2>&1; then
-    ultragit hook prepare-commit-msg "$@"
+const PREPARE_COMMIT_MSG_SCRIPT: &str = r#"# --- chronicle hook begin ---
+# Installed by chronicle. Do not edit between these markers.
+if command -v git-chronicle >/dev/null 2>&1; then
+    git-chronicle hook prepare-commit-msg "$@"
 fi
-# --- ultragit hook end ---"#;
+# --- chronicle hook end ---"#;
 
-const POST_REWRITE_SCRIPT: &str = r#"# --- ultragit hook begin ---
-# Installed by ultragit. Do not edit between these markers.
-if command -v ultragit >/dev/null 2>&1; then
-    ultragit hook post-rewrite "$@"
+const POST_REWRITE_SCRIPT: &str = r#"# --- chronicle hook begin ---
+# Installed by chronicle. Do not edit between these markers.
+if command -v git-chronicle >/dev/null 2>&1; then
+    git-chronicle hook post-rewrite "$@"
 fi
-# --- ultragit hook end ---"#;
+# --- chronicle hook end ---"#;
 
-/// Pending context stored in .git/ultragit/pending-context.json.
+/// Pending context stored in .git/chronicle/pending-context.json.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PendingContext {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -58,10 +58,10 @@ impl PendingContext {
 }
 
 fn pending_context_path(git_dir: &Path) -> std::path::PathBuf {
-    git_dir.join("ultragit").join("pending-context.json")
+    git_dir.join("chronicle").join("pending-context.json")
 }
 
-/// Read pending context from .git/ultragit/pending-context.json.
+/// Read pending context from .git/chronicle/pending-context.json.
 pub fn read_pending_context(git_dir: &Path) -> Result<Option<PendingContext>> {
     let path = pending_context_path(git_dir);
     if !path.exists() {
@@ -72,7 +72,7 @@ pub fn read_pending_context(git_dir: &Path) -> Result<Option<PendingContext>> {
     Ok(Some(ctx))
 }
 
-/// Write pending context to .git/ultragit/pending-context.json.
+/// Write pending context to .git/chronicle/pending-context.json.
 pub fn write_pending_context(git_dir: &Path, ctx: &PendingContext) -> Result<()> {
     let path = pending_context_path(git_dir);
     if let Some(parent) = path.parent() {
@@ -103,7 +103,7 @@ fn install_single_hook(hooks_dir: &Path, hook_name: &str, script: &str) -> Resul
     };
 
     let new_content = if existing.contains(HOOK_BEGIN_MARKER) {
-        // Replace existing ultragit section
+        // Replace existing chronicle section
         let mut result = String::new();
         let mut in_section = false;
         for line in existing.lines() {
@@ -148,7 +148,7 @@ fn install_single_hook(hooks_dir: &Path, hook_name: &str, script: &str) -> Resul
     Ok(())
 }
 
-/// Install all ultragit hooks: post-commit, prepare-commit-msg, and post-rewrite.
+/// Install all chronicle hooks: post-commit, prepare-commit-msg, and post-rewrite.
 pub fn install_hooks(git_dir: &Path) -> Result<()> {
     let hooks_dir = git_dir.join("hooks");
     std::fs::create_dir_all(&hooks_dir).context(IoSnafu)?;

@@ -20,7 +20,7 @@ pub struct Annotation {
 impl Annotation {
     pub fn new_initial(commit: String, summary: String, context_level: ContextLevel) -> Self {
         Self {
-            schema: "ultragit/v1".to_string(),
+            schema: "chronicle/v1".to_string(),
             commit,
             timestamp: chrono::Utc::now().to_rfc3339(),
             task: None,
@@ -39,7 +39,7 @@ impl Annotation {
 
     /// Validate the annotation for structural correctness.
     pub fn validate(&self) -> Result<(), String> {
-        if self.schema != "ultragit/v1" {
+        if self.schema != "chronicle/v1" {
             return Err(format!("unsupported schema version: {}", self.schema));
         }
         if self.commit.is_empty() {

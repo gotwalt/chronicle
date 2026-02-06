@@ -2,11 +2,11 @@ use std::path::PathBuf;
 use std::process::Command;
 
 use crate::error::git_error::CommandFailedSnafu;
-use crate::error::ultragit_error::GitSnafu;
+use crate::error::chronicle_error::GitSnafu;
 use crate::error::{GitError, Result};
 use snafu::ResultExt;
 
-const NOTES_REF: &str = "refs/notes/ultragit";
+const NOTES_REF: &str = "refs/notes/chronicle";
 
 /// Current sync configuration for a remote.
 #[derive(Debug, Clone)]
@@ -92,7 +92,7 @@ pub fn get_sync_config(repo_dir: &PathBuf, remote: &str) -> Result<SyncConfig> {
     })
 }
 
-/// Enable sync by adding push/fetch refspecs for ultragit notes.
+/// Enable sync by adding push/fetch refspecs for chronicle notes.
 pub fn enable_sync(repo_dir: &PathBuf, remote: &str) -> Result<()> {
     let config = get_sync_config(repo_dir, remote)?;
 
@@ -153,7 +153,7 @@ pub fn pull_notes(repo_dir: &PathBuf, remote: &str) -> Result<()> {
     Ok(())
 }
 
-/// Count local notes under refs/notes/ultragit.
+/// Count local notes under refs/notes/chronicle.
 fn count_local_notes(repo_dir: &PathBuf) -> std::result::Result<usize, GitError> {
     let (success, stdout, _) = run_git_raw(repo_dir, &["notes", "--ref", NOTES_REF, "list"])?;
     if !success {

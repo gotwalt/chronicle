@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use crate::error::ultragit_error::{GitSnafu, IoSnafu, NotARepositorySnafu};
+use crate::error::chronicle_error::{GitSnafu, IoSnafu, NotARepositorySnafu};
 use crate::error::Result;
 use crate::git::CliOps;
 use crate::git::GitOps;
@@ -11,26 +11,26 @@ pub fn run(sync: bool, no_hooks: bool, provider: Option<String>, model: Option<S
     // Find the git directory
     let git_dir = find_git_dir()?;
 
-    // Create .git/ultragit/ directory
-    let ultragit_dir = git_dir.join("ultragit");
-    std::fs::create_dir_all(&ultragit_dir).context(IoSnafu)?;
+    // Create .git/chronicle/ directory
+    let chronicle_dir = git_dir.join("chronicle");
+    std::fs::create_dir_all(&chronicle_dir).context(IoSnafu)?;
 
     // Set up git config
     let repo_dir = git_dir.parent().unwrap_or(&git_dir).to_path_buf();
     let ops = CliOps::new(repo_dir);
 
-    ops.config_set("ultragit.enabled", "true").context(GitSnafu)?;
+    ops.config_set("chronicle.enabled", "true").context(GitSnafu)?;
 
     if sync {
-        ops.config_set("ultragit.sync", "true").context(GitSnafu)?;
+        ops.config_set("chronicle.sync", "true").context(GitSnafu)?;
     }
 
     if let Some(ref p) = provider {
-        ops.config_set("ultragit.provider", p).context(GitSnafu)?;
+        ops.config_set("chronicle.provider", p).context(GitSnafu)?;
     }
 
     if let Some(ref m) = model {
-        ops.config_set("ultragit.model", m).context(GitSnafu)?;
+        ops.config_set("chronicle.model", m).context(GitSnafu)?;
     }
 
     // Install hooks unless --no-hooks
@@ -44,7 +44,7 @@ pub fn run(sync: bool, no_hooks: bool, provider: Option<String>, model: Option<S
         eprintln!("warning: ANTHROPIC_API_KEY is not set. Set it before running annotations.");
     }
 
-    eprintln!("ultragit initialized in {}", ultragit_dir.display());
+    eprintln!("chronicle initialized in {}", chronicle_dir.display());
     Ok(())
 }
 

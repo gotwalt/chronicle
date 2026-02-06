@@ -6,11 +6,11 @@
 
 ## 1. Overview
 
-The read pipeline is Ultragit's primary retrieval interface. It resolves a query scope (file path, AST anchor, line range) into a set of relevant annotations by running git blame, fetching notes, filtering regions, following references, scoring confidence, trimming to token budget, and assembling formatted output (markdown by default, JSON or pretty-print via `--format`).
+The read pipeline is Chronicle's primary retrieval interface. It resolves a query scope (file path, AST anchor, line range) into a set of relevant annotations by running git blame, fetching notes, filtering regions, following references, scoring confidence, trimming to token budget, and assembling formatted output (markdown by default, JSON or pretty-print via `--format`).
 
 All operations are local git operations. No LLM calls on the read path. Target latency is under 500ms for single-file scoped queries.
 
-This feature implements `ultragit read` — the command agents invoke before modifying code. It is the counterpart to the writing agent (Feature 05) and the foundation for advanced queries (Feature 08), annotation corrections (Feature 11), and the MCP server (Feature 12).
+This feature implements `git chronicle read` — the command agents invoke before modifying code. It is the counterpart to the writing agent (Feature 05) and the foundation for advanced queries (Feature 08), annotation corrections (Feature 11), and the MCP server (Feature 12).
 
 ---
 
@@ -22,7 +22,7 @@ This feature implements `ultragit read` — the command agents invoke before mod
 | 02 Git Operations | blame, notes fetch, diff, ref management via gix |
 | 03 AST Parsing | tree-sitter anchor resolution (name to line range) |
 
-Feature 07 does **not** depend on the writing agent (05), hooks (06), or LLM providers (04). It only reads annotations that already exist in `refs/notes/ultragit`.
+Feature 07 does **not** depend on the writing agent (05), hooks (06), or LLM providers (04). It only reads annotations that already exist in `refs/notes/chronicle`.
 
 ---
 
@@ -31,7 +31,7 @@ Feature 07 does **not** depend on the writing agent (05), hooks (06), or LLM pro
 ### 3.1 CLI Interface
 
 ```
-ultragit read [OPTIONS] <PATH> [<ANCHOR>]
+git chronicle read [OPTIONS] <PATH> [<ANCHOR>]
 ```
 
 **Positional arguments:**
@@ -143,7 +143,7 @@ pub struct ResolvedRelated {
 
 /// The complete read output, serialized to JSON.
 pub struct ReadOutput {
-    pub schema: String,             // "ultragit-read/v1"
+    pub schema: String,             // "chronicle-read/v1"
     pub query: QueryEcho,
     pub regions: Vec<ScoredRegion>,
     pub dependencies_on_this: Vec<DependencyEntry>,
@@ -318,7 +318,7 @@ fn blame_scope(
 ### 4.4 Stage 3: Fetch Notes
 
 1. Collect unique commit SHAs from all blame entries.
-2. For each SHA, fetch the note from `refs/notes/ultragit` via `git notes --ref=ultragit show <sha>`.
+2. For each SHA, fetch the note from `refs/notes/chronicle` via `git notes --ref=chronicle show <sha>`.
 3. Parse the note body as JSON into `schema::Annotation`.
 4. Apply `--since` filter: if the annotation's timestamp is before the since cutoff, discard it. If `--since` is a SHA, resolve it to a timestamp first.
 5. Apply `--context-level` filter: if the filter is `Enhanced`, discard `inferred` annotations, and vice versa.
@@ -376,7 +376,7 @@ pub enum MatchType {
 
 For each matched region, inspect its `related_annotations` entries. For each entry (up to `--depth` hops):
 
-1. Fetch the referenced commit's annotation from `refs/notes/ultragit`.
+1. Fetch the referenced commit's annotation from `refs/notes/chronicle`.
 2. Filter to the referenced anchor within that annotation.
 3. Extract `intent`, `confidence`, and the relationship description.
 4. If `--depth > 1`, recurse: inspect the referenced region's own `related_annotations`.
@@ -467,7 +467,7 @@ After scoring:
 
 For v1, this is a linear scan of recently annotated commits:
 
-1. Walk `refs/notes/ultragit` and read annotations from the most recent 500 annotated commits (configurable).
+1. Walk `refs/notes/chronicle` and read annotations from the most recent 500 annotated commits (configurable).
 2. For each annotation, inspect every region's `semantic_dependencies`.
 3. If a dependency's `file` and `anchor` match the queried file+anchor, include it in `dependencies_on_this`.
 
@@ -609,14 +609,14 @@ The output schema is the same; `regions` contains entries from all files, each w
 | Malformed annotation JSON | Warn: `"Skipping malformed annotation on commit {sha}"`. Continue with remaining annotations. |
 | No annotations found | Return a valid `ReadOutput` with empty `regions`, `stats.annotations_found: 0`. Not an error. |
 | git blame fails | Error with the underlying git error. Could indicate a corrupt repo or untracked file. |
-| Notes ref doesn't exist | Return empty results with a hint: `"No Ultragit annotations found. Run 'ultragit init' to set up."` |
+| Notes ref doesn't exist | Return empty results with a hint: `"No Chronicle annotations found. Run 'git chronicle init' to set up."` |
 | Tree-sitter grammar not available | Fall back to line-range-only mode. Warn: `"No tree-sitter grammar for {language}. Anchor resolution unavailable."` |
 
 All errors are returned as structured JSON when `--format json` (errors always use JSON regardless of the selected output format for consistent machine parsing):
 
 ```json
 {
-  "$schema": "ultragit-read/v1",
+  "$schema": "chronicle-read/v1",
   "error": {
     "code": "file_not_found",
     "message": "File not found: src/missing.rs. Does it exist at HEAD?"
@@ -628,10 +628,10 @@ All errors are returned as structured JSON when `--format json` (errors always u
 
 ## 6. Configuration
 
-Read pipeline configuration in `.git/config` under `[ultragit]`:
+Read pipeline configuration in `.git/config` under `[chronicle]`:
 
 ```ini
-[ultragit]
+[chronicle]
     # Maximum commits to scan for dependencies_on_this (v1 linear scan)
     depsScanLimit = 500
 
@@ -642,10 +642,10 @@ Read pipeline configuration in `.git/config` under `[ultragit]`:
     recencyHalfLife = 180
 ```
 
-These can be overridden by `.ultragit-config.toml` for shared team defaults:
+These can be overridden by `.chronicle-config.toml` for shared team defaults:
 
 ```toml
-[ultragit.read]
+[chronicle.read]
 deps_scan_limit = 500
 default_max_regions = 20
 recency_half_life = 180
@@ -665,7 +665,7 @@ recency_half_life = 180
 **Scope:** Implement `blame_scope()` in `src/read/retrieve.rs`. Use gix blame with line-range support, falling back to `git blame -L`. Parse blame output into `Vec<BlameEntry>`. SHA deduplication across multiple scopes. Tests: single-file blame, scoped blame, multi-scope dedup.
 
 ### Step 4: Note Fetching and Filtering
-**Scope:** Implement `fetch_notes()` in `src/read/retrieve.rs`. Fetch from `refs/notes/ultragit` for each SHA. JSON parsing with graceful error handling. Apply `--since` and `--context-level` filters. Tests: valid note fetch, missing note, malformed JSON, filter application.
+**Scope:** Implement `fetch_notes()` in `src/read/retrieve.rs`. Fetch from `refs/notes/chronicle` for each SHA. JSON parsing with graceful error handling. Apply `--since` and `--context-level` filters. Tests: valid note fetch, missing note, malformed JSON, filter application.
 
 ### Step 5: Region Filtering
 **Scope:** Implement region matching in `src/read/retrieve.rs`. File path match, anchor name match (exact/unqualified/fuzzy), line range overlap fallback, whole-file mode. Tests: each match type, priority order, multi-region annotations with partial matches.
@@ -758,7 +758,7 @@ recency_half_life = 180
 1. Create a temporary git repository.
 2. Make commits with known content.
 3. Write annotations as git notes (simulating the writing agent).
-4. Run `ultragit read` and verify the output matches expectations.
+4. Run `git chronicle read` and verify the output matches expectations.
 
 **Multi-file query:**
 1. Create a repo with annotations across multiple files.
@@ -787,13 +787,13 @@ recency_half_life = 180
 
 ## 9. Acceptance Criteria
 
-1. `ultragit read src/file.rs FunctionName` returns annotations for the named function with confidence scores, in under 500ms for a typical repository.
+1. `git chronicle read src/file.rs FunctionName` returns annotations for the named function with confidence scores, in under 500ms for a typical repository.
 
-2. `ultragit read src/file.rs --lines 10:20` returns annotations for the specified line range via blame lookup.
+2. `git chronicle read src/file.rs --lines 10:20` returns annotations for the specified line range via blame lookup.
 
-3. `ultragit read src/file.rs` (no anchor/lines) returns all annotated regions in the file.
+3. `git chronicle read src/file.rs` (no anchor/lines) returns all annotated regions in the file.
 
-4. `ultragit read src/a.rs src/b.rs` returns combined annotations with cross-file concerns surfaced.
+4. `git chronicle read src/a.rs src/b.rs` returns combined annotations with cross-file concerns surfaced.
 
 5. Confidence scoring produces scores that correctly rank enhanced-recent annotations above inferred-old annotations.
 
@@ -803,7 +803,7 @@ recency_half_life = 180
 
 8. `--min-confidence`, `--tags`, `--context-level`, `--since`, and `--max-regions` all filter correctly.
 
-9. Default output is structured markdown. `--format json` produces JSON matching the documented `ultragit-read/v1` schema. `--format pretty` produces human-readable output.
+9. Default output is structured markdown. `--format json` produces JSON matching the documented `chronicle-read/v1` schema. `--format pretty` produces human-readable output.
 
 10. The dependency scan surfaces `dependencies_on_this` entries from other annotations that reference the queried code.
 

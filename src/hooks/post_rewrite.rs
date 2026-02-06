@@ -1,5 +1,5 @@
 use crate::annotate::squash::{migrate_amend_annotation, AmendMigrationContext};
-use crate::error::ultragit_error::{GitSnafu, JsonSnafu};
+use crate::error::chronicle_error::{GitSnafu, JsonSnafu};
 use crate::error::Result;
 use crate::git::GitOps;
 use crate::schema::Annotation;

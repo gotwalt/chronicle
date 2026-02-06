@@ -4,7 +4,7 @@ use crate::doctor::{run_doctor, DoctorStatus};
 use crate::error::Result;
 use crate::git::CliOps;
 
-/// Run `ultragit doctor`.
+/// Run `git chronicle doctor`.
 pub fn run(json: bool) -> Result<()> {
     let git_dir = find_git_dir()?;
     let repo_dir = git_dir.parent().unwrap_or(&git_dir).to_path_buf();
@@ -14,14 +14,14 @@ pub fn run(json: bool) -> Result<()> {
 
     if json {
         let output = serde_json::to_string_pretty(&report).map_err(|e| {
-            crate::error::UltragitError::Json {
+            crate::error::ChronicleError::Json {
                 source: e,
                 location: snafu::Location::default(),
             }
         })?;
         println!("{output}");
     } else {
-        println!("ultragit doctor");
+        println!("chronicle doctor");
         for check in &report.checks {
             let icon = match check.status {
                 DoctorStatus::Pass => "pass",
@@ -54,7 +54,7 @@ fn find_git_dir() -> Result<PathBuf> {
     let output = std::process::Command::new("git")
         .args(["rev-parse", "--git-dir"])
         .output()
-        .map_err(|e| crate::error::UltragitError::Io {
+        .map_err(|e| crate::error::ChronicleError::Io {
             source: e,
             location: snafu::Location::default(),
         })?;
@@ -63,7 +63,7 @@ fn find_git_dir() -> Result<PathBuf> {
         let dir = String::from_utf8_lossy(&output.stdout).trim().to_string();
         let path = PathBuf::from(&dir);
         if path.is_relative() {
-            let cwd = std::env::current_dir().map_err(|e| crate::error::UltragitError::Io {
+            let cwd = std::env::current_dir().map_err(|e| crate::error::ChronicleError::Io {
                 source: e,
                 location: snafu::Location::default(),
             })?;
@@ -72,10 +72,10 @@ fn find_git_dir() -> Result<PathBuf> {
             Ok(path)
         }
     } else {
-        let cwd = std::env::current_dir().map_err(|e| crate::error::UltragitError::Io {
+        let cwd = std::env::current_dir().map_err(|e| crate::error::ChronicleError::Io {
             source: e,
             location: snafu::Location::default(),
         })?;
-        Err(crate::error::ultragit_error::NotARepositorySnafu { path: cwd }.build())
+        Err(crate::error::chronicle_error::NotARepositorySnafu { path: cwd }.build())
     }
 }

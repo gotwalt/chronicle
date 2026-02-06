@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use crate::cli::ContextAction;
-use crate::error::ultragit_error::IoSnafu;
+use crate::error::chronicle_error::IoSnafu;
 use crate::error::Result;
 use crate::hooks::{delete_pending_context, read_pending_context, write_pending_context, PendingContext};
 use snafu::ResultExt;
@@ -62,6 +62,6 @@ fn find_git_dir() -> Result<PathBuf> {
         }
     } else {
         let cwd = std::env::current_dir().context(IoSnafu)?;
-        Err(crate::error::ultragit_error::NotARepositorySnafu { path: cwd }.build())
+        Err(crate::error::chronicle_error::NotARepositorySnafu { path: cwd }.build())
     }
 }

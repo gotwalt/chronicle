@@ -2,9 +2,9 @@
 
 ## Overview
 
-Team Operations is the feature set that takes Ultragit from a single-developer tool to a team-wide knowledge system. It provides five capabilities: notes sync (pushing and fetching annotations across clones), historical backfill (retroactively annotating existing commits), export/import (portable annotation format for migrations), a comprehensive diagnostic command (`ultragit doctor`), and skill installation (teaching agents to use Ultragit).
+Team Operations is the feature set that takes Chronicle from a single-developer tool to a team-wide knowledge system. It provides five capabilities: notes sync (pushing and fetching annotations across clones), historical backfill (retroactively annotating existing commits), export/import (portable annotation format for migrations), a comprehensive diagnostic command (`git chronicle doctor`), and skill installation (teaching agents to use Chronicle).
 
-Without these, Ultragit annotations are local-only artifacts that can't be shared, historical code has no annotations, and agents don't know Ultragit exists. Team Operations is the difference between "I installed a hook" and "my team's codebase has a memory."
+Without these, Chronicle annotations are local-only artifacts that can't be shared, historical code has no annotations, and agents don't know Chronicle exists. Team Operations is the difference between "I installed a hook" and "my team's codebase has a memory."
 
 ---
 
@@ -23,12 +23,12 @@ Without these, Ultragit annotations are local-only artifacts that can't be share
 
 ### CLI Commands
 
-#### `ultragit sync enable`
+#### `git chronicle sync enable`
 
-Configures the current repository to push and fetch Ultragit notes with the remote.
+Configures the current repository to push and fetch Chronicle notes with the remote.
 
 ```
-ultragit sync enable [--remote <REMOTE>]
+git chronicle sync enable [--remote <REMOTE>]
 ```
 
 **Arguments:**
@@ -38,45 +38,45 @@ ultragit sync enable [--remote <REMOTE>]
 
 ```ini
 [remote "origin"]
-    push = refs/notes/ultragit
-    fetch = +refs/notes/ultragit:refs/notes/ultragit
+    push = refs/notes/chronicle
+    fetch = +refs/notes/chronicle:refs/notes/chronicle
 ```
 
-#### `ultragit sync status`
+#### `git chronicle sync status`
 
 Shows the sync state between local and remote notes.
 
 ```
-ultragit sync status [--remote <REMOTE>]
+git chronicle sync status [--remote <REMOTE>]
 ```
 
 **Output:**
 ```
 Notes sync: enabled
-  Push refspec:  refs/notes/ultragit -> origin
-  Fetch refspec: +refs/notes/ultragit:refs/notes/ultragit
+  Push refspec:  refs/notes/chronicle -> origin
+  Fetch refspec: +refs/notes/chronicle:refs/notes/chronicle
   Local notes:   1,247 annotated commits
   Remote notes:  1,130 annotated commits (117 not yet pushed)
 ```
 
-#### `ultragit sync pull`
+#### `git chronicle sync pull`
 
 Fetches remote notes and merges them with local notes.
 
 ```
-ultragit sync pull [--remote <REMOTE>] [--strategy <STRATEGY>]
+git chronicle sync pull [--remote <REMOTE>] [--strategy <STRATEGY>]
 ```
 
 **Arguments:**
 - `--remote <REMOTE>` — remote name. Default: `origin`.
 - `--strategy <ours|theirs|union>` — merge conflict strategy. Default: `union`.
 
-#### `ultragit backfill`
+#### `git chronicle backfill`
 
-Annotates historical commits that don't yet have Ultragit notes.
+Annotates historical commits that don't yet have Chronicle notes.
 
 ```
-ultragit backfill [OPTIONS]
+chronicle backfill [OPTIONS]
 ```
 
 **Flags:**
@@ -88,12 +88,12 @@ ultragit backfill [OPTIONS]
 - `--dry-run` — list which commits would be annotated without making API calls.
 - `--resume` — pick up where a previously interrupted backfill left off.
 
-#### `ultragit export`
+#### `git chronicle export`
 
 Exports annotations to a portable JSON file.
 
 ```
-ultragit export [OPTIONS] [--path <GLOB>]
+git chronicle export [OPTIONS] [--path <GLOB>]
 ```
 
 **Flags:**
@@ -111,12 +111,12 @@ ultragit export [OPTIONS] [--path <GLOB>]
 }
 ```
 
-#### `ultragit import`
+#### `git chronicle import`
 
 Restores annotations from a previously exported JSON file.
 
 ```
-ultragit import <FILE> [OPTIONS]
+git chronicle import <FILE> [OPTIONS]
 ```
 
 **Flags:**
@@ -125,17 +125,17 @@ ultragit import <FILE> [OPTIONS]
 
 **Behavior:** For each entry in the import file, checks if the commit SHA exists in the local repository. If it does and the commit has no existing annotation (or `--force` is set), writes the annotation as a git note.
 
-#### `ultragit doctor`
+#### `git chronicle doctor`
 
-Single diagnostic command that validates the entire Ultragit setup.
+Single diagnostic command that validates the entire Chronicle setup.
 
 ```
-ultragit doctor [--json]
+git chronicle doctor [--json]
 ```
 
 **Output:**
 ```
-ultragit doctor
+git chronicle doctor
   [check] Binary version: 0.1.0 (up to date)
   [check] Hooks: post-commit, prepare-commit-msg, post-rewrite
   [check] Credentials: ANTHROPIC_API_KEY found, connection OK
@@ -143,7 +143,7 @@ ultragit doctor
   [check] Skill: installed in CLAUDE.md (current version)
   [check] Last annotation: 2 hours ago (commit abc1234)
   [warn]  Backfill: 342 commits unannotated in last 6 months
-          Run: ultragit backfill --since 2025-06-01
+          Run: chronicle backfill --since 2025-06-01
 ```
 
 **Exit codes:**
@@ -152,32 +152,32 @@ ultragit doctor
 
 **`--json` flag:** Output structured JSON for programmatic consumption.
 
-#### `ultragit skill install`
+#### `git chronicle skill install`
 
-Installs the Ultragit skill definition into an agent framework.
+Installs the Chronicle skill definition into an agent framework.
 
 ```
-ultragit skill install --target <TARGET> [--global]
+chronicle skill install --target <TARGET> [--global]
 ```
 
 **Targets:**
 - `claude-code` — appends skill definition to `CLAUDE.md` (repository root, or `~/.claude/CLAUDE.md` with `--global`).
 - `mcp` — writes MCP server configuration to `.mcp.json` or the agent's MCP config file.
 
-#### `ultragit skill export`
+#### `git chronicle skill export`
 
 Writes the raw skill definition as Markdown.
 
 ```
-ultragit skill export [--output <FILE>]
+chronicle skill export [--output <FILE>]
 ```
 
-#### `ultragit skill check`
+#### `git chronicle skill check`
 
 Verifies which skill installations exist and whether they're current.
 
 ```
-ultragit skill check
+chronicle skill check
 ```
 
 **Output:**
@@ -185,11 +185,11 @@ ultragit skill check
 Skill installations found:
   [check] Claude Code (CLAUDE.md in repository root)
           Last updated: 2025-12-15
-          Skill version: ultragit-skill/v1
+          Skill version: chronicle-skill/v1
   [fail]  Claude Code global (~/.claude/CLAUDE.md)
-          Not installed. Run: ultragit skill install --target claude-code --global
+          Not installed. Run: chronicle skill install --target claude-code --global
   [fail]  MCP
-          Not installed. Run: ultragit skill install --target mcp
+          Not installed. Run: chronicle skill install --target mcp
 ```
 
 ---
@@ -200,7 +200,7 @@ Skill installations found:
 
 #### Refspec Configuration
 
-`ultragit sync enable` modifies `.git/config` by adding push and fetch refspecs to the specified remote. It uses `git/config.rs` to read the current remote configuration, checks for existing refspecs to avoid duplication, and appends the new ones.
+`git chronicle sync enable` modifies `.git/config` by adding push and fetch refspecs to the specified remote. It uses `git/config.rs` to read the current remote configuration, checks for existing refspecs to avoid duplication, and appends the new ones.
 
 ```rust
 /// Sync configuration state
@@ -216,13 +216,13 @@ pub fn get_sync_config(repo: &Repository, remote: &str) -> Result<SyncConfig>;
 /// Enable sync by adding push/fetch refspecs
 pub fn enable_sync(repo: &Repository, remote: &str) -> Result<()>;
 
-/// Disable sync by removing ultragit refspecs
+/// Disable sync by removing chronicle refspecs
 pub fn disable_sync(repo: &Repository, remote: &str) -> Result<()>;
 ```
 
 #### Sync Status
 
-`ultragit sync status` counts local and remote notes by listing annotated commits on each side. Local count comes from iterating the local notes ref. Remote count requires a `git ls-remote` or fetching the remote notes ref and counting.
+`git chronicle sync status` counts local and remote notes by listing annotated commits on each side. Local count comes from iterating the local notes ref. Remote count requires a `git ls-remote` or fetching the remote notes ref and counting.
 
 ```rust
 pub struct SyncStatus {
@@ -241,7 +241,7 @@ Git notes have their own merge mechanics. When two clones annotate different com
 
 **Merge strategy: JSON-level union.**
 
-When both local and remote have a note on the same commit SHA, Ultragit performs a JSON-level merge:
+When both local and remote have a note on the same commit SHA, Chronicle performs a JSON-level merge:
 
 1. Parse both annotations as JSON.
 2. Merge the `regions` arrays: for each region identified by `file` + `ast_anchor.name`, keep the version with the more recent `timestamp`. If a region exists only on one side, include it.
@@ -270,11 +270,11 @@ pub fn merge_annotations(
 
 ### Auto-Sync Detection
 
-During `ultragit init`, after creating the notes ref, check if the remote already has `refs/notes/ultragit`:
+During `git chronicle init`, after creating the notes ref, check if the remote already has `refs/notes/chronicle`:
 
 ```rust
 pub fn detect_remote_notes(repo: &Repository, remote: &str) -> Result<bool> {
-    // git ls-remote <remote> refs/notes/ultragit
+    // git ls-remote <remote> refs/notes/chronicle
     // Returns true if the ref exists on the remote
 }
 ```
@@ -285,7 +285,7 @@ If remote notes exist, automatically call `enable_sync()` and fetch the existing
 
 #### Commit Discovery
 
-Walk the commit log on the current branch, filtering by `--since`, `--path`, and `--limit`. For each commit, check if a note already exists under `refs/notes/ultragit`. Collect the unannotated commits into a work queue, ordered oldest-first.
+Walk the commit log on the current branch, filtering by `--since`, `--path`, and `--limit`. For each commit, check if a note already exists under `refs/notes/chronicle`. Collect the unannotated commits into a work queue, ordered oldest-first.
 
 ```rust
 pub struct BackfillConfig {
@@ -316,7 +316,7 @@ pub struct BackfillProgress {
 
 #### Resume Support
 
-On start, if `--resume` is set, read `.git/ultragit/backfill-state.json`:
+On start, if `--resume` is set, read `.git/chronicle/backfill-state.json`:
 
 ```json
 {
@@ -413,7 +413,7 @@ Report summary at end: imported, skipped (already annotated), skipped (commit no
 
 ### Doctor
 
-`ultragit doctor` runs a series of diagnostic checks and reports pass/fail/warn for each:
+`git chronicle doctor` runs a series of diagnostic checks and reports pass/fail/warn for each:
 
 ```rust
 pub struct DoctorCheck {
@@ -435,7 +435,7 @@ pub enum DoctorStatus {
 | Check | Pass | Warn | Fail |
 |-------|------|------|------|
 | Binary version | Version matches latest release | — | — (always passes, just reports version) |
-| Hooks status | All three hooks installed and contain ultragit invocations | Some hooks missing | No hooks installed |
+| Hooks status | All three hooks installed and contain chronicle invocations | Some hooks missing | No hooks installed |
 | Credential check | API key found and connection test succeeds | API key found but connection test fails | No API key found |
 | Sync status | Sync configured, 0 unpushed | Sync configured, >0 unpushed | Sync not configured (warn only if remote has notes) |
 | Skill installation | At least one skill installed and current version | Skill installed but outdated version | No skill installed |
@@ -465,9 +465,9 @@ pub enum DoctorStatus {
 
 #### Skill Definition Content
 
-The skill definition is a Markdown document embedded in the Ultragit binary as a `const &str` or `include_str!`. It contains:
+The skill definition is a Markdown document embedded in the Chronicle binary as a `const &str` or `include_str!`. It contains:
 
-- When to use each Ultragit command.
+- When to use each Chronicle command.
 - Command syntax and common invocations.
 - How to read the output.
 - How to provide context when committing.
@@ -475,7 +475,7 @@ The skill definition is a Markdown document embedded in the Ultragit binary as a
 The skill definition includes a version marker comment:
 
 ```markdown
-<!-- ultragit-skill/v1 -->
+<!-- chronicle-skill/v1 -->
 ```
 
 #### Claude Code Installation
@@ -484,7 +484,7 @@ For `--target claude-code`:
 
 1. Locate `CLAUDE.md`: repository root (default) or `~/.claude/CLAUDE.md` (with `--global`).
 2. If the file doesn't exist, create it with the skill definition.
-3. If the file exists, check for the version marker `<!-- ultragit-skill/v1 -->`.
+3. If the file exists, check for the version marker `<!-- chronicle-skill/v1 -->`.
    - If the marker exists with the current version, do nothing (idempotent).
    - If the marker exists with an older version, replace the section between markers.
    - If no marker exists, append the skill definition to the end.
@@ -492,10 +492,10 @@ For `--target claude-code`:
 Section delimiters:
 
 ```markdown
-<!-- ultragit-skill-start -->
-<!-- ultragit-skill/v1 -->
+<!-- chronicle-skill-start -->
+<!-- chronicle-skill/v1 -->
 [skill content here]
-<!-- ultragit-skill-end -->
+<!-- chronicle-skill-end -->
 ```
 
 #### MCP Installation
@@ -503,13 +503,13 @@ Section delimiters:
 For `--target mcp`:
 
 1. Locate MCP config: `.mcp.json` in the repository root, or `claude_desktop_config.json` in the user's config directory.
-2. Add or update the Ultragit server entry:
+2. Add or update the Chronicle server entry:
 
 ```json
 {
   "mcpServers": {
-    "ultragit": {
-      "command": "ultragit",
+    "chronicle": {
+      "command": "chronicle",
       "args": ["mcp", "start"],
       "cwd": "<repo-root>"
     }
@@ -521,7 +521,7 @@ For `--target mcp`:
 
 #### Skill Check
 
-`ultragit skill check` scans known installation locations:
+`git chronicle skill check` scans known installation locations:
 
 ```rust
 pub struct SkillInstallation {
@@ -563,15 +563,15 @@ For each target, check if the file exists and contains the skill markers. Report
 
 ## Configuration
 
-All configuration lives in `.git/config` under `[ultragit]` or in `.ultragit-config.toml` for shared settings.
+All configuration lives in `.git/config` under `[chronicle]` or in `.chronicle-config.toml` for shared settings.
 
 | Key | Default | Description |
 |-----|---------|-------------|
-| `ultragit.sync.remote` | `origin` | Default remote for sync operations |
-| `ultragit.sync.mergeStrategy` | `union` | Default merge strategy for notes conflicts |
-| `ultragit.backfill.concurrency` | `4` | Default concurrency for backfill |
-| `ultragit.backfill.model` | (same as main model) | Model to use for backfill annotations |
-| `ultragit.skill.version` | `v1` | Current skill definition version |
+| `chronicle.sync.remote` | `origin` | Default remote for sync operations |
+| `chronicle.sync.mergeStrategy` | `union` | Default merge strategy for notes conflicts |
+| `chronicle.backfill.concurrency` | `4` | Default concurrency for backfill |
+| `chronicle.backfill.model` | (same as main model) | Model to use for backfill annotations |
+| `chronicle.skill.version` | `v1` | Current skill definition version |
 
 ---
 
@@ -597,7 +597,7 @@ All configuration lives in `.git/config` under `[ultragit]` or in `.ultragit-con
 **Scope:** `src/cli/init.rs`, `src/sync/push_fetch.rs`
 
 - Add `detect_remote_notes()` using `git ls-remote`.
-- Integrate into `ultragit init`: if remote has notes, auto-enable sync and fetch.
+- Integrate into `git chronicle init`: if remote has notes, auto-enable sync and fetch.
 - Tests: init with remote notes, init without remote notes.
 
 ### Step 4: Backfill — Commit Discovery and Dry Run
@@ -621,7 +621,7 @@ All configuration lives in `.git/config` under `[ultragit]` or in `.ultragit-con
 ### Step 6: Backfill — Resume Support
 **Scope:** `src/backfill.rs`
 
-- Write backfill state to `.git/ultragit/backfill-state.json` on progress and on interrupt.
+- Write backfill state to `.git/chronicle/backfill-state.json` on progress and on interrupt.
 - Read state on `--resume` and skip completed commits.
 - Handle SIGINT gracefully (write state before exit).
 - Tests: interrupt and resume simulation.
@@ -629,7 +629,7 @@ All configuration lives in `.git/config` under `[ultragit]` or in `.ultragit-con
 ### Step 7: Export
 **Scope:** `src/export.rs`, `src/cli/export.rs`
 
-- Iterate all notes under `refs/notes/ultragit`.
+- Iterate all notes under `refs/notes/chronicle`.
 - Filter by `--path` and `--since`.
 - Serialize to JSONL format.
 - Tests: export full repo, export with path filter, export empty repo.
@@ -696,7 +696,7 @@ All configuration lives in `.git/config` under `[ultragit]` or in `.ultragit-con
 - Import a file with zero valid entries.
 - Sync when remote is unreachable.
 - Sync when local has no notes ref yet.
-- Doctor when ultragit is not initialized in the repo.
+- Doctor when chronicle is not initialized in the repo.
 - Skill install when CLAUDE.md contains the old version marker and unrelated content.
 - Backfill with `--concurrency 1` (sequential).
 - Backfill with all commits already annotated (no-op).
@@ -705,18 +705,18 @@ All configuration lives in `.git/config` under `[ultragit]` or in `.ultragit-con
 
 ## Acceptance Criteria
 
-1. `ultragit sync enable` adds correct refspecs; `git push` includes notes; `git fetch` retrieves remote notes.
-2. `ultragit sync status` correctly reports local count, remote count, and unpushed count.
-3. `ultragit sync pull` merges notes from remote, handling conflicts with the configured strategy without data loss under the `union` strategy.
-4. `ultragit init` auto-detects remote notes and configures sync without manual intervention.
-5. `ultragit backfill` annotates historical commits oldest-first, respects `--limit`, `--since`, `--path`, and `--concurrency`.
-6. `ultragit backfill --dry-run` lists commits and cost estimate without making API calls.
-7. `ultragit backfill --resume` resumes an interrupted backfill without re-annotating completed commits.
-8. `ultragit export | ultragit import` round-trips annotations faithfully across repositories with shared history.
-9. `ultragit export --path <glob>` exports only annotations from commits touching the specified paths.
-10. `ultragit doctor` exits `0` on a healthy setup, exits `1` when critical checks fail, and provides actionable fix hints for every failure.
-11. `ultragit doctor --json` produces valid JSON parseable by agents.
-12. `ultragit skill install --target claude-code` produces a working CLAUDE.md skill definition; reinstalling is idempotent; upgrading replaces the old version.
-13. `ultragit skill install --target mcp` produces a valid MCP server entry in configuration.
-14. `ultragit skill check` accurately reports installation status and version for all targets.
+1. `git chronicle sync enable` adds correct refspecs; `git push` includes notes; `git fetch` retrieves remote notes.
+2. `git chronicle sync status` correctly reports local count, remote count, and unpushed count.
+3. `git chronicle sync pull` merges notes from remote, handling conflicts with the configured strategy without data loss under the `union` strategy.
+4. `git chronicle init` auto-detects remote notes and configures sync without manual intervention.
+5. `git chronicle backfill` annotates historical commits oldest-first, respects `--limit`, `--since`, `--path`, and `--concurrency`.
+6. `git chronicle backfill --dry-run` lists commits and cost estimate without making API calls.
+7. `git chronicle backfill --resume` resumes an interrupted backfill without re-annotating completed commits.
+8. `git chronicle export | git chronicle import` round-trips annotations faithfully across repositories with shared history.
+9. `git chronicle export --path <glob>` exports only annotations from commits touching the specified paths.
+10. `git chronicle doctor` exits `0` on a healthy setup, exits `1` when critical checks fail, and provides actionable fix hints for every failure.
+11. `git chronicle doctor --json` produces valid JSON parseable by agents.
+12. `git chronicle skill install --target claude-code` produces a working CLAUDE.md skill definition; reinstalling is idempotent; upgrading replaces the old version.
+13. `git chronicle skill install --target mcp` produces a valid MCP server entry in configuration.
+14. `git chronicle skill check` accurately reports installation status and version for all targets.
 15. All operations degrade gracefully when the network is unavailable (sync reports status as unknown, backfill retries, doctor reports connection failure).

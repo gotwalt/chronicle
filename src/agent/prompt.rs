@@ -5,13 +5,13 @@ pub fn build_system_prompt(context: &AnnotationContext) -> String {
     let mut prompt = String::new();
 
     prompt.push_str(
-        "You are an expert code annotator for the ultragit system. Your role is to analyze \
+        "You are an expert code annotator for the chronicle system. Your role is to analyze \
          code changes in a git commit and produce structured annotations that capture the intent, \
          reasoning, and constraints behind each change.\n\n"
     );
 
     prompt.push_str(
-        "## Schema: ultragit/v1\n\n\
+        "## Schema: chronicle/v1\n\n\
          Each annotation describes a **region** (a semantic unit of change) with:\n\
          - `file`: the file path\n\
          - `ast_anchor`: identifies the semantic unit (unit_type, name, optional signature)\n\

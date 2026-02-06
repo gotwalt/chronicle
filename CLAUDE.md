@@ -1,13 +1,13 @@
-# Ultragit - Claude Code Instructions
+# Chronicle - Claude Code Instructions
 
 ## Project
 
-Rust CLI tool for AI-powered commit annotations stored as git notes. 52 source files, ~10k lines of Rust, 143 tests.
+Rust CLI tool (`git-chronicle`) for AI-powered commit annotations stored as git notes. Installed as a git extension -- users type `git chronicle <command>`. 51 source files, ~10k lines of Rust, 142 tests.
 
 ## Build & test
 
 ```bash
-cargo build          # compile
+cargo build          # compile (produces git-chronicle binary)
 cargo test           # all tests
 cargo test --lib     # unit tests only (fast, no git fixtures)
 cargo check          # type check without codegen
@@ -19,7 +19,7 @@ cargo clippy         # lint
 - `GitOps` trait in `src/git/mod.rs` abstracts git operations. MVP uses `CliOps` (shells out to git). Do not add `GixOps` yet.
 - `LlmProvider` trait in `src/provider/mod.rs`. MVP uses `AnthropicProvider`. Do not add other providers yet.
 - Error handling uses **snafu 0.8** with `#[snafu(module(...))]` to scope context selectors. Variant names must NOT end in "Error".
-- Annotation schema is `ultragit/v1` in `src/schema/annotation.rs`. The `Annotation` struct has a `validate()` method -- always call it before writing.
+- Annotation schema is `chronicle/v1` in `src/schema/annotation.rs`. The `Annotation` struct has a `validate()` method -- always call it before writing.
 - Two annotation paths: **batch** (LLM agent loop in `src/annotate/`) and **live** (MCP handler in `src/mcp/annotate_handler.rs`, zero LLM cost).
 
 ## Key conventions
@@ -55,7 +55,7 @@ cargo clippy         # lint
 After committing, annotate using the live path:
 
 ```bash
-echo '<AnnotateInput JSON>' | ultragit annotate --live
+echo '<AnnotateInput JSON>' | git chronicle annotate --live
 ```
 
 See `.claude/skills/annotate/SKILL.md` for the full annotation workflow.

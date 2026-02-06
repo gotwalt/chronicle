@@ -9,7 +9,7 @@ pub fn run(path: String, anchor: Option<String>, lines: Option<String>) -> Resul
         None => None,
     };
 
-    let repo_dir = std::env::current_dir().map_err(|e| crate::error::UltragitError::Io {
+    let repo_dir = std::env::current_dir().map_err(|e| crate::error::ChronicleError::Io {
         source: e,
         location: snafu::Location::default(),
     })?;
@@ -24,7 +24,7 @@ pub fn run(path: String, anchor: Option<String>, lines: Option<String>) -> Resul
     let result = execute(&git_ops, &query)?;
 
     let json = serde_json::to_string_pretty(&result).map_err(|e| {
-        crate::error::UltragitError::Json {
+        crate::error::ChronicleError::Json {
             source: e,
             location: snafu::Location::default(),
         }
@@ -38,16 +38,16 @@ pub fn run(path: String, anchor: Option<String>, lines: Option<String>) -> Resul
 fn parse_line_range(s: &str) -> Result<LineRange> {
     let parts: Vec<&str> = s.split(':').collect();
     if parts.len() != 2 {
-        return Err(crate::error::UltragitError::Config {
+        return Err(crate::error::ChronicleError::Config {
             message: format!("invalid line range '{s}', expected format 'start:end'"),
             location: snafu::Location::default(),
         });
     }
-    let start: u32 = parts[0].parse().map_err(|_| crate::error::UltragitError::Config {
+    let start: u32 = parts[0].parse().map_err(|_| crate::error::ChronicleError::Config {
         message: format!("invalid start line number '{}'", parts[0]),
         location: snafu::Location::default(),
     })?;
-    let end: u32 = parts[1].parse().map_err(|_| crate::error::UltragitError::Config {
+    let end: u32 = parts[1].parse().map_err(|_| crate::error::ChronicleError::Config {
         message: format!("invalid end line number '{}'", parts[1]),
         location: snafu::Location::default(),
     })?;

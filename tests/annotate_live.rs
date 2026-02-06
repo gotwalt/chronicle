@@ -1,11 +1,11 @@
 //! Integration test: call handle_annotate against the real repo to write a
 //! git note for the HEAD commit via the live path (zero LLM cost).
 
-use ultragit::git::CliOps;
-use ultragit::mcp::annotate_handler::{
+use chronicle::git::CliOps;
+use chronicle::mcp::annotate_handler::{
     AnchorInput, AnnotateInput, ConstraintInput, RegionInput, handle_annotate,
 };
-use ultragit::schema::{CrossCuttingConcern, CrossCuttingRegionRef, LineRange, SemanticDependency};
+use chronicle::schema::{CrossCuttingConcern, CrossCuttingRegionRef, LineRange, SemanticDependency};
 
 #[test]
 fn annotate_head_commit() {
@@ -15,7 +15,7 @@ fn annotate_head_commit() {
     let input = AnnotateInput {
         commit: "HEAD".to_string(),
         summary: "MVP write path implementation with MCP annotate handler. Implements the full \
-            ultragit CLI framework, git operations layer, tree-sitter AST parsing, Anthropic LLM \
+            chronicle CLI framework, git operations layer, tree-sitter AST parsing, Anthropic LLM \
             provider, writing agent, hooks, pre-LLM filtering, and annotation schema. Adds MCP \
             annotate handler (live path) for zero-cost agent-authored annotations with AST anchor \
             resolution, quality checks, validation, and git notes write."
@@ -129,7 +129,7 @@ fn annotate_head_commit() {
                 file: "src/error.rs".to_string(),
                 anchor: AnchorInput {
                     unit_type: "enum".to_string(),
-                    name: "UltragitError".to_string(),
+                    name: "ChronicleError".to_string(),
                 },
                 lines: LineRange { start: 68, end: 75 },
                 intent: "Add Validation variant for annotation structural errors caught by \

@@ -1,7 +1,7 @@
 use std::path::Path;
 use std::process::Command;
 
-use ultragit::git::{CliOps, GitOps};
+use chronicle::git::{CliOps, GitOps};
 
 fn create_temp_repo() -> (tempfile::TempDir, CliOps) {
     let dir = tempfile::tempdir().unwrap();
@@ -85,7 +85,7 @@ fn note_write_and_read_roundtrip() {
     assert!(note.is_none());
     assert!(!ops.note_exists(&sha).unwrap());
 
-    let content = r#"{"schema":"ultragit/v1","test":true}"#;
+    let content = r#"{"schema":"chronicle/v1","test":true}"#;
     ops.note_write(&sha, content).unwrap();
 
     let note = ops.note_read(&sha).unwrap();
@@ -140,7 +140,7 @@ fn diff_returns_file_changes_for_root_commit() {
     let diffs = ops.diff(&sha).unwrap();
     assert_eq!(diffs.len(), 1);
     assert_eq!(diffs[0].path, "hello.txt");
-    assert_eq!(diffs[0].status, ultragit::git::DiffStatus::Added);
+    assert_eq!(diffs[0].status, chronicle::git::DiffStatus::Added);
     assert!(diffs[0].added_line_count() > 0);
 }
 
@@ -154,7 +154,7 @@ fn diff_returns_modifications() {
     let diffs = ops.diff(&sha).unwrap();
     assert_eq!(diffs.len(), 1);
     assert_eq!(diffs[0].path, "hello.txt");
-    assert_eq!(diffs[0].status, ultragit::git::DiffStatus::Modified);
+    assert_eq!(diffs[0].status, chronicle::git::DiffStatus::Modified);
     assert!(diffs[0].added_line_count() >= 1);
 }
 
@@ -163,10 +163,10 @@ fn config_get_set_roundtrip() {
     let (dir, ops) = create_temp_repo();
     add_and_commit(dir.path(), "init.txt", "init\n", "Init");
 
-    let val = ops.config_get("ultragit.test-key").unwrap();
+    let val = ops.config_get("chronicle.test-key").unwrap();
     assert!(val.is_none());
 
-    ops.config_set("ultragit.test-key", "test-value").unwrap();
-    let val = ops.config_get("ultragit.test-key").unwrap();
+    ops.config_set("chronicle.test-key", "test-value").unwrap();
+    let val = ops.config_get("chronicle.test-key").unwrap();
     assert_eq!(val, Some("test-value".to_string()));
 }
