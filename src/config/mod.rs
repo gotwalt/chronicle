@@ -1,3 +1,5 @@
+pub mod user_config;
+
 use crate::error::Result;
 use crate::error::chronicle_error::GitSnafu;
 use crate::git::GitOps;

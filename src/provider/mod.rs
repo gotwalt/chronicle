@@ -1,6 +1,8 @@
 pub mod anthropic;
+pub mod claude_code;
 
 pub use anthropic::AnthropicProvider;
+pub use claude_code::ClaudeCodeProvider;
 
 use crate::error::ProviderError;
 use serde::{Deserialize, Serialize};
@@ -88,14 +90,49 @@ pub struct ToolDefinition {
     pub input_schema: serde_json::Value,
 }
 
-/// Discover the first available provider from environment credentials.
-/// MVP: checks ANTHROPIC_API_KEY only.
+/// Discover the best available provider.
+///
+/// Priority:
+/// 1. User-level config (~/.git-chronicle.toml)
+/// 2. Environment variable detection (ANTHROPIC_API_KEY)
+/// 3. Error: no provider configured
 pub fn discover_provider() -> Result<Box<dyn LlmProvider>, ProviderError> {
+    use crate::config::user_config::{ProviderType, UserConfig};
+
+    // 1. Check user-level config
+    if let Ok(Some(config)) = UserConfig::load() {
+        match config.provider.provider_type {
+            ProviderType::ClaudeCode => {
+                return Ok(Box::new(ClaudeCodeProvider::new(config.provider.model)));
+            }
+            ProviderType::Anthropic => {
+                let key_env = config
+                    .provider
+                    .api_key_env
+                    .unwrap_or_else(|| "ANTHROPIC_API_KEY".to_string());
+                if let Ok(api_key) = std::env::var(&key_env) {
+                    if !api_key.is_empty() {
+                        return Ok(Box::new(AnthropicProvider::new(
+                            api_key,
+                            config.provider.model,
+                        )));
+                    }
+                }
+                // Config says anthropic but key not found — fall through to env check
+            }
+            ProviderType::None => {
+                // Explicitly configured as none — fall through to env check
+            }
+        }
+    }
+
+    // 2. Fall back to env var detection
     if let Ok(api_key) = std::env::var("ANTHROPIC_API_KEY") {
         if !api_key.is_empty() {
             return Ok(Box::new(AnthropicProvider::new(api_key, None)));
         }
     }
+
     snafu::ensure!(false, crate::error::provider_error::NoCredentialsSnafu);
     unreachable!()
 }

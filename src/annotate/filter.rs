@@ -21,6 +21,42 @@ const LOCKFILE_PATTERNS: &[&str] = &[
     "poetry.lock",
 ];
 
+/// Binary file extensions that indicate non-code content.
+const BINARY_EXTENSIONS: &[&str] = &[
+    "png", "jpg", "jpeg", "gif", "bmp", "ico", "svg", "woff", "woff2", "ttf", "eot", "pdf",
+    "zip", "tar", "gz", "bz2", "exe", "dll", "so", "dylib", "pyc", "class", "o", "obj",
+];
+
+/// Generated/vendored file patterns that aren't worth annotating.
+const GENERATED_PATTERNS: &[&str] = &[
+    ".min.js",
+    ".min.css",
+    "vendor/",
+    "vendored/",
+    "node_modules/",
+    ".generated.",
+    "_generated.",
+    "dist/",
+    "build/",
+];
+
+/// Check if a file path refers to a binary file based on extension.
+fn is_binary_path(path: &str) -> bool {
+    if let Some(ext) = path.rsplit('.').next() {
+        BINARY_EXTENSIONS.contains(&ext.to_lowercase().as_str())
+    } else {
+        false
+    }
+}
+
+/// Check if a file path refers to a generated or vendored file.
+fn is_generated_path(path: &str) -> bool {
+    let lower = path.to_lowercase();
+    GENERATED_PATTERNS
+        .iter()
+        .any(|pattern| lower.contains(pattern))
+}
+
 /// Default trivial threshold: if total changed lines <= this, mark as trivial.
 const TRIVIAL_THRESHOLD: usize = 3;
 
@@ -50,6 +86,16 @@ pub fn pre_llm_filter(context: &AnnotationContext) -> FilterDecision {
         })
     {
         return FilterDecision::Skip("lockfile-only changes".to_string());
+    }
+
+    // Skip: all files are binary
+    if !context.diffs.is_empty() && context.diffs.iter().all(|d| is_binary_path(&d.path)) {
+        return FilterDecision::Skip("binary-only changes".to_string());
+    }
+
+    // Skip: all files are generated/vendored
+    if !context.diffs.is_empty() && context.diffs.iter().all(|d| is_generated_path(&d.path)) {
+        return FilterDecision::Skip("generated/vendored changes".to_string());
     }
 
     // Trivial: total changed lines <= threshold
@@ -146,5 +192,62 @@ mod tests {
             vec![make_diff("src/main.rs", 20, 5)],
         );
         assert_eq!(pre_llm_filter(&ctx), FilterDecision::Annotate);
+    }
+
+    #[test]
+    fn test_skip_binary_only() {
+        let ctx = make_context(
+            "Add logo",
+            vec![make_diff("assets/logo.png", 10, 0)],
+        );
+        assert!(matches!(pre_llm_filter(&ctx), FilterDecision::Skip(ref s) if s.contains("binary")));
+    }
+
+    #[test]
+    fn test_skip_generated_only() {
+        let ctx = make_context(
+            "Update vendored deps",
+            vec![make_diff("vendor/lib.js", 100, 50)],
+        );
+        assert!(matches!(pre_llm_filter(&ctx), FilterDecision::Skip(ref s) if s.contains("generated")));
+    }
+
+    #[test]
+    fn test_mixed_binary_and_code() {
+        let ctx = make_context(
+            "Add feature with icon",
+            vec![
+                make_diff("src/main.rs", 20, 5),
+                make_diff("assets/icon.png", 10, 0),
+            ],
+        );
+        assert_eq!(pre_llm_filter(&ctx), FilterDecision::Annotate);
+    }
+
+    #[test]
+    fn test_skip_min_js_only() {
+        let ctx = make_context(
+            "Rebuild minified assets",
+            vec![make_diff("dist/app.min.js", 500, 400)],
+        );
+        assert!(matches!(pre_llm_filter(&ctx), FilterDecision::Skip(ref s) if s.contains("generated")));
+    }
+
+    #[test]
+    fn test_is_binary_path() {
+        assert!(is_binary_path("logo.png"));
+        assert!(is_binary_path("path/to/image.JPG"));
+        assert!(is_binary_path("lib.so"));
+        assert!(!is_binary_path("src/main.rs"));
+        assert!(!is_binary_path("README.md"));
+    }
+
+    #[test]
+    fn test_is_generated_path() {
+        assert!(is_generated_path("vendor/lib.js"));
+        assert!(is_generated_path("dist/bundle.js"));
+        assert!(is_generated_path("app.min.js"));
+        assert!(is_generated_path("node_modules/foo/index.js"));
+        assert!(!is_generated_path("src/main.rs"));
     }
 }

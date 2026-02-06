@@ -15,3 +15,4 @@ pub mod sync;
 pub mod export;
 pub mod import;
 pub mod doctor;
+pub mod setup;

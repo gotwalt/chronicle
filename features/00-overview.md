@@ -25,7 +25,8 @@ chronicle (Rust binary)
 ├── Claude Code integration          Feature 13
 ├── Interactive show (TUI)           Feature 14
 ├── Claude Code skills & workflow    Feature 15
-└── Multi-language AST parsing       Feature 16
+├── Multi-language AST parsing       Feature 16
+└── Rapid onboarding                 Feature 17
 ```
 
 ---
@@ -50,6 +51,7 @@ chronicle (Rust binary)
 | 14 | Interactive Show (TUI) | `14-interactive-show.md` | High | `git chronicle show` TUI explorer, annotation panel, deps/history drill-down, plain-text fallback |
 | 15 | Claude Code Skills | `15-claude-code-skills.md` | Low | Context/annotate/backfill skills, pre-edit hook, CLAUDE.md integration, MCP config |
 | 16 | Multi-Language AST | `16-multi-language-ast.md` | Medium | TypeScript, JavaScript, Python, Go, Java, C, C++, Ruby outline extraction and anchor resolution |
+| 17 | Rapid Onboarding | `17-onboarding.md` | Medium | `setup` command, user config, `backfill` CLI, enhanced `init`, Claude Code provider, embedded content distribution |
 
 ---
 
@@ -94,6 +96,11 @@ Phase 6 (Agent Workflow & Language Expansion)                            │
   ┌──────────────┐                                                       │
   │ 15 CC Skills │◄──────────────────────────────────────────────────────┘
   │ & Workflow   │
+  └──────┬───────┘
+         │
+  ┌──────────────┐
+  │ 17 Rapid     │  (depends on 01, 06, 15)
+  │ Onboarding   │
   └──────────────┘
   ┌──────────────┐
   │ 16 Multi-    │  (depends on 03, can proceed independently of Phase 5)
@@ -119,8 +126,9 @@ Phase 6 (Agent Workflow & Language Expansion)                            │
 | 12 MCP Server | 07, 08 | — |
 | 13 Claude Code Integration | 02, 03, 05, 12 | — |
 | 14 Interactive Show (TUI) | 02, 03, 07, 08 | — |
-| 15 Claude Code Skills | 12, 13 | — |
+| 15 Claude Code Skills | 12, 13 | 17 |
 | 16 Multi-Language AST | 03 | 14 (show uses outline dispatch) |
+| 17 Rapid Onboarding | 01, 06, 15 | — |
 
 ---
 
@@ -167,7 +175,9 @@ chronicle/
 │   │   ├── skill.rs             # `git chronicle skill`
 │   │   ├── auth.rs              # `git chronicle auth`
 │   │   ├── config_cmd.rs        # `git chronicle config`
-│   │   └── mcp.rs               # `git chronicle mcp`
+│   │   ├── mcp.rs               # `git chronicle mcp`
+│   │   ├── setup.rs             # `git chronicle setup` (F17)
+│   │   └── reconfigure.rs       # `git chronicle reconfigure` (F17)
 │   ├── git/
 │   │   ├── mod.rs               # Git operation abstractions
 │   │   ├── diff.rs              # Diff extraction (gix + fallback)
@@ -189,6 +199,7 @@ chronicle/
 │   ├── provider/
 │   │   ├── mod.rs               # LlmProvider trait, credential discovery
 │   │   ├── anthropic.rs         # Anthropic Messages API
+│   │   ├── claude_code.rs       # Claude Code subprocess provider (F17)
 │   │   ├── openai.rs            # OpenAI Chat Completions API
 │   │   ├── gemini.rs            # Google Gemini API
 │   │   └── openrouter.rs        # OpenRouter (OpenAI-compatible)
@@ -222,10 +233,14 @@ chronicle/
 │   │   ├── region.rs            # Region annotation struct
 │   │   ├── correction.rs        # Correction/flag structs
 │   │   └── output.rs            # Read output schema
+│   ├── setup/
+│   │   ├── mod.rs               # Setup orchestration (F17)
+│   │   └── embedded.rs          # include_str!() embedded content (F17)
 │   ├── config/
 │   │   ├── mod.rs               # Configuration management
 │   │   ├── git_config.rs        # [chronicle] section in .git/config
-│   │   └── shared_config.rs     # .chronicle-config.toml parsing
+│   │   ├── shared_config.rs     # .chronicle-config.toml parsing
+│   │   └── user_config.rs       # ~/.git-chronicle.toml load/save (F17)
 │   ├── sync/
 │   │   ├── mod.rs               # Notes sync management
 │   │   ├── push_fetch.rs        # Refspec configuration
@@ -239,6 +254,15 @@ chronicle/
 │       ├── mod.rs               # MCP server entrypoint
 │       ├── server.rs            # MCP protocol handling
 │       └── tools.rs             # MCP tool definitions
+├── embedded/                       # Distribution content (F17)
+│   ├── skills/
+│   │   ├── context/SKILL.md
+│   │   ├── annotate/SKILL.md
+│   │   └── backfill/SKILL.md
+│   ├── hooks/
+│   │   ├── chronicle-annotate-reminder.sh
+│   │   └── chronicle-read-context-hint.sh
+│   └── claude-md-snippet.md
 ├── tests/
 │   ├── integration/
 │   │   ├── annotate_test.rs     # End-to-end annotation tests
@@ -252,7 +276,8 @@ chronicle/
 └── features/                    # Feature specifications
     ├── 00-overview.md
     ├── ...
-    └── 16-multi-language-ast.md
+    ├── 16-multi-language-ast.md
+    └── 17-onboarding.md
 ```
 
 ---

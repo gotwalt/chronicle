@@ -72,6 +72,13 @@ pub enum ChronicleError {
         #[snafu(implicit)]
         location: snafu::Location,
     },
+
+    #[snafu(display("setup error: {source}"))]
+    Setup {
+        source: SetupError,
+        #[snafu(implicit)]
+        location: snafu::Location,
+    },
 }
 
 #[derive(Debug, Snafu)]
@@ -249,5 +256,76 @@ pub enum AstError {
         location: snafu::Location,
     },
 }
+
+#[derive(Debug, Snafu)]
+#[snafu(visibility(pub), module(setup_error))]
+pub enum SetupError {
+    #[snafu(display("home directory not found, at {location}"))]
+    NoHomeDirectory {
+        #[snafu(implicit)]
+        location: snafu::Location,
+    },
+
+    #[snafu(display("git-chronicle binary not found on PATH, at {location}"))]
+    BinaryNotFound {
+        #[snafu(implicit)]
+        location: snafu::Location,
+    },
+
+    #[snafu(display("failed to write {path}: {source}, at {location}"))]
+    WriteFile {
+        path: String,
+        #[snafu(source)]
+        source: std::io::Error,
+        #[snafu(implicit)]
+        location: snafu::Location,
+    },
+
+    #[snafu(display("failed to read file {path}: {source}, at {location}"))]
+    ReadFile {
+        path: String,
+        #[snafu(source)]
+        source: std::io::Error,
+        #[snafu(implicit)]
+        location: snafu::Location,
+    },
+
+    #[snafu(display("failed to read user config: {source}, at {location}"))]
+    ReadConfig {
+        #[snafu(source)]
+        source: toml::de::Error,
+        #[snafu(implicit)]
+        location: snafu::Location,
+    },
+
+    #[snafu(display("failed to write user config: {source}, at {location}"))]
+    WriteConfig {
+        #[snafu(source)]
+        source: toml::ser::Error,
+        #[snafu(implicit)]
+        location: snafu::Location,
+    },
+
+    #[snafu(display("Claude CLI not found — install Claude Code or select a different provider, at {location}"))]
+    ClaudeCliNotFound {
+        #[snafu(implicit)]
+        location: snafu::Location,
+    },
+
+    #[snafu(display("ANTHROPIC_API_KEY environment variable not set, at {location}"))]
+    ApiKeyNotSet {
+        #[snafu(implicit)]
+        location: snafu::Location,
+    },
+
+    #[snafu(display("interactive input error: {source}, at {location}"))]
+    InteractiveInput {
+        #[snafu(source)]
+        source: std::io::Error,
+        #[snafu(implicit)]
+        location: snafu::Location,
+    },
+}
+
 
 pub type Result<T, E = ChronicleError> = std::result::Result<T, E>;

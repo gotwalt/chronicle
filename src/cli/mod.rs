@@ -12,6 +12,9 @@ pub mod deps;
 pub mod history;
 pub mod summary;
 pub mod show;
+pub mod setup;
+pub mod reconfigure;
+pub mod backfill;
 
 use clap::{Parser, Subcommand};
 
@@ -24,11 +27,48 @@ pub struct Cli {
 
 #[derive(Subcommand)]
 pub enum Commands {
+    /// One-time machine-wide setup (provider, skills, hooks, CLAUDE.md)
+    Setup {
+        /// Overwrite existing files without prompting
+        #[arg(long)]
+        force: bool,
+
+        /// Print what would be done without writing
+        #[arg(long)]
+        dry_run: bool,
+
+        /// Skip installing Claude Code skills
+        #[arg(long)]
+        skip_skills: bool,
+
+        /// Skip installing Claude Code hooks
+        #[arg(long)]
+        skip_hooks: bool,
+
+        /// Skip modifying ~/.claude/CLAUDE.md
+        #[arg(long)]
+        skip_claude_md: bool,
+    },
+
+    /// Rerun the LLM provider selection prompt
+    Reconfigure,
+
+    /// Annotate historical commits that lack Chronicle annotations
+    Backfill {
+        /// Maximum number of commits to annotate
+        #[arg(long, default_value = "20")]
+        limit: usize,
+
+        /// List commits that would be annotated without calling the LLM
+        #[arg(long)]
+        dry_run: bool,
+    },
+
     /// Initialize chronicle in the current repository
     Init {
-        /// Run annotations synchronously (default: async)
+        /// Disable notes sync (sync is enabled by default)
         #[arg(long)]
-        sync: bool,
+        no_sync: bool,
 
         /// Skip hook installation
         #[arg(long)]
@@ -41,6 +81,10 @@ pub enum Commands {
         /// LLM model to use
         #[arg(long)]
         model: Option<String>,
+
+        /// Run backfill after init (annotate last 20 commits)
+        #[arg(long)]
+        backfill: bool,
     },
 
     /// Manage annotation context
