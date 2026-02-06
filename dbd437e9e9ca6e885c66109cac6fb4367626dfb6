@@ -1,0 +1,91 @@
+{
+  "schema": "chronicle/v1",
+  "commit": "HEAD",
+  "timestamp": "2026-02-06T19:52:00Z",
+  "task": "feature-10-team-ops",
+  "summary": "Adds team operations: notes sync (enable/status/pull), JSONL export/import for portable annotations, and doctor diagnostics with 5 health checks. Registers Sync, Export, Import, Doctor CLI subcommands with 16 integration tests.",
+  "context_level": "enhanced",
+  "regions": [
+    {
+      "file": "src/sync/mod.rs",
+      "ast_anchor": {"unit_type": "module", "name": "sync"},
+      "lines": {"start": 1, "end": 37},
+      "intent": "Define NotesMergeStrategy enum and sync module re-exports",
+      "tags": ["sync", "team-ops"]
+    },
+    {
+      "file": "src/sync/push_fetch.rs",
+      "ast_anchor": {"unit_type": "module", "name": "push_fetch"},
+      "lines": {"start": 1, "end": 155},
+      "intent": "Implement sync config reading, refspec enable, status counting, and notes pull via git CLI",
+      "tags": ["sync", "git-config", "team-ops"]
+    },
+    {
+      "file": "src/export.rs",
+      "ast_anchor": {"unit_type": "module", "name": "export"},
+      "lines": {"start": 1, "end": 88},
+      "intent": "JSONL export of annotations by iterating notes list and serializing ExportEntry per line",
+      "tags": ["export", "jsonl", "team-ops"]
+    },
+    {
+      "file": "src/import.rs",
+      "ast_anchor": {"unit_type": "module", "name": "import"},
+      "lines": {"start": 1, "end": 89},
+      "intent": "JSONL import with commit existence check, existing note skip/force, dry-run support, and summary reporting",
+      "tags": ["import", "jsonl", "team-ops"]
+    },
+    {
+      "file": "src/doctor.rs",
+      "ast_anchor": {"unit_type": "module", "name": "doctor"},
+      "lines": {"start": 1, "end": 147},
+      "intent": "Diagnostic checks for version, notes ref, hooks, credentials, and config with pass/warn/fail status and JSON output",
+      "tags": ["doctor", "diagnostics", "team-ops"]
+    },
+    {
+      "file": "src/cli/mod.rs",
+      "ast_anchor": {"unit_type": "enum", "name": "Commands"},
+      "lines": {"start": 97, "end": 128},
+      "intent": "Register Sync, Export, Import, Doctor CLI subcommands with clap derive",
+      "tags": ["cli", "team-ops"]
+    },
+    {
+      "file": "src/main.rs",
+      "ast_anchor": {"unit_type": "function", "name": "main"},
+      "lines": {"start": 26, "end": 47},
+      "intent": "Route new CLI commands to their handler functions",
+      "tags": ["cli", "team-ops"]
+    },
+    {
+      "file": "tests/team_ops_test.rs",
+      "ast_anchor": {"unit_type": "module", "name": "team_ops_test"},
+      "lines": {"start": 1, "end": 350},
+      "intent": "16 integration tests covering sync enable/idempotent/status, export/import roundtrip, force/dry-run, invalid input, and all doctor checks",
+      "tags": ["tests", "team-ops"]
+    }
+  ],
+  "cross_cutting": [
+    {
+      "description": "All new modules follow existing error handling patterns: snafu context selectors with GitSnafu/IoSnafu, manual UltragitError construction where needed",
+      "regions": [
+        {"file": "src/sync/push_fetch.rs", "anchor": "push_fetch"},
+        {"file": "src/export.rs", "anchor": "export"},
+        {"file": "src/import.rs", "anchor": "import"},
+        {"file": "src/doctor.rs", "anchor": "doctor"}
+      ]
+    },
+    {
+      "description": "CLI pattern: each subcommand module exposes a run() function that creates CliOps from cwd and delegates to library logic",
+      "regions": [
+        {"file": "src/cli/sync.rs", "anchor": "sync"},
+        {"file": "src/cli/export.rs", "anchor": "export"},
+        {"file": "src/cli/import.rs", "anchor": "import"},
+        {"file": "src/cli/doctor.rs", "anchor": "doctor"}
+      ]
+    }
+  ],
+  "provenance": {
+    "operation": "initial",
+    "derived_from": [],
+    "original_annotations_preserved": false
+  }
+}
