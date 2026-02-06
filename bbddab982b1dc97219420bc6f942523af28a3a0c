@@ -1,0 +1,64 @@
+{
+  "schema": "chronicle/v1",
+  "commit": "bbddab982b1dc97219420bc6f942523af28a3a0c",
+  "timestamp": "2026-02-06T19:30:00Z",
+  "summary": "Add --live CLI flag for zero-cost stdin annotation, with serde derives on handler types",
+  "context_level": "enhanced",
+  "regions": [
+    {
+      "file": "src/cli/annotate.rs",
+      "ast_anchor": { "unit_type": "function", "name": "run" },
+      "lines": { "start": 4, "end": 34 },
+      "intent": "Add live parameter to run() and early-return to run_live() when --live is set",
+      "reasoning": "The live path avoids constructing an LLM provider, which requires an API key; separating it early keeps the happy path unchanged",
+      "constraints": [{ "text": "Must not require API key when --live is set", "source": "author" }],
+      "tags": ["cli", "live-annotation"]
+    },
+    {
+      "file": "src/cli/annotate.rs",
+      "ast_anchor": { "unit_type": "function", "name": "run_live" },
+      "lines": { "start": 37, "end": 65 },
+      "intent": "Read AnnotateInput JSON from stdin, call handle_annotate, print result as JSON",
+      "reasoning": "Mirrors the MCP tool flow but through CLI stdin/stdout for scripting and testing",
+      "constraints": [{ "text": "Reads all of stdin before deserializing", "source": "author" }],
+      "tags": ["cli", "live-annotation"]
+    },
+    {
+      "file": "src/mcp/annotate_handler.rs",
+      "ast_anchor": { "unit_type": "struct", "name": "AnnotateInput" },
+      "lines": { "start": 19, "end": 26 },
+      "intent": "Add serde Deserialize derive to AnnotateInput for JSON deserialization from stdin",
+      "reasoning": "Required for the --live CLI path to deserialize user-provided JSON input",
+      "constraints": [{ "text": "Deserialize only; Serialize not needed for input types", "source": "author" }],
+      "tags": ["serde", "handler-types"]
+    },
+    {
+      "file": "src/mcp/annotate_handler.rs",
+      "ast_anchor": { "unit_type": "struct", "name": "AnnotateResult" },
+      "lines": { "start": 61, "end": 68 },
+      "intent": "Add serde Serialize derive to AnnotateResult for JSON output to stdout",
+      "reasoning": "Required for the --live CLI path to serialize the handler result as JSON",
+      "constraints": [{ "text": "Serialize only; Deserialize not needed for output types", "source": "author" }],
+      "tags": ["serde", "handler-types"]
+    },
+    {
+      "file": "src/cli/mod.rs",
+      "ast_anchor": { "unit_type": "enum", "name": "Commands" },
+      "lines": { "start": 70, "end": 82 },
+      "intent": "Add --live boolean flag to the Annotate CLI variant",
+      "reasoning": "Clap arg parsed at CLI level, passed through to annotate::run",
+      "constraints": [{ "text": "Default is false so existing behavior is unchanged", "source": "author" }],
+      "tags": ["cli"]
+    },
+    {
+      "file": "src/main.rs",
+      "ast_anchor": { "unit_type": "function", "name": "main" },
+      "lines": { "start": 20, "end": 22 },
+      "intent": "Pass the new live flag from CLI args to annotate::run",
+      "reasoning": "Simple plumbing change to pass the flag through",
+      "constraints": [],
+      "tags": ["cli"]
+    }
+  ],
+  "provenance": { "operation": "initial", "original_annotations_preserved": false }
+}
