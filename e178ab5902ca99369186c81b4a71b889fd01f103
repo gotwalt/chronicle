@@ -1,0 +1,101 @@
+{
+  "schema": "chronicle/v1",
+  "commit": "e178ab5902ca99369186c81b4a71b889fd01f103",
+  "timestamp": "2026-02-06T23:46:49.971492+00:00",
+  "summary": "Make annotate --live input more forgiving with three backward-compatible ergonomic improvements: optional anchor (defaults to file-level), path alias for file field, and flexible constraints that accept plain strings or objects. Reduces friction for both LLM and human callers.",
+  "context_level": "enhanced",
+  "regions": [
+    {
+      "file": "src/mcp/annotate_handler.rs",
+      "ast_anchor": {
+        "unit_type": "struct",
+        "name": "RegionInput",
+        "signature": "pub struct RegionInput"
+      },
+      "lines": {
+        "start": 38,
+        "end": 54
+      },
+      "intent": "Add serde flexibility to RegionInput: anchor becomes Option with default, file gets path alias, constraints get a custom deserializer accepting strings or objects.",
+      "reasoning": "Three repeated annotation failures showed the input schema was unnecessarily rigid. An LLM naturally writes anchor: null, path instead of file, and plain string constraints. All three changes are backward-compatible via serde attributes.",
+      "constraints": [
+        {
+          "text": "All changes must be backward-compatible — existing valid JSON must still parse identically",
+          "source": "author"
+        }
+      ],
+      "tags": [
+        "ergonomics",
+        "serde",
+        "backward-compatible"
+      ]
+    },
+    {
+      "file": "src/mcp/annotate_handler.rs",
+      "ast_anchor": {
+        "unit_type": "function",
+        "name": "effective_anchor"
+      },
+      "lines": {
+        "start": 0,
+        "end": 0
+      },
+      "intent": "Provide a default anchor derived from the filename when the caller omits the anchor field, enabling file-level annotations for config files, YAML, TOML, etc.",
+      "reasoning": "File-level annotations had no natural way to express 'no specific code anchor'. Defaulting to {unit_type: file, name: <filename>} is the most intuitive fallback.",
+      "constraints": [
+        {
+          "text": "Must extract just the filename component, not the full path, for the anchor name",
+          "source": "author"
+        }
+      ],
+      "tags": [
+        "ergonomics"
+      ]
+    },
+    {
+      "file": "src/mcp/annotate_handler.rs",
+      "ast_anchor": {
+        "unit_type": "function",
+        "name": "deserialize_flexible_constraints",
+        "signature": "fn deserialize_flexible_constraints<'de, D>(\n    deserializer: D,\n) -> std::result::Result<Vec<ConstraintInput>, D::Error>\nwhere\n    D: Deserializer<'de>,"
+      },
+      "lines": {
+        "start": 92,
+        "end": 120
+      },
+      "intent": "Custom serde deserializer that accepts both plain strings and {text: ...} objects in the constraints array, converting both to ConstraintInput.",
+      "reasoning": "Plain strings are the natural format for constraints. The object wrapper only exists because the stored Constraint has a source field (Author vs Inferred), but input always sets Author, so the wrapper just adds friction for callers.",
+      "constraints": [
+        {
+          "text": "Must handle mixed arrays containing both strings and objects in the same list",
+          "source": "author"
+        }
+      ],
+      "tags": [
+        "serde",
+        "ergonomics"
+      ]
+    },
+    {
+      "file": "src/mcp/annotate_handler.rs",
+      "ast_anchor": {
+        "unit_type": "function",
+        "name": "resolve_and_build_region",
+        "signature": "fn resolve_and_build_region(\n    git_ops: &dyn GitOps,\n    commit: &str,\n    input: &RegionInput,\n) -> Result<(RegionAnnotation, AnchorResolution)>"
+      },
+      "lines": {
+        "start": 267,
+        "end": 400
+      },
+      "intent": "Update to use effective_anchor() instead of directly accessing input.anchor, supporting the new optional anchor field.",
+      "reasoning": "All anchor access points needed to go through effective_anchor() to get the default when anchor is None. Introduced a local variable to avoid repeated calls.",
+      "tags": [
+        "refactor"
+      ]
+    }
+  ],
+  "provenance": {
+    "operation": "initial",
+    "original_annotations_preserved": false
+  }
+}
