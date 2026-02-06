@@ -1,0 +1,233 @@
+{
+  "schema": "chronicle/v1",
+  "commit": "75a50dc76db120d42af30b00f5e927ec45fd68e1",
+  "timestamp": "2026-02-06T21:18:53.535557+00:00",
+  "summary": "Implement Feature 15: Claude Code skills and agent workflow integration. Three skills (context, annotate, backfill) form a read-modify-write loop where the agent reads annotations before modifying code, writes annotations after committing, and can backfill historical gaps. Includes pre-tool-use hook for edit context hints and CLAUDE.md updates.",
+  "context_level": "enhanced",
+  "regions": [
+    {
+      "file": ".claude/skills/context/SKILL.md",
+      "ast_anchor": {
+        "unit_type": "module",
+        "name": "context-skill"
+      },
+      "lines": {
+        "start": 1,
+        "end": 120
+      },
+      "intent": "Teach the agent to proactively query chronicle_read, chronicle_deps, chronicle_summary, and chronicle_history MCP tools before modifying existing code, with CLI fallbacks",
+      "reasoning": "The highest-value integration point: agents gain access to intent, constraints, and semantic dependencies that would otherwise be invisible. Constraints are declared binding so the agent respects design invariants.",
+      "constraints": [
+        {
+          "text": "Must include CLI fallback for when MCP tools are unavailable",
+          "source": "author"
+        },
+        {
+          "text": "Constraints from annotations are treated as binding design rules",
+          "source": "author"
+        }
+      ],
+      "semantic_dependencies": [
+        {
+          "file": "src/read/mod.rs",
+          "anchor": "execute",
+          "nature": "The context skill directs agents to the read pipeline via MCP tools or CLI"
+        },
+        {
+          "file": "src/mcp/annotate_handler.rs",
+          "anchor": "handle_annotate",
+          "nature": "Context skill references chronicle_annotate for the write side of the loop"
+        }
+      ],
+      "tags": [
+        "skills",
+        "agent-workflow",
+        "read-path"
+      ]
+    },
+    {
+      "file": ".claude/skills/backfill/SKILL.md",
+      "ast_anchor": {
+        "unit_type": "module",
+        "name": "backfill-skill"
+      },
+      "lines": {
+        "start": 1,
+        "end": 100
+      },
+      "intent": "Provide a complete workflow for annotating historical commits that lack Chronicle annotations, with honest uncertainty markers and quality guidelines",
+      "reasoning": "Backfilled annotations are reconstructed from diffs and commit messages, not firsthand knowledge. The skill enforces uncertainty language (Reconstructed from diff, Inferred) and the backfill tag so readers can distinguish reconstruction from direct authorship.",
+      "constraints": [
+        {
+          "text": "Backfilled annotations must always include the backfill tag",
+          "source": "author"
+        },
+        {
+          "text": "Intent and reasoning must use uncertainty language when reconstructed from diffs",
+          "source": "author"
+        },
+        {
+          "text": "Skip merge commits, lockfile-only commits, and generated files",
+          "source": "author"
+        }
+      ],
+      "semantic_dependencies": [
+        {
+          "file": "src/mcp/annotate_handler.rs",
+          "anchor": "handle_annotate",
+          "nature": "Backfill uses the same annotate handler via MCP tool or --live CLI"
+        }
+      ],
+      "tags": [
+        "skills",
+        "agent-workflow",
+        "backfill"
+      ]
+    },
+    {
+      "file": ".claude/skills/annotate/SKILL.md",
+      "ast_anchor": {
+        "unit_type": "module",
+        "name": "annotate-skill"
+      },
+      "lines": {
+        "start": 1,
+        "end": 140
+      },
+      "intent": "Refine the existing annotate skill with guidance on semantic dependencies, cross-cutting concerns, CLI pipe fallback, and referencing prior annotations in reasoning",
+      "reasoning": "The original skill covered the basics but lacked guidance on when to include semantic_dependencies and cross_cutting concerns. Added CLI pipe fallback for environments without MCP, and instruction to reference prior annotations when modifying annotated code.",
+      "constraints": [
+        {
+          "text": "Must maintain backward compatibility with existing annotate workflow",
+          "source": "author"
+        }
+      ],
+      "semantic_dependencies": [
+        {
+          "file": "src/mcp/annotate_handler.rs",
+          "anchor": "AnnotateInput",
+          "nature": "The JSON format in the skill matches the AnnotateInput struct exactly"
+        }
+      ],
+      "tags": [
+        "skills",
+        "agent-workflow",
+        "write-path"
+      ]
+    },
+    {
+      "file": ".claude/hooks/pre-tool-use/read-context-hint.sh",
+      "ast_anchor": {
+        "unit_type": "module",
+        "name": "read-context-hint"
+      },
+      "lines": {
+        "start": 1,
+        "end": 25
+      },
+      "intent": "Non-blocking pre-tool-use hook that suggests reading Chronicle annotations before the agent edits source code files",
+      "reasoning": "A gentle reminder rather than a hard gate. Only triggers for Edit/Write tools on source file extensions (.rs, .ts, .py, etc). Does not block the edit if the agent proceeds without reading.",
+      "constraints": [
+        {
+          "text": "Must not block or prevent the edit tool from executing",
+          "source": "author"
+        },
+        {
+          "text": "Only triggers for recognized source code file extensions",
+          "source": "author"
+        }
+      ],
+      "tags": [
+        "hooks",
+        "agent-workflow"
+      ]
+    },
+    {
+      "file": "CLAUDE.md",
+      "ast_anchor": {
+        "unit_type": "module",
+        "name": "chronicle-annotations-section"
+      },
+      "lines": {
+        "start": 53,
+        "end": 85
+      },
+      "intent": "Add Working with Chronicle annotations section to CLAUDE.md that teaches agents about the read-modify-write annotation loop",
+      "reasoning": "CLAUDE.md is loaded into every agent session. Adding annotation workflow instructions here ensures agents are aware of Chronicle without needing to discover the skills independently.",
+      "constraints": [
+        {
+          "text": "Must reference the three skill files for detailed workflows",
+          "source": "author"
+        }
+      ],
+      "semantic_dependencies": [
+        {
+          "file": ".claude/skills/context/SKILL.md",
+          "anchor": "context-skill",
+          "nature": "CLAUDE.md references the context skill for read workflow details"
+        },
+        {
+          "file": ".claude/skills/annotate/SKILL.md",
+          "anchor": "annotate-skill",
+          "nature": "CLAUDE.md references the annotate skill for write workflow details"
+        },
+        {
+          "file": ".claude/skills/backfill/SKILL.md",
+          "anchor": "backfill-skill",
+          "nature": "CLAUDE.md references the backfill skill for historical annotation"
+        }
+      ],
+      "tags": [
+        "project-config",
+        "agent-workflow"
+      ]
+    },
+    {
+      "file": "features/15-claude-code-skills.md",
+      "ast_anchor": {
+        "unit_type": "module",
+        "name": "feature-spec"
+      },
+      "lines": {
+        "start": 1,
+        "end": 300
+      },
+      "intent": "Feature specification documenting the complete Claude Code skills and agent workflow integration design",
+      "reasoning": "Follows the established feature spec pattern. Documents three skills, hooks, MCP config placeholder, and the read-modify-write workflow loop.",
+      "tags": [
+        "docs",
+        "feature-spec"
+      ]
+    }
+  ],
+  "cross_cutting": [
+    {
+      "description": "All three skills and CLAUDE.md form a coherent read-modify-write annotation loop: context (read) -> modify -> annotate (write), with backfill for historical coverage",
+      "regions": [
+        {
+          "file": ".claude/skills/context/SKILL.md",
+          "anchor": "context-skill"
+        },
+        {
+          "file": ".claude/skills/annotate/SKILL.md",
+          "anchor": "annotate-skill"
+        },
+        {
+          "file": ".claude/skills/backfill/SKILL.md",
+          "anchor": "backfill-skill"
+        },
+        {
+          "file": "CLAUDE.md",
+          "anchor": "chronicle-annotations-section"
+        }
+      ],
+      "tags": [
+        "agent-workflow"
+      ]
+    }
+  ],
+  "provenance": {
+    "operation": "initial",
+    "original_annotations_preserved": false
+  }
+}
