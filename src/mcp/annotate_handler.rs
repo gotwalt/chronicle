@@ -1,5 +1,6 @@
 use std::path::Path;
 
+use serde::{Deserialize, Serialize};
 use snafu::ResultExt;
 
 use crate::ast::{self, AnchorMatch, Language};
@@ -15,7 +16,7 @@ use crate::schema::{
 // ---------------------------------------------------------------------------
 
 /// Input provided by the calling agent when annotating a commit.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct AnnotateInput {
     pub commit: String,
     pub summary: String,
@@ -25,7 +26,7 @@ pub struct AnnotateInput {
 }
 
 /// A single region the agent wants to annotate.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct RegionInput {
     pub file: String,
     pub anchor: AnchorInput,
@@ -40,14 +41,14 @@ pub struct RegionInput {
 
 /// Simplified anchor — the agent provides unit_type and name;
 /// the handler resolves the full signature and corrected lines via AST.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct AnchorInput {
     pub unit_type: String,
     pub name: String,
 }
 
 /// A constraint supplied by the author (source is always `Author`).
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct ConstraintInput {
     pub text: String,
 }
@@ -57,7 +58,7 @@ pub struct ConstraintInput {
 // ---------------------------------------------------------------------------
 
 /// Result returned after writing the annotation.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct AnnotateResult {
     pub success: bool,
     pub commit: String,
@@ -67,14 +68,15 @@ pub struct AnnotateResult {
 }
 
 /// How an anchor was resolved (or not) during annotation.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct AnchorResolution {
     pub file: String,
     pub requested_name: String,
     pub resolution: AnchorResolutionKind,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "snake_case", tag = "kind")]
 pub enum AnchorResolutionKind {
     Exact,
     Qualified { resolved_name: String },
@@ -419,6 +421,10 @@ mod tests {
 
         fn config_set(&self, _key: &str, _value: &str) -> std::result::Result<(), GitError> {
             Ok(())
+        }
+
+        fn log_for_file(&self, _path: &str) -> std::result::Result<Vec<String>, GitError> {
+            Ok(vec![])
         }
     }
 
