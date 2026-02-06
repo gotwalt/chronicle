@@ -1,0 +1,83 @@
+{
+  "schema": "chronicle/v1",
+  "commit": "8a24f24c2fab0b1787e805db90f57a4229f6c063",
+  "timestamp": "2026-02-06T00:00:00Z",
+  "task": "feature-11-corrections",
+  "summary": "Add annotation corrections system with flag and correct CLI commands",
+  "context_level": "enhanced",
+  "regions": [
+    {
+      "file": "src/schema/correction.rs",
+      "ast_anchor": {"unit_type": "mod", "name": "correction", "signature": null},
+      "lines": {"start": 1, "end": 82},
+      "intent": "Define the Correction struct, CorrectionType enum, confidence penalty logic, and author resolution for the annotation corrections system",
+      "reasoning": "Corrections are additive-only entries that record inaccuracies without destroying original content. CorrectionType distinguishes between general flags, specific removals, and amendments. Confidence penalty reduces trust in corrected annotations.",
+      "constraints": [
+        {"text": "Corrections must never modify or delete original annotation content", "source": "author"},
+        {"text": "CorrectionType serializes as snake_case to match existing enum conventions", "source": "inferred"},
+        {"text": "Confidence floor of 0.1 ensures annotations remain visible even with many corrections", "source": "author"}
+      ],
+      "semantic_dependencies": [
+        {"file": "src/schema/annotation.rs", "anchor": "RegionAnnotation", "nature": "corrections field added to this struct"},
+        {"file": "src/git/mod.rs", "anchor": "GitOps", "nature": "resolve_author uses config_get from this trait"}
+      ],
+      "related_annotations": [],
+      "tags": ["schema", "corrections", "confidence"],
+      "risk_notes": "The resolve_author function falls back to 'unknown' if no git config or session env is set"
+    },
+    {
+      "file": "src/cli/flag.rs",
+      "ast_anchor": {"unit_type": "fn", "name": "run", "signature": null},
+      "lines": {"start": 14, "end": 100},
+      "intent": "Implement the ultragit flag command that finds the latest annotated commit for a file/region and adds a Flag correction",
+      "reasoning": "Walks git log for the file newest-first, finds first commit with a matching annotation region, appends a Flag correction, and writes the updated annotation back. This is a read-modify-write on the git note.",
+      "constraints": [
+        {"text": "Must find a commit with an existing annotation; returns error if none found", "source": "author"},
+        {"text": "File path normalization strips leading './' for matching", "source": "inferred"}
+      ],
+      "semantic_dependencies": [
+        {"file": "src/git/mod.rs", "anchor": "GitOps", "nature": "uses log_for_file, note_read, note_write"},
+        {"file": "src/schema/correction.rs", "anchor": "Correction", "nature": "creates Flag correction entries"}
+      ],
+      "related_annotations": [],
+      "tags": ["cli", "flag", "corrections"],
+      "risk_notes": "Race condition possible if two agents flag the same annotation simultaneously (last writer wins)"
+    },
+    {
+      "file": "src/cli/correct.rs",
+      "ast_anchor": {"unit_type": "fn", "name": "run", "signature": null},
+      "lines": {"start": 10, "end": 148},
+      "intent": "Implement the ultragit correct command for precise field-level corrections on annotation regions",
+      "reasoning": "Takes a commit SHA directly, finds the region by anchor name, validates the target field is non-empty, and appends a Remove or Amend correction. Supports both --remove and --amend flags, individually or together.",
+      "constraints": [
+        {"text": "At least one of --remove or --amend must be specified", "source": "author"},
+        {"text": "Valid fields: intent, reasoning, constraints, risk_notes, semantic_dependencies, tags", "source": "author"},
+        {"text": "Original values are never deleted from the annotation; corrections are additive only", "source": "author"}
+      ],
+      "semantic_dependencies": [
+        {"file": "src/git/mod.rs", "anchor": "GitOps", "nature": "uses resolve_ref, note_read, note_write"},
+        {"file": "src/schema/correction.rs", "anchor": "Correction", "nature": "creates Remove/Amend correction entries"},
+        {"file": "src/schema/annotation.rs", "anchor": "RegionAnnotation", "nature": "validates fields on this struct"}
+      ],
+      "related_annotations": [],
+      "tags": ["cli", "correct", "corrections"],
+      "risk_notes": null
+    }
+  ],
+  "cross_cutting": [
+    {
+      "description": "Backward compatibility: existing annotations without a corrections field deserialize correctly via serde(default)",
+      "regions": [
+        {"file": "src/schema/annotation.rs", "anchor": "RegionAnnotation"},
+        {"file": "src/schema/correction.rs", "anchor": "correction"}
+      ],
+      "tags": ["backward-compat", "serde"]
+    }
+  ],
+  "provenance": {
+    "operation": "initial",
+    "derived_from": [],
+    "original_annotations_preserved": false,
+    "synthesis_notes": null
+  }
+}
