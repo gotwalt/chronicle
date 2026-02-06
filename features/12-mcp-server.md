@@ -73,7 +73,7 @@ If the entry already exists with the same command, do nothing (idempotent). If i
 
 ### MCP Tool Definitions
 
-The server exposes four tools, mirroring the CLI read commands.
+The server exposes five tools, mirroring the CLI read commands plus a write tool for agent-authored annotations.
 
 #### `ultragit_read`
 
@@ -186,6 +186,122 @@ Returns a condensed overview of a file or module.
   }
 }
 ```
+
+#### `ultragit_annotate`
+
+Writes an annotation for a commit. This is the "live path" — intended for agents that have just authored and committed code and can provide intent, reasoning, and constraints directly. Zero LLM cost.
+
+```json
+{
+  "name": "ultragit_annotate",
+  "description": "Write an Ultragit annotation for a commit you just created. Provide the commit SHA, a summary of the change, and per-region intent, reasoning, and constraints. The handler resolves AST anchors, validates the annotation, and writes it as a git note. Use this immediately after committing code you authored.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "commit": {
+        "type": "string",
+        "description": "Commit SHA or ref (e.g., 'HEAD')"
+      },
+      "summary": {
+        "type": "string",
+        "description": "One-paragraph summary of what the commit does and why"
+      },
+      "task": {
+        "type": "string",
+        "description": "Optional task/ticket identifier (e.g., 'TASK-123')"
+      },
+      "regions": {
+        "type": "array",
+        "description": "Per-region annotations",
+        "items": {
+          "type": "object",
+          "properties": {
+            "file": { "type": "string", "description": "File path relative to repository root" },
+            "anchor": {
+              "type": "object",
+              "properties": {
+                "unit_type": { "type": "string", "description": "AST unit type (function, method, struct, etc.)" },
+                "name": { "type": "string", "description": "Name of the code unit" }
+              },
+              "required": ["unit_type", "name"]
+            },
+            "lines": {
+              "type": "object",
+              "properties": {
+                "start": { "type": "integer" },
+                "end": { "type": "integer" }
+              },
+              "required": ["start", "end"]
+            },
+            "intent": { "type": "string", "description": "What this region change accomplishes" },
+            "reasoning": { "type": "string", "description": "Why this approach was chosen" },
+            "constraints": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "text": { "type": "string" }
+                },
+                "required": ["text"]
+              },
+              "description": "Design constraints and invariants"
+            },
+            "semantic_dependencies": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "file": { "type": "string" },
+                  "anchor": { "type": "string" },
+                  "nature": { "type": "string" }
+                },
+                "required": ["file", "anchor", "nature"]
+              }
+            },
+            "tags": { "type": "array", "items": { "type": "string" } },
+            "risk_notes": { "type": "string" }
+          },
+          "required": ["file", "anchor", "lines", "intent"]
+        }
+      },
+      "cross_cutting": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "description": { "type": "string" },
+            "regions": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "file": { "type": "string" },
+                  "anchor": { "type": "string" }
+                },
+                "required": ["file", "anchor"]
+              }
+            },
+            "tags": { "type": "array", "items": { "type": "string" } }
+          },
+          "required": ["description", "regions"]
+        }
+      }
+    },
+    "required": ["commit", "summary", "regions"]
+  }
+}
+```
+
+**Handler flow:**
+1. `resolve_ref(commit)` -> full SHA
+2. For each region: load file -> extract AST outline -> `resolve_anchor()` -> correct lines and fill signature
+3. Build `Annotation` struct with `context_level: Enhanced`, `ConstraintSource::Author`, timestamp, provenance
+4. `annotation.validate()` -- reject on structural errors
+5. `check_quality()` -- non-blocking warnings (short intent, missing reasoning, no constraints)
+6. `serde_json::to_string_pretty()` -> `note_write()`
+7. Return result with warnings and anchor resolution details
+
+**Implementation:** `src/mcp/annotate_handler.rs`
 
 ---
 
@@ -321,6 +437,7 @@ async fn dispatch_tool(
         "ultragit_deps" => self.handle_deps(arguments).await,
         "ultragit_history" => self.handle_history(arguments).await,
         "ultragit_summary" => self.handle_summary(arguments).await,
+        "ultragit_annotate" => self.handle_annotate(arguments).await,
         _ => Err(McpError::UnknownTool(tool_name.to_string())),
     }
 }
@@ -520,7 +637,7 @@ The server does not have its own configuration section. It reuses the existing U
 **Scope:** `src/mcp/server.rs`
 
 - Implement `initialize` handler: return server info and capabilities (tools).
-- Implement `tools/list` handler: return the four tool definitions.
+- Implement `tools/list` handler: return the five tool definitions.
 - Tests: verify tool definitions match the expected schema.
 
 ### Step 4: ultragit_read Tool
@@ -590,7 +707,7 @@ The server does not have its own configuration section. It reuses the existing U
 - **Full protocol handshake:**
   1. Spawn `ultragit mcp start` as a subprocess.
   2. Send `initialize` request, verify response.
-  3. Send `tools/list`, verify four tools returned.
+  3. Send `tools/list`, verify five tools returned.
   4. Send `tools/call` for each tool with valid arguments.
   5. Verify responses contain expected annotation data.
   6. Close stdin, verify process exits cleanly.
@@ -652,7 +769,7 @@ The server does not have its own configuration section. It reuses the existing U
 
 1. `ultragit mcp start` runs as a long-lived stdio process that speaks JSON-RPC.
 2. The server responds to `initialize` with its capabilities (tools list).
-3. `tools/list` returns exactly four tools: `ultragit_read`, `ultragit_deps`, `ultragit_history`, `ultragit_summary`.
+3. `tools/list` returns exactly five tools: `ultragit_read`, `ultragit_deps`, `ultragit_history`, `ultragit_summary`, `ultragit_annotate`.
 4. Each tool's `inputSchema` accurately describes its required and optional parameters.
 5. `ultragit_read` returns the same annotation data as `ultragit read` CLI for the same query.
 6. `ultragit_deps` returns the same dependency data as `ultragit deps` CLI.

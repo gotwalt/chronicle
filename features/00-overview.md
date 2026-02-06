@@ -21,7 +21,8 @@ ultragit (Rust binary)
 ├── History rewrite handling         Feature 09
 ├── Team operations                  Feature 10
 ├── Annotation corrections           Feature 11
-└── MCP server                       Feature 12
+├── MCP server                       Feature 12
+└── Claude Code integration          Feature 13
 ```
 
 ---
@@ -42,6 +43,7 @@ ultragit (Rust binary)
 | 10 | Team Operations | `10-team-operations.md` | Medium | Notes sync, auto-sync, backfill, export/import, `ultragit doctor`, skill install |
 | 11 | Annotation Corrections | `11-corrections.md` | Low-Medium | `ultragit flag`, `ultragit correct`, correction storage, read-path surfacing |
 | 12 | MCP Server | `12-mcp-server.md` | Medium | MCP protocol, tool definitions, server lifecycle, registration |
+| 13 | Claude Code Integration | `13-claude-code-integration.md` | Low-Medium | MCP annotate tool, Claude Code skill, post-commit hook |
 
 ---
 
@@ -77,10 +79,10 @@ Phase 4 (Integration)
   └──────┬───────┘            │
          │                    │
 Phase 5 (Advanced) — parallel, all features below can proceed independently
-  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐
-  │ 08 Adv.  │ │ 09 Hist. │ │ 10 Team  │ │ 11 Corr. │ │ 12 MCP   │
-  │ Queries  │ │ Rewrites │ │ Ops      │ │          │ │ Server   │
-  └──────────┘ └──────────┘ └──────────┘ └──────────┘ └──────────┘
+  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐
+  │ 08 Adv.  │ │ 09 Hist. │ │ 10 Team  │ │ 11 Corr. │ │ 12 MCP   │ │ 13 CC    │
+  │ Queries  │ │ Rewrites │ │ Ops      │ │          │ │ Server   │ │ Integr.  │
+  └──────────┘ └──────────┘ └──────────┘ └──────────┘ └──────────┘ └──────────┘
 ```
 
 ### Dependency Details
@@ -99,6 +101,7 @@ Phase 5 (Advanced) — parallel, all features below can proceed independently
 | 10 Team Operations | 02, 06 | — |
 | 11 Corrections | 02, 07 | — |
 | 12 MCP Server | 07, 08 | — |
+| 13 Claude Code Integration | 02, 03, 05, 12 | — |
 
 ---
 

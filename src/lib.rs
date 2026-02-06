@@ -1,0 +1,11 @@
+pub mod error;
+pub mod schema;
+pub mod git;
+pub mod ast;
+pub mod provider;
+pub mod agent;
+pub mod annotate;
+pub mod hooks;
+pub mod config;
+pub mod mcp;
+pub mod cli;
