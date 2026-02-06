@@ -241,4 +241,24 @@ impl GitOps for CliOps {
             .collect();
         Ok(shas)
     }
+
+    fn list_annotated_commits(&self, limit: u32) -> Result<Vec<String>, GitError> {
+        // List commits that have notes under refs/notes/ultragit.
+        // `git log --format=%H refs/notes/ultragit` lists the note tree commits,
+        // not the annotated commits. Instead, use `git notes list` which outputs
+        // "<blob-sha> <commit-sha>" for each annotated commit.
+        let (success, stdout, _stderr) =
+            self.run_git_raw(&["notes", "--ref", &self.notes_ref, "list"])?;
+        if !success {
+            // Notes ref may not exist yet — return empty
+            return Ok(Vec::new());
+        }
+        let shas: Vec<String> = stdout
+            .lines()
+            .filter(|l| !l.is_empty())
+            .filter_map(|l| l.split_whitespace().nth(1).map(|s| s.to_string()))
+            .take(limit as usize)
+            .collect();
+        Ok(shas)
+    }
 }

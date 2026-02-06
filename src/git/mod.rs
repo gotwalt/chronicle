@@ -50,4 +50,7 @@ pub trait GitOps: Send + Sync {
 
     /// List commit SHAs that touched a file (newest first), following renames.
     fn log_for_file(&self, path: &str) -> Result<Vec<String>, GitError>;
+
+    /// List commit SHAs that have ultragit notes (newest first), up to `limit`.
+    fn list_annotated_commits(&self, limit: u32) -> Result<Vec<String>, GitError>;
 }

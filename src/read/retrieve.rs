@@ -342,5 +342,8 @@ mod tests {
         fn log_for_file(&self, _path: &str) -> Result<Vec<String>, crate::error::GitError> {
             Ok(self.shas.clone())
         }
+        fn list_annotated_commits(&self, _limit: u32) -> Result<Vec<String>, crate::error::GitError> {
+            Ok(self.shas.clone())
+        }
     }
 }

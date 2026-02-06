@@ -23,6 +23,15 @@ async fn main() {
         Commands::Read { path, anchor, lines } => {
             ultragit::cli::read::run(path, anchor, lines)
         }
+        Commands::Deps { path, anchor, format, max_results, scan_limit } => {
+            ultragit::cli::deps::run(path, anchor, max_results, scan_limit, format)
+        }
+        Commands::History { path, anchor, limit, format, follow_related } => {
+            ultragit::cli::history::run(path, anchor, limit, follow_related, format)
+        }
+        Commands::Summary { path, anchor, format } => {
+            ultragit::cli::summary::run(path, anchor, format)
+        }
     };
 
     if let Err(e) = result {

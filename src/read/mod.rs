@@ -1,4 +1,7 @@
 pub mod retrieve;
+pub mod deps;
+pub mod history;
+pub mod summary;
 
 use crate::error::{Result, UltragitError};
 use crate::git::GitOps;
