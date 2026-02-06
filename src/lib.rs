@@ -10,6 +10,7 @@ pub mod config;
 pub mod mcp;
 pub mod read;
 pub mod cli;
+pub mod show;
 pub mod sync;
 pub mod export;
 pub mod import;

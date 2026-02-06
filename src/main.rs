@@ -53,6 +53,9 @@ fn main() {
         Commands::History { path, anchor, limit, format, follow_related } => {
             chronicle::cli::history::run(path, anchor, limit, follow_related, format)
         }
+        Commands::Show { path, anchor, commit, no_tui } => {
+            chronicle::cli::show::run(path, anchor, commit, no_tui)
+        }
         Commands::Summary { path, anchor, format } => {
             chronicle::cli::summary::run(path, anchor, format)
         }

@@ -22,7 +22,8 @@ chronicle (Rust binary)
 ├── Team operations                  Feature 10
 ├── Annotation corrections           Feature 11
 ├── MCP server                       Feature 12
-└── Claude Code integration          Feature 13
+├── Claude Code integration          Feature 13
+└── Interactive show (TUI)           Feature 14
 ```
 
 ---
@@ -44,6 +45,7 @@ chronicle (Rust binary)
 | 11 | Annotation Corrections | `11-corrections.md` | Low-Medium | `git chronicle flag`, `git chronicle correct`, correction storage, read-path surfacing |
 | 12 | MCP Server | `12-mcp-server.md` | Medium | MCP protocol, tool definitions, server lifecycle, registration |
 | 13 | Claude Code Integration | `13-claude-code-integration.md` | Low-Medium | MCP annotate tool, Claude Code skill, post-commit hook |
+| 14 | Interactive Show (TUI) | `14-interactive-show.md` | High | `git chronicle show` TUI explorer, annotation panel, deps/history drill-down, plain-text fallback |
 
 ---
 
@@ -80,9 +82,9 @@ Phase 4 (Integration)
          │                    │
 Phase 5 (Advanced) — parallel, all features below can proceed independently
   ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐
-  │ 08 Adv.  │ │ 09 Hist. │ │ 10 Team  │ │ 11 Corr. │ │ 12 MCP   │ │ 13 CC    │
-  │ Queries  │ │ Rewrites │ │ Ops      │ │          │ │ Server   │ │ Integr.  │
-  └──────────┘ └──────────┘ └──────────┘ └──────────┘ └──────────┘ └──────────┘
+  │ 08 Adv.  │ │ 09 Hist. │ │ 10 Team  │ │ 11 Corr. │ │ 12 MCP   │ │ 13 CC    │ │ 14 Show  │
+  │ Queries  │ │ Rewrites │ │ Ops      │ │          │ │ Server   │ │ Integr.  │ │ (TUI)    │
+  └──────────┘ └──────────┘ └──────────┘ └──────────┘ └──────────┘ └──────────┘ └──────────┘
 ```
 
 ### Dependency Details
@@ -102,6 +104,7 @@ Phase 5 (Advanced) — parallel, all features below can proceed independently
 | 11 Corrections | 02, 07 | — |
 | 12 MCP Server | 07, 08 | — |
 | 13 Claude Code Integration | 02, 03, 05, 12 | — |
+| 14 Interactive Show (TUI) | 02, 03, 07, 08 | — |
 
 ---
 

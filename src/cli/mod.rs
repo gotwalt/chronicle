@@ -11,6 +11,7 @@ pub mod doctor;
 pub mod deps;
 pub mod history;
 pub mod summary;
+pub mod show;
 
 use clap::{Parser, Subcommand};
 
@@ -194,6 +195,23 @@ pub enum Commands {
         /// Follow related annotation links
         #[arg(long, default_value = "true")]
         follow_related: bool,
+    },
+
+    /// Interactive TUI explorer for annotated source code
+    Show {
+        /// File path to show
+        path: String,
+
+        /// Focus on a specific AST anchor
+        anchor: Option<String>,
+
+        /// Commit to show file at
+        #[arg(long, default_value = "HEAD")]
+        commit: String,
+
+        /// Force non-interactive plain-text output
+        #[arg(long)]
+        no_tui: bool,
     },
 
     /// Show condensed annotation summary for a file
