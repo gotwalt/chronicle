@@ -231,4 +231,14 @@ impl GitOps for CliOps {
         self.run_git(&["config", key, value])?;
         Ok(())
     }
+
+    fn log_for_file(&self, path: &str) -> Result<Vec<String>, GitError> {
+        let output = self.run_git(&["log", "--follow", "--format=%H", "--", path])?;
+        let shas: Vec<String> = output
+            .lines()
+            .filter(|l| !l.is_empty())
+            .map(|l| l.to_string())
+            .collect();
+        Ok(shas)
+    }
 }

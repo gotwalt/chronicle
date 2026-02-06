@@ -47,4 +47,7 @@ pub trait GitOps: Send + Sync {
 
     /// Set a git config value.
     fn config_set(&self, key: &str, value: &str) -> Result<(), GitError>;
+
+    /// List commit SHAs that touched a file (newest first), following renames.
+    fn log_for_file(&self, path: &str) -> Result<Vec<String>, GitError>;
 }

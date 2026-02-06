@@ -8,4 +8,5 @@ pub mod annotate;
 pub mod hooks;
 pub mod config;
 pub mod mcp;
+pub mod read;
 pub mod cli;
