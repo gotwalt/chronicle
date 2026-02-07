@@ -25,9 +25,6 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
 
-      - name: Install cargo-edit and git-cliff
-        run: cargo install cargo-edit git-cliff
-
       - name: Configure git
         run: |
           git config user.email "release-bot@chronicle.dev"
@@ -36,20 +33,21 @@ jobs:
       - name: Bump version
         id: version
         run: |
-          cargo set-version --bump patch
-          VERSION=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[0].version')
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
+          CURRENT=$(grep '^version' Cargo.toml | head -1 | sed 's/.*"\(.*\)"/\1/')
+          MAJOR=$(echo "$CURRENT" | cut -d. -f1)
+          MINOR=$(echo "$CURRENT" | cut -d. -f2)
+          PATCH=$(echo "$CURRENT" | cut -d. -f3)
+          NEW="$MAJOR.$MINOR.$((PATCH + 1))"
+          sed -i "s/^version = \"$CURRENT\"/version = \"$NEW\"/" Cargo.toml
+          echo "version=$NEW" >> "$GITHUB_OUTPUT"
+          echo "tag=v$NEW" >> "$GITHUB_OUTPUT"
 
       - name: Update Cargo.lock
         run: cargo update --workspace
 
-      - name: Generate changelog
-        run: git cliff --output CHANGELOG.md --tag "${{ steps.version.outputs.tag }}"
-
       - name: Commit release
         run: |
-          git add Cargo.toml Cargo.lock CHANGELOG.md
+          git add Cargo.toml Cargo.lock
           git commit -m "chore(release): ${{ steps.version.outputs.tag }}"
 
       - name: Tag release
@@ -82,10 +80,9 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
         run: |
-          git cliff --latest --strip header > /tmp/release-notes.md
           gh release create "${{ steps.version.outputs.tag }}" \
             --title "${{ steps.version.outputs.tag }}" \
-            --notes-file /tmp/release-notes.md
+            --generate-notes
 
       - name: Publish to crates.io
         env:
