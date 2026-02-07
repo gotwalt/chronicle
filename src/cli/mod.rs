@@ -11,11 +11,13 @@ pub mod flag;
 pub mod history;
 pub mod import;
 pub mod init;
+pub mod lookup;
 pub mod read;
 pub mod reconfigure;
 pub mod schema;
 pub mod setup;
 pub mod show;
+pub mod status;
 pub mod summary;
 pub mod sync;
 
@@ -135,6 +137,18 @@ pub enum Commands {
         /// Old commit SHA to migrate annotation from (amend re-annotation)
         #[arg(long)]
         amend_source: Option<String>,
+
+        /// Quick annotation: provide summary directly on command line
+        #[arg(long, conflicts_with_all = ["live", "json_input", "squash_sources", "amend_source"])]
+        summary: Option<String>,
+
+        /// Provide full annotation JSON on command line
+        #[arg(long = "json", conflicts_with_all = ["live", "summary", "squash_sources", "amend_source"])]
+        json_input: Option<String>,
+
+        /// Auto-annotate using the commit message as summary
+        #[arg(long, conflicts_with_all = ["live", "summary", "json_input", "squash_sources", "amend_source"])]
+        auto: bool,
     },
 
     /// Flag a region annotation as potentially inaccurate
@@ -225,6 +239,10 @@ pub enum Commands {
         /// Maximum number of commits to scan
         #[arg(long, default_value = "500")]
         scan_limit: u32,
+
+        /// Omit metadata (schema, query echo, stats) from JSON output
+        #[arg(long)]
+        compact: bool,
     },
 
     /// Show annotation timeline for a file/anchor across commits
@@ -246,6 +264,10 @@ pub enum Commands {
         /// Follow related annotation links
         #[arg(long, default_value = "true")]
         follow_related: bool,
+
+        /// Omit metadata (schema, query echo, stats) from JSON output
+        #[arg(long)]
+        compact: bool,
     },
 
     /// Interactive TUI explorer for annotated source code
@@ -283,6 +305,10 @@ pub enum Commands {
         /// Output format (json or pretty)
         #[arg(long, default_value = "json")]
         format: String,
+
+        /// Omit metadata (schema, query echo, stats) from JSON output
+        #[arg(long)]
+        compact: bool,
     },
 
     /// Query design decisions and rejected alternatives ("What was decided?")
@@ -293,6 +319,10 @@ pub enum Commands {
         /// Output format (json or pretty)
         #[arg(long, default_value = "json")]
         format: String,
+
+        /// Omit metadata (schema, query echo) from JSON output
+        #[arg(long)]
+        compact: bool,
     },
 
     /// Show condensed annotation summary for a file
@@ -305,6 +335,35 @@ pub enum Commands {
         anchor: Option<String>,
 
         /// Output format (json or pretty)
+        #[arg(long, default_value = "json")]
+        format: String,
+
+        /// Omit metadata (schema, query echo, stats) from JSON output
+        #[arg(long)]
+        compact: bool,
+    },
+
+    /// One-stop context lookup for a file (contracts + decisions + history)
+    Lookup {
+        /// File path to query
+        path: String,
+
+        /// AST anchor name
+        #[arg(long)]
+        anchor: Option<String>,
+
+        /// Output format (json or pretty)
+        #[arg(long, default_value = "json")]
+        format: String,
+
+        /// Compact output (payload only)
+        #[arg(long)]
+        compact: bool,
+    },
+
+    /// Show annotation status and coverage for the repository
+    Status {
+        /// Output format
         #[arg(long, default_value = "json")]
         format: String,
     },

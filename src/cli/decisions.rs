@@ -2,7 +2,7 @@ use crate::error::Result;
 use crate::git::CliOps;
 
 /// Run the `git chronicle decisions` command.
-pub fn run(path: Option<String>, format: String) -> Result<()> {
+pub fn run(path: Option<String>, format: String, compact: bool) -> Result<()> {
     let repo_dir = std::env::current_dir().map_err(|e| crate::error::ChronicleError::Io {
         source: e,
         location: snafu::Location::default(),
@@ -20,11 +20,18 @@ pub fn run(path: Option<String>, format: String) -> Result<()> {
 
     match format.as_str() {
         "json" => {
-            let json = serde_json::to_string_pretty(&output).map_err(|e| {
-                crate::error::ChronicleError::Json {
-                    source: e,
-                    location: snafu::Location::default(),
-                }
+            let json = if compact {
+                let compact_out = serde_json::json!({
+                    "decisions": output.decisions,
+                    "rejected_alternatives": output.rejected_alternatives,
+                });
+                serde_json::to_string_pretty(&compact_out)
+            } else {
+                serde_json::to_string_pretty(&output)
+            }
+            .map_err(|e| crate::error::ChronicleError::Json {
+                source: e,
+                location: snafu::Location::default(),
             })?;
             println!("{json}");
         }

@@ -241,11 +241,30 @@ pub enum AnchorResolutionKind {
 // Quality checks (non-blocking warnings)
 // ---------------------------------------------------------------------------
 
-fn check_quality(input: &LiveInput) -> Vec<String> {
+fn check_quality(input: &LiveInput, files_changed: &[String], commit_message: &str) -> Vec<String> {
     let mut warnings = Vec::new();
 
     if input.summary.len() < 20 {
         warnings.push("Summary is very short — consider adding more detail".to_string());
+    }
+
+    if files_changed.len() > 3 && input.motivation.is_none() {
+        warnings.push(
+            "Multi-file change without motivation — consider adding why".to_string(),
+        );
+    }
+
+    if input.summary.trim() == commit_message.trim() {
+        warnings.push(
+            "Summary matches commit message verbatim — consider adding why this approach was chosen"
+                .to_string(),
+        );
+    }
+
+    if files_changed.len() > 5 && input.decisions.is_empty() {
+        warnings.push(
+            "Large change without decisions — consider documenting key design choices".to_string(),
+        );
     }
 
     warnings
@@ -263,8 +282,17 @@ pub fn handle_annotate_v2(git_ops: &dyn GitOps, input: LiveInput) -> Result<Live
         .resolve_ref(&input.commit)
         .context(chronicle_error::GitSnafu)?;
 
-    // 2. Quality warnings (non-blocking)
-    let warnings = check_quality(&input);
+    // 2. Check for existing note (warn before overwriting)
+    let mut warnings = Vec::new();
+    if git_ops
+        .note_exists(&full_sha)
+        .context(chronicle_error::GitSnafu)?
+    {
+        warnings.push(format!(
+            "Overwriting existing annotation for {}",
+            &full_sha[..full_sha.len().min(8)]
+        ));
+    }
 
     // 3. Auto-populate files_changed from diff
     let files_changed = {
@@ -272,7 +300,14 @@ pub fn handle_annotate_v2(git_ops: &dyn GitOps, input: LiveInput) -> Result<Live
         diffs.into_iter().map(|d| d.path).collect::<Vec<_>>()
     };
 
-    // 4. Resolve marker anchors and build markers
+    // 4. Quality warnings (non-blocking)
+    let commit_message = git_ops
+        .commit_info(&full_sha)
+        .context(chronicle_error::GitSnafu)?
+        .message;
+    warnings.extend(check_quality(&input, &files_changed, &commit_message));
+
+    // 5. Resolve marker anchors and build markers
     let mut markers = Vec::new();
     let mut anchor_resolutions = Vec::new();
 
@@ -284,7 +319,7 @@ pub fn handle_annotate_v2(git_ops: &dyn GitOps, input: LiveInput) -> Result<Live
         }
     }
 
-    // 5. Build decisions
+    // 6. Build decisions
     let decisions: Vec<v2::Decision> = input
         .decisions
         .iter()
@@ -297,14 +332,14 @@ pub fn handle_annotate_v2(git_ops: &dyn GitOps, input: LiveInput) -> Result<Live
         })
         .collect();
 
-    // 6. Build effort link
+    // 7. Build effort link
     let effort = input.effort.as_ref().map(|e| v2::EffortLink {
         id: e.id.clone(),
         description: e.description.clone(),
         phase: e.phase.clone(),
     });
 
-    // 7. Build rejected alternatives
+    // 8. Build rejected alternatives
     let rejected_alternatives: Vec<v2::RejectedAlternative> = input
         .rejected_alternatives
         .iter()
@@ -314,7 +349,7 @@ pub fn handle_annotate_v2(git_ops: &dyn GitOps, input: LiveInput) -> Result<Live
         })
         .collect();
 
-    // 8. Build annotation
+    // 9. Build annotation
     let annotation = v2::Annotation {
         schema: "chronicle/v2".to_string(),
         commit: full_sha.clone(),
@@ -336,7 +371,7 @@ pub fn handle_annotate_v2(git_ops: &dyn GitOps, input: LiveInput) -> Result<Live
         },
     };
 
-    // 9. Validate (reject on structural errors)
+    // 10. Validate (reject on structural errors)
     annotation
         .validate()
         .map_err(|msg| crate::error::ChronicleError::Validation {
@@ -344,7 +379,7 @@ pub fn handle_annotate_v2(git_ops: &dyn GitOps, input: LiveInput) -> Result<Live
             location: snafu::Location::new(file!(), line!(), 0),
         })?;
 
-    // 10. Serialize and write git note
+    // 11. Serialize and write git note
     let json = serde_json::to_string_pretty(&annotation).context(chronicle_error::JsonSnafu)?;
     git_ops
         .note_write(&full_sha, &json)
@@ -526,6 +561,8 @@ mod tests {
         files: HashMap<String, String>,
         diffs: Vec<FileDiff>,
         written_notes: Mutex<Vec<(String, String)>>,
+        note_exists_result: bool,
+        commit_message: String,
     }
 
     impl MockGitOps {
@@ -535,6 +572,8 @@ mod tests {
                 files: HashMap::new(),
                 diffs: Vec::new(),
                 written_notes: Mutex::new(Vec::new()),
+                note_exists_result: false,
+                commit_message: "test commit".to_string(),
             }
         }
 
@@ -545,6 +584,16 @@ mod tests {
 
         fn with_diffs(mut self, diffs: Vec<FileDiff>) -> Self {
             self.diffs = diffs;
+            self
+        }
+
+        fn with_note_exists(mut self, exists: bool) -> Self {
+            self.note_exists_result = exists;
+            self
+        }
+
+        fn with_commit_message(mut self, msg: &str) -> Self {
+            self.commit_message = msg.to_string();
             self
         }
 
@@ -568,7 +617,7 @@ mod tests {
             Ok(())
         }
         fn note_exists(&self, _commit: &str) -> std::result::Result<bool, GitError> {
-            Ok(false)
+            Ok(self.note_exists_result)
         }
         fn file_at_commit(
             &self,
@@ -587,7 +636,7 @@ mod tests {
         fn commit_info(&self, _commit: &str) -> std::result::Result<CommitInfo, GitError> {
             Ok(CommitInfo {
                 sha: self.resolved_sha.clone(),
-                message: "test commit".to_string(),
+                message: self.commit_message.clone(),
                 author_name: "Test".to_string(),
                 author_email: "test@test.com".to_string(),
                 timestamp: "2025-01-01T00:00:00Z".to_string(),
@@ -826,6 +875,138 @@ impl Config {
 
         let input: LiveInput = serde_json::from_str(json).unwrap();
         assert_eq!(input.decisions[0].stability, v2::Stability::Provisional);
+    }
+
+    #[test]
+    fn test_overwrite_existing_note_warns() {
+        let mock = MockGitOps::new("abc123de")
+            .with_diffs(vec![test_diff("src/lib.rs")])
+            .with_note_exists(true);
+
+        let input = LiveInput {
+            commit: "HEAD".to_string(),
+            summary: "Add hello_world function and Config struct".to_string(),
+            motivation: None,
+            rejected_alternatives: vec![],
+            follow_up: None,
+            decisions: vec![],
+            markers: vec![],
+            effort: None,
+        };
+
+        let result = handle_annotate_v2(&mock, input).unwrap();
+        assert!(result.success);
+        assert!(
+            result.warnings.iter().any(|w| w.contains("Overwriting existing annotation")),
+            "Expected overwrite warning, got: {:?}",
+            result.warnings
+        );
+    }
+
+    #[test]
+    fn test_no_overwrite_warning_when_no_existing_note() {
+        let mock = MockGitOps::new("abc123def456").with_diffs(vec![test_diff("src/lib.rs")]);
+
+        let input = LiveInput {
+            commit: "HEAD".to_string(),
+            summary: "Add hello_world function and Config struct".to_string(),
+            motivation: None,
+            rejected_alternatives: vec![],
+            follow_up: None,
+            decisions: vec![],
+            markers: vec![],
+            effort: None,
+        };
+
+        let result = handle_annotate_v2(&mock, input).unwrap();
+        assert!(
+            !result.warnings.iter().any(|w| w.contains("Overwriting")),
+            "Should not have overwrite warning: {:?}",
+            result.warnings
+        );
+    }
+
+    #[test]
+    fn test_quality_multi_file_without_motivation() {
+        let mock = MockGitOps::new("abc123def456").with_diffs(vec![
+            test_diff("src/a.rs"),
+            test_diff("src/b.rs"),
+            test_diff("src/c.rs"),
+            test_diff("src/d.rs"),
+        ]);
+
+        let input = LiveInput {
+            commit: "HEAD".to_string(),
+            summary: "Refactor multiple modules for consistency".to_string(),
+            motivation: None,
+            rejected_alternatives: vec![],
+            follow_up: None,
+            decisions: vec![],
+            markers: vec![],
+            effort: None,
+        };
+
+        let result = handle_annotate_v2(&mock, input).unwrap();
+        assert!(
+            result.warnings.iter().any(|w| w.contains("Multi-file change without motivation")),
+            "Expected multi-file motivation warning, got: {:?}",
+            result.warnings
+        );
+    }
+
+    #[test]
+    fn test_quality_summary_matches_commit_message() {
+        let mock = MockGitOps::new("abc123def456")
+            .with_diffs(vec![test_diff("src/lib.rs")])
+            .with_commit_message("Fix the bug in parser");
+
+        let input = LiveInput {
+            commit: "HEAD".to_string(),
+            summary: "Fix the bug in parser".to_string(),
+            motivation: None,
+            rejected_alternatives: vec![],
+            follow_up: None,
+            decisions: vec![],
+            markers: vec![],
+            effort: None,
+        };
+
+        let result = handle_annotate_v2(&mock, input).unwrap();
+        assert!(
+            result.warnings.iter().any(|w| w.contains("Summary matches commit message verbatim")),
+            "Expected verbatim summary warning, got: {:?}",
+            result.warnings
+        );
+    }
+
+    #[test]
+    fn test_quality_large_change_without_decisions() {
+        let mock = MockGitOps::new("abc123def456").with_diffs(vec![
+            test_diff("src/a.rs"),
+            test_diff("src/b.rs"),
+            test_diff("src/c.rs"),
+            test_diff("src/d.rs"),
+            test_diff("src/e.rs"),
+            test_diff("src/f.rs"),
+        ]);
+
+        let input = LiveInput {
+            commit: "HEAD".to_string(),
+            summary: "Large refactor across many modules for improved architecture".to_string(),
+            motivation: Some("Needed for the next feature".to_string()),
+            rejected_alternatives: vec![],
+            follow_up: None,
+            decisions: vec![],
+            markers: vec![],
+            effort: None,
+        };
+
+        let result = handle_annotate_v2(&mock, input).unwrap();
+        assert!(
+            result.warnings.iter().any(|w| w.contains("Large change without decisions")),
+            "Expected large-change decisions warning, got: {:?}",
+            result.warnings
+        );
     }
 
     #[test]

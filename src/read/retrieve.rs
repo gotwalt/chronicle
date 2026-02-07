@@ -1,21 +1,20 @@
 use crate::error::GitError;
 use crate::git::GitOps;
-use crate::schema::v1;
-type Annotation = v1::Annotation;
+use crate::schema::{self, v2};
 
-use super::{MatchedRegion, ReadQuery};
+use super::{MatchedAnnotation, ReadQuery};
 
-/// Retrieve matching region annotations for a file from git notes.
+/// Retrieve matching annotations for a file from git notes.
 ///
 /// 1. Find commits that touched the file via `git log --follow`
 /// 2. For each commit, try to read the chronicle note
-/// 3. Parse the note as an Annotation
-/// 4. Filter regions matching the query (file path, anchor, line range)
+/// 3. Parse the note as an Annotation (v1 or v2 via parse_annotation)
+/// 4. Filter markers matching the query (file path, anchor, line range)
 /// 5. Return results sorted newest-first (preserving git log order)
-pub fn retrieve_regions(
+pub fn retrieve_annotations(
     git: &dyn GitOps,
     query: &ReadQuery,
-) -> Result<Vec<MatchedRegion>, GitError> {
+) -> Result<Vec<MatchedAnnotation>, GitError> {
     let shas = git.log_for_file(&query.file)?;
     let mut matched = Vec::new();
 
@@ -25,37 +24,63 @@ pub fn retrieve_regions(
             None => continue,
         };
 
-        let annotation: Annotation = match serde_json::from_str(&note) {
+        let annotation = match schema::parse_annotation(&note) {
             Ok(a) => a,
             Err(_) => continue, // skip malformed notes
         };
 
-        for region in &annotation.regions {
-            if !file_matches(&region.file, &query.file) {
-                continue;
-            }
-            if let Some(ref anchor_name) = query.anchor {
-                if region.ast_anchor.name != *anchor_name {
-                    continue;
-                }
-            }
-            if let Some(ref line_range) = query.lines {
-                if !ranges_overlap(
-                    region.lines.start,
-                    region.lines.end,
-                    line_range.start,
-                    line_range.end,
-                ) {
-                    continue;
-                }
-            }
-            matched.push(MatchedRegion {
-                commit: sha.clone(),
-                timestamp: annotation.timestamp.clone(),
-                region: region.clone(),
-                summary: annotation.summary.clone(),
-            });
+        // Filter markers by file/anchor/lines
+        let filtered_markers: Vec<v2::CodeMarker> = annotation
+            .markers
+            .iter()
+            .filter(|m| file_matches(&m.file, &query.file))
+            .filter(|m| {
+                query.anchor.as_ref().is_none_or(|qa| {
+                    m.anchor
+                        .as_ref()
+                        .is_some_and(|a| a.name == *qa)
+                })
+            })
+            .filter(|m| {
+                query.lines.as_ref().is_none_or(|line_range| {
+                    m.lines.as_ref().is_some_and(|ml| {
+                        ranges_overlap(ml.start, ml.end, line_range.start, line_range.end)
+                    })
+                })
+            })
+            .cloned()
+            .collect();
+
+        // Filter decisions by scope
+        let filtered_decisions: Vec<v2::Decision> = annotation
+            .decisions
+            .iter()
+            .filter(|d| decision_scope_matches(d, &query.file))
+            .cloned()
+            .collect();
+
+        // Include annotation if it has matching markers, matching decisions,
+        // or if the file is in files_changed (relevant context even without markers)
+        let file_in_files_changed = annotation
+            .narrative
+            .files_changed
+            .iter()
+            .any(|f| file_matches(f, &query.file));
+
+        if filtered_markers.is_empty() && filtered_decisions.is_empty() && !file_in_files_changed {
+            continue;
         }
+
+        matched.push(MatchedAnnotation {
+            commit: sha.clone(),
+            timestamp: annotation.timestamp.clone(),
+            summary: annotation.narrative.summary.clone(),
+            motivation: annotation.narrative.motivation.clone(),
+            markers: filtered_markers,
+            decisions: filtered_decisions,
+            follow_up: annotation.narrative.follow_up.clone(),
+            provenance: format!("{:?}", annotation.provenance.source).to_lowercase(),
+        });
     }
 
     Ok(matched)
@@ -75,9 +100,23 @@ fn ranges_overlap(a_start: u32, a_end: u32, b_start: u32, b_end: u32) -> bool {
     a_start <= b_end && b_start <= a_end
 }
 
+/// Check if a decision's scope matches the queried file.
+fn decision_scope_matches(decision: &v2::Decision, file: &str) -> bool {
+    if decision.scope.is_empty() {
+        return true;
+    }
+    let norm_file = file.strip_prefix("./").unwrap_or(file);
+    decision.scope.iter().any(|s| {
+        let norm_scope = s.strip_prefix("./").unwrap_or(s);
+        let scope_file = norm_scope.split(':').next().unwrap_or(norm_scope);
+        scope_file == norm_file || norm_file.starts_with(scope_file)
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::schema::common::AstAnchor;
 
     #[test]
     fn test_file_matches_exact() {
@@ -111,65 +150,57 @@ mod tests {
 
     #[test]
     fn test_retrieve_filters_by_file() {
-        use crate::schema::v1::*;
-        use crate::schema::common::*;
+        let ann = v2::Annotation {
+            schema: "chronicle/v2".to_string(),
+            commit: "abc123".to_string(),
+            timestamp: "2025-01-01T00:00:00Z".to_string(),
+            narrative: v2::Narrative {
+                summary: "test commit".to_string(),
+                motivation: None,
+                rejected_alternatives: vec![],
+                follow_up: None,
+                files_changed: vec!["src/main.rs".to_string(), "src/lib.rs".to_string()],
+            },
+            decisions: vec![],
+            markers: vec![
+                v2::CodeMarker {
+                    file: "src/main.rs".to_string(),
+                    anchor: Some(AstAnchor {
+                        unit_type: "fn".to_string(),
+                        name: "main".to_string(),
+                        signature: None,
+                    }),
+                    lines: None,
+                    kind: v2::MarkerKind::Contract {
+                        description: "entry point".to_string(),
+                        source: v2::ContractSource::Author,
+                    },
+                },
+                v2::CodeMarker {
+                    file: "src/lib.rs".to_string(),
+                    anchor: Some(AstAnchor {
+                        unit_type: "mod".to_string(),
+                        name: "lib".to_string(),
+                        signature: None,
+                    }),
+                    lines: None,
+                    kind: v2::MarkerKind::Contract {
+                        description: "module decl".to_string(),
+                        source: v2::ContractSource::Author,
+                    },
+                },
+            ],
+            effort: None,
+            provenance: v2::Provenance {
+                source: v2::ProvenanceSource::Live,
+                derived_from: vec![],
+                notes: None,
+            },
+        };
 
         let git = MockGitOps {
             shas: vec!["abc123".to_string()],
-            note: Some(
-                serde_json::to_string(&Annotation {
-                    schema: "chronicle/v1".to_string(),
-                    commit: "abc123".to_string(),
-                    timestamp: "2025-01-01T00:00:00Z".to_string(),
-                    task: None,
-                    summary: "test commit".to_string(),
-                    context_level: ContextLevel::Enhanced,
-                    regions: vec![
-                        RegionAnnotation {
-                            file: "src/main.rs".to_string(),
-                            ast_anchor: AstAnchor {
-                                unit_type: "fn".to_string(),
-                                name: "main".to_string(),
-                                signature: None,
-                            },
-                            lines: LineRange { start: 1, end: 10 },
-                            intent: "entry point".to_string(),
-                            reasoning: None,
-                            constraints: vec![],
-                            semantic_dependencies: vec![],
-                            related_annotations: vec![],
-                            tags: vec![],
-                            risk_notes: None,
-                            corrections: vec![],
-                        },
-                        RegionAnnotation {
-                            file: "src/lib.rs".to_string(),
-                            ast_anchor: AstAnchor {
-                                unit_type: "mod".to_string(),
-                                name: "lib".to_string(),
-                                signature: None,
-                            },
-                            lines: LineRange { start: 1, end: 5 },
-                            intent: "module decl".to_string(),
-                            reasoning: None,
-                            constraints: vec![],
-                            semantic_dependencies: vec![],
-                            related_annotations: vec![],
-                            tags: vec![],
-                            risk_notes: None,
-                            corrections: vec![],
-                        },
-                    ],
-                    cross_cutting: vec![],
-                    provenance: Provenance {
-                        operation: ProvenanceOperation::Initial,
-                        derived_from: vec![],
-                        original_annotations_preserved: false,
-                        synthesis_notes: None,
-                    },
-                })
-                .unwrap(),
-            ),
+            note: Some(serde_json::to_string(&ann).unwrap()),
         };
 
         let query = ReadQuery {
@@ -178,73 +209,67 @@ mod tests {
             lines: None,
         };
 
-        let results = retrieve_regions(&git, &query).unwrap();
+        let results = retrieve_annotations(&git, &query).unwrap();
         assert_eq!(results.len(), 1);
-        assert_eq!(results[0].region.file, "src/main.rs");
-        assert_eq!(results[0].region.intent, "entry point");
+        assert_eq!(results[0].summary, "test commit");
+        // Only the marker for src/main.rs should be included
+        assert_eq!(results[0].markers.len(), 1);
+        assert_eq!(results[0].markers[0].file, "src/main.rs");
     }
 
     #[test]
     fn test_retrieve_filters_by_anchor() {
-        use crate::schema::v1::*;
-        use crate::schema::common::*;
+        let ann = v2::Annotation {
+            schema: "chronicle/v2".to_string(),
+            commit: "abc123".to_string(),
+            timestamp: "2025-01-01T00:00:00Z".to_string(),
+            narrative: v2::Narrative {
+                summary: "test commit".to_string(),
+                motivation: None,
+                rejected_alternatives: vec![],
+                follow_up: None,
+                files_changed: vec!["src/main.rs".to_string()],
+            },
+            decisions: vec![],
+            markers: vec![
+                v2::CodeMarker {
+                    file: "src/main.rs".to_string(),
+                    anchor: Some(AstAnchor {
+                        unit_type: "fn".to_string(),
+                        name: "main".to_string(),
+                        signature: None,
+                    }),
+                    lines: None,
+                    kind: v2::MarkerKind::Contract {
+                        description: "entry point".to_string(),
+                        source: v2::ContractSource::Author,
+                    },
+                },
+                v2::CodeMarker {
+                    file: "src/main.rs".to_string(),
+                    anchor: Some(AstAnchor {
+                        unit_type: "fn".to_string(),
+                        name: "helper".to_string(),
+                        signature: None,
+                    }),
+                    lines: None,
+                    kind: v2::MarkerKind::Contract {
+                        description: "helper fn".to_string(),
+                        source: v2::ContractSource::Author,
+                    },
+                },
+            ],
+            effort: None,
+            provenance: v2::Provenance {
+                source: v2::ProvenanceSource::Live,
+                derived_from: vec![],
+                notes: None,
+            },
+        };
 
         let git = MockGitOps {
             shas: vec!["abc123".to_string()],
-            note: Some(
-                serde_json::to_string(&Annotation {
-                    schema: "chronicle/v1".to_string(),
-                    commit: "abc123".to_string(),
-                    timestamp: "2025-01-01T00:00:00Z".to_string(),
-                    task: None,
-                    summary: "test commit".to_string(),
-                    context_level: ContextLevel::Enhanced,
-                    regions: vec![
-                        RegionAnnotation {
-                            file: "src/main.rs".to_string(),
-                            ast_anchor: AstAnchor {
-                                unit_type: "fn".to_string(),
-                                name: "main".to_string(),
-                                signature: None,
-                            },
-                            lines: LineRange { start: 1, end: 10 },
-                            intent: "entry point".to_string(),
-                            reasoning: None,
-                            constraints: vec![],
-                            semantic_dependencies: vec![],
-                            related_annotations: vec![],
-                            tags: vec![],
-                            risk_notes: None,
-                            corrections: vec![],
-                        },
-                        RegionAnnotation {
-                            file: "src/main.rs".to_string(),
-                            ast_anchor: AstAnchor {
-                                unit_type: "fn".to_string(),
-                                name: "helper".to_string(),
-                                signature: None,
-                            },
-                            lines: LineRange { start: 12, end: 20 },
-                            intent: "helper fn".to_string(),
-                            reasoning: None,
-                            constraints: vec![],
-                            semantic_dependencies: vec![],
-                            related_annotations: vec![],
-                            tags: vec![],
-                            risk_notes: None,
-                            corrections: vec![],
-                        },
-                    ],
-                    cross_cutting: vec![],
-                    provenance: Provenance {
-                        operation: ProvenanceOperation::Initial,
-                        derived_from: vec![],
-                        original_annotations_preserved: false,
-                        synthesis_notes: None,
-                    },
-                })
-                .unwrap(),
-            ),
+            note: Some(serde_json::to_string(&ann).unwrap()),
         };
 
         let query = ReadQuery {
@@ -253,83 +278,96 @@ mod tests {
             lines: None,
         };
 
-        let results = retrieve_regions(&git, &query).unwrap();
+        let results = retrieve_annotations(&git, &query).unwrap();
         assert_eq!(results.len(), 1);
-        assert_eq!(results[0].region.ast_anchor.name, "main");
+        // Only the marker for "main" anchor should be included
+        assert_eq!(results[0].markers.len(), 1);
+        assert_eq!(
+            results[0].markers[0]
+                .anchor
+                .as_ref()
+                .unwrap()
+                .name,
+            "main"
+        );
     }
 
     #[test]
     fn test_retrieve_filters_by_lines() {
-        use crate::schema::v1::*;
-        use crate::schema::common::*;
+        let ann = v2::Annotation {
+            schema: "chronicle/v2".to_string(),
+            commit: "abc123".to_string(),
+            timestamp: "2025-01-01T00:00:00Z".to_string(),
+            narrative: v2::Narrative {
+                summary: "test commit".to_string(),
+                motivation: None,
+                rejected_alternatives: vec![],
+                follow_up: None,
+                files_changed: vec!["src/main.rs".to_string()],
+            },
+            decisions: vec![],
+            markers: vec![
+                v2::CodeMarker {
+                    file: "src/main.rs".to_string(),
+                    anchor: Some(AstAnchor {
+                        unit_type: "fn".to_string(),
+                        name: "main".to_string(),
+                        signature: None,
+                    }),
+                    lines: Some(crate::schema::common::LineRange { start: 1, end: 10 }),
+                    kind: v2::MarkerKind::Contract {
+                        description: "entry point".to_string(),
+                        source: v2::ContractSource::Author,
+                    },
+                },
+                v2::CodeMarker {
+                    file: "src/main.rs".to_string(),
+                    anchor: Some(AstAnchor {
+                        unit_type: "fn".to_string(),
+                        name: "helper".to_string(),
+                        signature: None,
+                    }),
+                    lines: Some(crate::schema::common::LineRange {
+                        start: 50,
+                        end: 60,
+                    }),
+                    kind: v2::MarkerKind::Contract {
+                        description: "helper fn".to_string(),
+                        source: v2::ContractSource::Author,
+                    },
+                },
+            ],
+            effort: None,
+            provenance: v2::Provenance {
+                source: v2::ProvenanceSource::Live,
+                derived_from: vec![],
+                notes: None,
+            },
+        };
 
         let git = MockGitOps {
             shas: vec!["abc123".to_string()],
-            note: Some(
-                serde_json::to_string(&Annotation {
-                    schema: "chronicle/v1".to_string(),
-                    commit: "abc123".to_string(),
-                    timestamp: "2025-01-01T00:00:00Z".to_string(),
-                    task: None,
-                    summary: "test commit".to_string(),
-                    context_level: ContextLevel::Enhanced,
-                    regions: vec![
-                        RegionAnnotation {
-                            file: "src/main.rs".to_string(),
-                            ast_anchor: AstAnchor {
-                                unit_type: "fn".to_string(),
-                                name: "main".to_string(),
-                                signature: None,
-                            },
-                            lines: LineRange { start: 1, end: 10 },
-                            intent: "entry point".to_string(),
-                            reasoning: None,
-                            constraints: vec![],
-                            semantic_dependencies: vec![],
-                            related_annotations: vec![],
-                            tags: vec![],
-                            risk_notes: None,
-                            corrections: vec![],
-                        },
-                        RegionAnnotation {
-                            file: "src/main.rs".to_string(),
-                            ast_anchor: AstAnchor {
-                                unit_type: "fn".to_string(),
-                                name: "helper".to_string(),
-                                signature: None,
-                            },
-                            lines: LineRange { start: 50, end: 60 },
-                            intent: "helper fn".to_string(),
-                            reasoning: None,
-                            constraints: vec![],
-                            semantic_dependencies: vec![],
-                            related_annotations: vec![],
-                            tags: vec![],
-                            risk_notes: None,
-                            corrections: vec![],
-                        },
-                    ],
-                    cross_cutting: vec![],
-                    provenance: Provenance {
-                        operation: ProvenanceOperation::Initial,
-                        derived_from: vec![],
-                        original_annotations_preserved: false,
-                        synthesis_notes: None,
-                    },
-                })
-                .unwrap(),
-            ),
+            note: Some(serde_json::to_string(&ann).unwrap()),
         };
 
         let query = ReadQuery {
             file: "src/main.rs".to_string(),
             anchor: None,
-            lines: Some(LineRange { start: 5, end: 15 }),
+            lines: Some(crate::schema::common::LineRange { start: 5, end: 15 }),
         };
 
-        let results = retrieve_regions(&git, &query).unwrap();
+        let results = retrieve_annotations(&git, &query).unwrap();
         assert_eq!(results.len(), 1);
-        assert_eq!(results[0].region.ast_anchor.name, "main");
+        // Only the marker overlapping lines 5-15 should be included
+        assert_eq!(results[0].markers.len(), 1);
+        assert_eq!(
+            results[0].markers[0]
+                .anchor
+                .as_ref()
+                .unwrap()
+                .name,
+            "main"
+        );
     }
 
     #[test]
@@ -345,8 +383,48 @@ mod tests {
             lines: None,
         };
 
-        let results = retrieve_regions(&git, &query).unwrap();
+        let results = retrieve_annotations(&git, &query).unwrap();
         assert!(results.is_empty());
+    }
+
+    #[test]
+    fn test_retrieve_includes_annotation_with_file_in_files_changed() {
+        let ann = v2::Annotation {
+            schema: "chronicle/v2".to_string(),
+            commit: "abc123".to_string(),
+            timestamp: "2025-01-01T00:00:00Z".to_string(),
+            narrative: v2::Narrative {
+                summary: "refactored main".to_string(),
+                motivation: Some("cleanup".to_string()),
+                rejected_alternatives: vec![],
+                follow_up: None,
+                files_changed: vec!["src/main.rs".to_string()],
+            },
+            decisions: vec![],
+            markers: vec![], // no markers, but file is in files_changed
+            effort: None,
+            provenance: v2::Provenance {
+                source: v2::ProvenanceSource::Live,
+                derived_from: vec![],
+                notes: None,
+            },
+        };
+
+        let git = MockGitOps {
+            shas: vec!["abc123".to_string()],
+            note: Some(serde_json::to_string(&ann).unwrap()),
+        };
+
+        let query = ReadQuery {
+            file: "src/main.rs".to_string(),
+            anchor: None,
+            lines: None,
+        };
+
+        let results = retrieve_annotations(&git, &query).unwrap();
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].summary, "refactored main");
+        assert_eq!(results[0].motivation.as_deref(), Some("cleanup"));
     }
 
     /// Minimal mock for testing retrieve logic.

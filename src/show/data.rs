@@ -1,8 +1,13 @@
 use crate::ast::outline::OutlineEntry;
 use crate::error::{ChronicleError, Result};
 use crate::git::GitOps;
-use crate::read::{self, MatchedRegion, ReadQuery};
-use crate::schema::v1::{ContextLevel, Provenance, RegionAnnotation};
+use crate::read::{self, MatchedAnnotation, ReadQuery};
+use crate::schema::common::{AstAnchor, LineRange};
+use crate::schema::v1::{
+    Constraint, ConstraintSource, ContextLevel, Provenance, ProvenanceOperation, RegionAnnotation,
+    SemanticDependency,
+};
+use crate::schema::v2;
 
 /// A region annotation with its commit-level metadata.
 #[derive(Debug, Clone)]
@@ -111,9 +116,8 @@ pub fn build_show_data(
     };
     let read_result = read::execute(git_ops, &query)?;
 
-    // Convert MatchedRegions to RegionRefs, deduplicating by anchor name
-    // (keep the most recent annotation per region)
-    let regions = dedup_regions(read_result.regions);
+    // Convert v2 MatchedAnnotations to v1-style RegionRefs for the show TUI
+    let regions = convert_to_region_refs(read_result.annotations, file_path);
 
     let annotation_map = LineAnnotationMap::build(&regions, total_lines);
 
@@ -127,30 +131,173 @@ pub fn build_show_data(
     })
 }
 
-/// Deduplicate matched regions: for each file+anchor, keep the most recent.
-fn dedup_regions(matched: Vec<MatchedRegion>) -> Vec<RegionRef> {
+/// Convert v2 MatchedAnnotations into v1-style RegionRefs for the show TUI.
+///
+/// Each v2 marker with matching file becomes a RegionRef. Annotations without
+/// markers but with the file in files_changed get a synthetic region.
+fn convert_to_region_refs(annotations: Vec<MatchedAnnotation>, file_path: &str) -> Vec<RegionRef> {
     use std::collections::HashMap;
 
     let mut best: HashMap<String, RegionRef> = HashMap::new();
 
-    for m in matched {
-        let key = format!("{}:{}", m.region.file, m.region.ast_anchor.name);
-        let region_ref = RegionRef {
-            region: m.region,
-            commit: m.commit,
-            timestamp: m.timestamp,
-            summary: m.summary,
-            context_level: ContextLevel::Inferred, // read pipeline doesn't return this yet
-            provenance: Provenance {
-                operation: crate::schema::v1::ProvenanceOperation::Initial,
-                derived_from: vec![],
-                original_annotations_preserved: false,
-                synthesis_notes: None,
-            },
-        };
-        let existing = best.get(&key);
-        if existing.is_none() || region_ref.timestamp > existing.unwrap().timestamp {
-            best.insert(key, region_ref);
+    for ann in annotations {
+        if ann.markers.is_empty() {
+            // Annotation has no markers for this file but file is in files_changed.
+            // Create a synthetic region covering line 1 with the summary as intent.
+            let key = format!("{}:{}", file_path, "__commit_level__");
+            let region_ref = RegionRef {
+                region: RegionAnnotation {
+                    file: file_path.to_string(),
+                    ast_anchor: AstAnchor {
+                        unit_type: "commit".to_string(),
+                        name: "(commit-level)".to_string(),
+                        signature: None,
+                    },
+                    lines: LineRange { start: 1, end: 1 },
+                    intent: ann.summary.clone(),
+                    reasoning: ann.motivation.clone(),
+                    constraints: vec![],
+                    semantic_dependencies: vec![],
+                    related_annotations: vec![],
+                    tags: vec![],
+                    risk_notes: None,
+                    corrections: vec![],
+                },
+                commit: ann.commit.clone(),
+                timestamp: ann.timestamp.clone(),
+                summary: ann.summary.clone(),
+                context_level: ContextLevel::Inferred,
+                provenance: Provenance {
+                    operation: ProvenanceOperation::Initial,
+                    derived_from: vec![],
+                    original_annotations_preserved: false,
+                    synthesis_notes: None,
+                },
+            };
+            let existing = best.get(&key);
+            if existing.is_none() || region_ref.timestamp > existing.unwrap().timestamp {
+                best.insert(key, region_ref);
+            }
+            continue;
+        }
+
+        // Group markers by anchor name
+        let mut markers_by_anchor: HashMap<String, Vec<&v2::CodeMarker>> = HashMap::new();
+        for marker in &ann.markers {
+            let anchor_name = marker
+                .anchor
+                .as_ref()
+                .map(|a| a.name.clone())
+                .unwrap_or_default();
+            markers_by_anchor
+                .entry(anchor_name)
+                .or_default()
+                .push(marker);
+        }
+
+        for (anchor_name, markers) in markers_by_anchor {
+            let key = format!("{}:{}", file_path, anchor_name);
+
+            // Determine line range from markers
+            let mut line_start = u32::MAX;
+            let mut line_end = 0u32;
+            for m in &markers {
+                if let Some(ref lines) = m.lines {
+                    line_start = line_start.min(lines.start);
+                    line_end = line_end.max(lines.end);
+                }
+            }
+            if line_start == u32::MAX {
+                line_start = 1;
+                line_end = 1;
+            }
+
+            // Extract constraints, dependencies, risk notes from markers
+            let mut constraints = Vec::new();
+            let mut deps = Vec::new();
+            let mut risk_notes = Vec::new();
+
+            for m in &markers {
+                match &m.kind {
+                    v2::MarkerKind::Contract {
+                        description,
+                        source,
+                    } => {
+                        let cs = match source {
+                            v2::ContractSource::Author => ConstraintSource::Author,
+                            v2::ContractSource::Inferred => ConstraintSource::Inferred,
+                        };
+                        constraints.push(Constraint {
+                            text: description.clone(),
+                            source: cs,
+                        });
+                    }
+                    v2::MarkerKind::Hazard { description } => {
+                        risk_notes.push(description.clone());
+                    }
+                    v2::MarkerKind::Dependency {
+                        target_file,
+                        target_anchor,
+                        assumption,
+                    } => {
+                        deps.push(SemanticDependency {
+                            file: target_file.clone(),
+                            anchor: target_anchor.clone(),
+                            nature: assumption.clone(),
+                        });
+                    }
+                    v2::MarkerKind::Unstable { description, .. } => {
+                        risk_notes.push(format!("[unstable] {}", description));
+                    }
+                }
+            }
+
+            let ast_anchor = markers
+                .first()
+                .and_then(|m| m.anchor.clone())
+                .unwrap_or(AstAnchor {
+                    unit_type: "unknown".to_string(),
+                    name: anchor_name.clone(),
+                    signature: None,
+                });
+
+            let region_ref = RegionRef {
+                region: RegionAnnotation {
+                    file: file_path.to_string(),
+                    ast_anchor,
+                    lines: LineRange {
+                        start: line_start,
+                        end: line_end,
+                    },
+                    intent: ann.summary.clone(),
+                    reasoning: ann.motivation.clone(),
+                    constraints,
+                    semantic_dependencies: deps,
+                    related_annotations: vec![],
+                    tags: vec![],
+                    risk_notes: if risk_notes.is_empty() {
+                        None
+                    } else {
+                        Some(risk_notes.join("; "))
+                    },
+                    corrections: vec![],
+                },
+                commit: ann.commit.clone(),
+                timestamp: ann.timestamp.clone(),
+                summary: ann.summary.clone(),
+                context_level: ContextLevel::Inferred,
+                provenance: Provenance {
+                    operation: ProvenanceOperation::Initial,
+                    derived_from: vec![],
+                    original_annotations_preserved: false,
+                    synthesis_notes: None,
+                },
+            };
+
+            let existing = best.get(&key);
+            if existing.is_none() || region_ref.timestamp > existing.unwrap().timestamp {
+                best.insert(key, region_ref);
+            }
         }
     }
 
@@ -174,8 +321,8 @@ mod tests {
 
     #[test]
     fn test_line_annotation_map_coverage() {
+        use crate::schema::common::*;
         use crate::schema::v1::*;
-    use crate::schema::common::*;
 
         let regions = vec![RegionRef {
             region: RegionAnnotation {
@@ -218,8 +365,8 @@ mod tests {
 
     #[test]
     fn test_next_prev_annotated_line() {
+        use crate::schema::common::*;
         use crate::schema::v1::*;
-    use crate::schema::common::*;
 
         let regions = vec![RegionRef {
             region: RegionAnnotation {

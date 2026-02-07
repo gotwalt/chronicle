@@ -7,18 +7,70 @@ use crate::error::Result;
 use crate::git::{CliOps, GitOps};
 use snafu::ResultExt;
 
+#[allow(clippy::too_many_arguments)]
 pub fn run(
     commit: String,
     sync: bool,
     live: bool,
     squash_sources: Option<String>,
     amend_source: Option<String>,
+    summary: Option<String>,
+    json_input: Option<String>,
+    auto: bool,
 ) -> Result<()> {
     let repo_dir = std::env::current_dir().map_err(|e| crate::error::ChronicleError::Io {
         source: e,
         location: snafu::Location::default(),
     })?;
     let git_ops = CliOps::new(repo_dir);
+
+    // --summary: quick annotation with just a summary string
+    if let Some(summary_text) = summary {
+        let input = crate::annotate::live::LiveInput {
+            commit,
+            summary: summary_text,
+            motivation: None,
+            rejected_alternatives: vec![],
+            follow_up: None,
+            decisions: vec![],
+            markers: vec![],
+            effort: None,
+        };
+        let result = crate::annotate::live::handle_annotate_v2(&git_ops, input)?;
+        let json = serde_json::to_string_pretty(&result).context(JsonSnafu)?;
+        println!("{json}");
+        return Ok(());
+    }
+
+    // --json: full annotation JSON on command line
+    if let Some(json_str) = json_input {
+        let input: crate::annotate::live::LiveInput =
+            serde_json::from_str(&json_str).context(JsonSnafu)?;
+        let result = crate::annotate::live::handle_annotate_v2(&git_ops, input)?;
+        let json = serde_json::to_string_pretty(&result).context(JsonSnafu)?;
+        println!("{json}");
+        return Ok(());
+    }
+
+    // --auto: use commit message as summary
+    if auto {
+        let full_sha = git_ops.resolve_ref(&commit).context(GitSnafu)?;
+        let commit_info = git_ops.commit_info(&full_sha).context(GitSnafu)?;
+        let input = crate::annotate::live::LiveInput {
+            commit,
+            summary: commit_info.message,
+            motivation: None,
+            rejected_alternatives: vec![],
+            follow_up: None,
+            decisions: vec![],
+            markers: vec![],
+            effort: None,
+        };
+        let result = crate::annotate::live::handle_annotate_v2(&git_ops, input)?;
+        let json = serde_json::to_string_pretty(&result).context(JsonSnafu)?;
+        println!("{json}");
+        return Ok(());
+    }
 
     if live {
         return run_live(&git_ops);

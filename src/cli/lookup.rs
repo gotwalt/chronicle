@@ -1,7 +1,7 @@
 use crate::error::Result;
 use crate::git::CliOps;
 
-/// Run the `git chronicle contracts` command.
+/// Run the `git chronicle lookup` command.
 pub fn run(path: String, anchor: Option<String>, format: String, compact: bool) -> Result<()> {
     let repo_dir = std::env::current_dir().map_err(|e| crate::error::ChronicleError::Io {
         source: e,
@@ -9,17 +9,12 @@ pub fn run(path: String, anchor: Option<String>, format: String, compact: bool) 
     })?;
     let git_ops = CliOps::new(repo_dir);
 
-    let query = crate::read::contracts::ContractsQuery {
-        file: path,
-        anchor,
-    };
-
-    let output = crate::read::contracts::query_contracts(&git_ops, &query).map_err(|e| {
-        crate::error::ChronicleError::Git {
+    let output = crate::read::lookup::build_lookup(&git_ops, &path, anchor.as_deref()).map_err(
+        |e| crate::error::ChronicleError::Git {
             source: e,
             location: snafu::Location::default(),
-        }
-    })?;
+        },
+    )?;
 
     match format.as_str() {
         "json" => {
@@ -27,6 +22,9 @@ pub fn run(path: String, anchor: Option<String>, format: String, compact: bool) 
                 let compact_out = serde_json::json!({
                     "contracts": output.contracts,
                     "dependencies": output.dependencies,
+                    "decisions": output.decisions,
+                    "recent_history": output.recent_history,
+                    "open_follow_ups": output.open_follow_ups,
                 });
                 serde_json::to_string_pretty(&compact_out)
             } else {
@@ -39,10 +37,9 @@ pub fn run(path: String, anchor: Option<String>, format: String, compact: bool) 
             println!("{json}");
         }
         _ => {
-            if output.contracts.is_empty() && output.dependencies.is_empty() {
-                println!("No contracts or dependencies found.");
-                return Ok(());
-            }
+            println!("Lookup for: {}", output.file);
+            println!();
+
             if !output.contracts.is_empty() {
                 println!("Contracts:");
                 for c in &output.contracts {
@@ -56,7 +53,9 @@ pub fn run(path: String, anchor: Option<String>, format: String, compact: bool) 
                         c.source, c.file, anchor_str, c.description
                     );
                 }
+                println!();
             }
+
             if !output.dependencies.is_empty() {
                 println!("Dependencies:");
                 for d in &output.dependencies {
@@ -70,6 +69,40 @@ pub fn run(path: String, anchor: Option<String>, format: String, compact: bool) 
                         d.file, anchor_str, d.target_file, d.target_anchor, d.assumption
                     );
                 }
+                println!();
+            }
+
+            if !output.decisions.is_empty() {
+                println!("Decisions:");
+                for d in &output.decisions {
+                    println!("  [{}] {}: {}", d.stability, d.what, d.why);
+                }
+                println!();
+            }
+
+            if !output.recent_history.is_empty() {
+                println!("Recent history:");
+                for h in &output.recent_history {
+                    println!("  {} {}: {}", &h.commit[..7.min(h.commit.len())], h.timestamp, h.intent);
+                }
+                println!();
+            }
+
+            if !output.open_follow_ups.is_empty() {
+                println!("Open follow-ups:");
+                for f in &output.open_follow_ups {
+                    println!("  {} {}", &f.commit[..7.min(f.commit.len())], f.follow_up);
+                }
+                println!();
+            }
+
+            if output.contracts.is_empty()
+                && output.dependencies.is_empty()
+                && output.decisions.is_empty()
+                && output.recent_history.is_empty()
+                && output.open_follow_ups.is_empty()
+            {
+                println!("  (no context found)");
             }
         }
     }

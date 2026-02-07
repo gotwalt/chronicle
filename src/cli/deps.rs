@@ -8,6 +8,7 @@ pub fn run(
     max_results: u32,
     scan_limit: u32,
     format: String,
+    compact: bool,
 ) -> Result<()> {
     let repo_dir = std::env::current_dir().map_err(|e| crate::error::ChronicleError::Io {
         source: e,
@@ -28,7 +29,12 @@ pub fn run(
             location: snafu::Location::default(),
         })?;
 
-    let json = if format == "pretty" {
+    let json = if compact {
+        let compact_out = serde_json::json!({
+            "dependents": result.dependents,
+        });
+        serde_json::to_string_pretty(&compact_out)
+    } else if format == "pretty" {
         serde_json::to_string_pretty(&result)
     } else {
         serde_json::to_string(&result)

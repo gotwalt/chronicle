@@ -115,7 +115,7 @@ pub fn enable_sync(repo_dir: &PathBuf, remote: &str) -> Result<()> {
 
     // Add fetch refspec if not already present
     if config.fetch_refspec.is_none() {
-        let fetch_spec = format!("+{NOTES_REF}:{NOTES_REF}");
+        let fetch_spec = format!("{NOTES_REF}:{NOTES_REF}");
         run_git(
             repo_dir,
             &[
@@ -139,7 +139,9 @@ pub fn get_sync_status(repo_dir: &PathBuf, remote: &str) -> Result<SyncStatus> {
     let local_count = count_local_notes(repo_dir).context(GitSnafu)?;
 
     // Try to get remote note count (may fail if remote is unreachable)
-    let remote_count = count_remote_notes(repo_dir, remote).ok();
+    let remote_count = count_remote_notes(repo_dir, remote)
+        .ok()
+        .flatten();
 
     let unpushed_count = if let Some(rc) = remote_count {
         local_count.saturating_sub(rc)
@@ -159,7 +161,7 @@ pub fn get_sync_status(repo_dir: &PathBuf, remote: &str) -> Result<SyncStatus> {
 pub fn pull_notes(repo_dir: &PathBuf, remote: &str) -> Result<()> {
     run_git(
         repo_dir,
-        &["fetch", remote, &format!("+{NOTES_REF}:{NOTES_REF}")],
+        &["fetch", remote, &format!("{NOTES_REF}:{NOTES_REF}")],
     )
     .context(GitSnafu)?;
 
@@ -175,13 +177,22 @@ fn count_local_notes(repo_dir: &PathBuf) -> std::result::Result<usize, GitError>
     Ok(stdout.lines().filter(|l| !l.is_empty()).count())
 }
 
-/// Count remote notes by ls-remote.
-fn count_remote_notes(repo_dir: &PathBuf, _remote: &str) -> Result<usize> {
-    // We can only check if the ref exists remotely; accurate count needs a fetch.
-    // After a fetch, we can count local notes (which now include fetched ones).
-    // For a quick status, just return the local count as an approximation.
-    let count = count_local_notes(repo_dir).context(GitSnafu)?;
-    Ok(count)
+/// Check remote notes via ls-remote.
+/// Returns Some(0) if the remote has no chronicle notes ref,
+/// or None if the ref exists (we can't count without fetching).
+fn count_remote_notes(
+    repo_dir: &PathBuf,
+    remote: &str,
+) -> std::result::Result<Option<usize>, GitError> {
+    let (success, stdout, _) =
+        run_git_raw(repo_dir, &["ls-remote", remote, NOTES_REF])?;
+    if !success || stdout.trim().is_empty() {
+        // Remote ref doesn't exist — zero remote notes
+        Ok(Some(0))
+    } else {
+        // Remote ref exists but we can't count individual notes without fetching
+        Ok(None)
+    }
 }
 
 /// Get all values for a multi-valued git config key.

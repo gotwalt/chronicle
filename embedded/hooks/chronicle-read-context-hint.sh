@@ -16,9 +16,16 @@ esac
 
 file_path=$(echo "$input" | jq -r '.tool_input.file_path // empty' 2>/dev/null)
 
+# Session deduplication — hint once per file per day
+HINT_CACHE="/tmp/chronicle-hints-$(date +%Y%m%d)"
+if grep -qxF "$file_path" "$HINT_CACHE" 2>/dev/null; then
+    exit 0
+fi
+echo "$file_path" >> "$HINT_CACHE"
+
 # Only for source code files
 case "$file_path" in
     *.rs|*.ts|*.tsx|*.js|*.jsx|*.py|*.go|*.java|*.cpp|*.c|*.h)
-        echo "TIP: Consider reading Chronicle annotations for $(basename "$file_path") before modifying it: git chronicle read \"$file_path\""
+        echo "TIP: Consider reading Chronicle annotations for $(basename "$file_path") before modifying it: git chronicle contracts \"$file_path\""
         ;;
 esac

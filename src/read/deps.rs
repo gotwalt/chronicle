@@ -1,7 +1,6 @@
 use crate::error::GitError;
 use crate::git::GitOps;
-use crate::schema::v1;
-type Annotation = v1::Annotation;
+use crate::schema::{self, v2};
 
 /// Query parameters for dependency inversion.
 #[derive(Debug, Clone)]
@@ -49,8 +48,8 @@ pub struct QueryEcho {
 
 /// Execute a dependency inversion query via linear scan.
 ///
-/// Scans annotated commits and finds regions whose `semantic_dependencies`
-/// reference the queried file+anchor.
+/// Scans annotated commits and finds markers whose `Dependency` kind
+/// references the queried file+anchor.
 pub fn find_dependents(git: &dyn GitOps, query: &DepsQuery) -> Result<DepsOutput, GitError> {
     let annotated = git.list_annotated_commits(query.scan_limit)?;
     let commits_scanned = annotated.len() as u32;
@@ -63,21 +62,31 @@ pub fn find_dependents(git: &dyn GitOps, query: &DepsQuery) -> Result<DepsOutput
             None => continue,
         };
 
-        let annotation: Annotation = match serde_json::from_str(&note) {
+        let annotation = match schema::parse_annotation(&note) {
             Ok(a) => a,
             Err(_) => continue,
         };
 
-        for region in &annotation.regions {
-            for dep in &region.semantic_dependencies {
-                if dep_matches(dep, &query.file, query.anchor.as_deref()) {
+        for marker in &annotation.markers {
+            if let v2::MarkerKind::Dependency {
+                target_file,
+                target_anchor,
+                assumption,
+            } = &marker.kind
+            {
+                if dep_matches(target_file, target_anchor, &query.file, query.anchor.as_deref()) {
+                    let anchor_name = marker
+                        .anchor
+                        .as_ref()
+                        .map(|a| a.name.clone())
+                        .unwrap_or_default();
                     dependents.push(DependentEntry {
-                        file: region.file.clone(),
-                        anchor: region.ast_anchor.name.clone(),
-                        nature: dep.nature.clone(),
+                        file: marker.file.clone(),
+                        anchor: anchor_name,
+                        nature: assumption.clone(),
                         commit: sha.clone(),
                         timestamp: annotation.timestamp.clone(),
-                        context_level: format!("{:?}", annotation.context_level).to_lowercase(),
+                        context_level: format!("{:?}", annotation.provenance.source).to_lowercase(),
                     });
                 }
             }
@@ -107,19 +116,20 @@ pub fn find_dependents(git: &dyn GitOps, query: &DepsQuery) -> Result<DepsOutput
     })
 }
 
-/// Check if a semantic dependency matches the queried file+anchor.
+/// Check if a dependency marker's target matches the queried file+anchor.
 /// Supports unqualified matching: "max_sessions" matches "TlsSessionCache::max_sessions".
 fn dep_matches(
-    dep: &crate::schema::v1::SemanticDependency,
+    target_file: &str,
+    target_anchor: &str,
     query_file: &str,
     query_anchor: Option<&str>,
 ) -> bool {
-    if !file_matches(&dep.file, query_file) {
+    if !file_matches(target_file, query_file) {
         return false;
     }
     match query_anchor {
         None => true,
-        Some(qa) => anchor_matches(&dep.anchor, qa),
+        Some(qa) => anchor_matches(target_anchor, qa),
     }
 }
 
@@ -156,10 +166,7 @@ fn deduplicate(dependents: &mut Vec<DependentEntry>) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::schema::common::{AstAnchor, LineRange};
-    use crate::schema::v1::{
-        ContextLevel, Provenance, ProvenanceOperation, RegionAnnotation, SemanticDependency,
-    };
+    use crate::schema::common::AstAnchor;
 
     struct MockGitOps {
         annotated_commits: Vec<String>,
@@ -218,70 +225,73 @@ mod tests {
         }
     }
 
-    fn make_annotation(
+    fn make_v2_annotation(
         commit: &str,
         timestamp: &str,
-        regions: Vec<RegionAnnotation>,
-    ) -> Annotation {
-        Annotation {
-            schema: "chronicle/v1".to_string(),
+        markers: Vec<v2::CodeMarker>,
+    ) -> String {
+        let ann = v2::Annotation {
+            schema: "chronicle/v2".to_string(),
             commit: commit.to_string(),
             timestamp: timestamp.to_string(),
-            task: None,
-            summary: "test".to_string(),
-            context_level: ContextLevel::Enhanced,
-            regions,
-            cross_cutting: vec![],
-            provenance: Provenance {
-                operation: ProvenanceOperation::Initial,
-                derived_from: vec![],
-                original_annotations_preserved: false,
-                synthesis_notes: None,
+            narrative: v2::Narrative {
+                summary: "test".to_string(),
+                motivation: None,
+                rejected_alternatives: vec![],
+                follow_up: None,
+                files_changed: vec![],
             },
-        }
+            decisions: vec![],
+            markers,
+            effort: None,
+            provenance: v2::Provenance {
+                source: v2::ProvenanceSource::Live,
+                derived_from: vec![],
+                notes: None,
+            },
+        };
+        serde_json::to_string(&ann).unwrap()
     }
 
-    fn make_region(file: &str, anchor: &str, deps: Vec<SemanticDependency>) -> RegionAnnotation {
-        RegionAnnotation {
+    fn make_dep_marker(
+        file: &str,
+        anchor: &str,
+        target_file: &str,
+        target_anchor: &str,
+        assumption: &str,
+    ) -> v2::CodeMarker {
+        v2::CodeMarker {
             file: file.to_string(),
-            ast_anchor: AstAnchor {
+            anchor: Some(AstAnchor {
                 unit_type: "fn".to_string(),
                 name: anchor.to_string(),
                 signature: None,
+            }),
+            lines: None,
+            kind: v2::MarkerKind::Dependency {
+                target_file: target_file.to_string(),
+                target_anchor: target_anchor.to_string(),
+                assumption: assumption.to_string(),
             },
-            lines: LineRange { start: 1, end: 10 },
-            intent: "test".to_string(),
-            reasoning: None,
-            constraints: vec![],
-            semantic_dependencies: deps,
-            related_annotations: vec![],
-            tags: vec![],
-            risk_notes: None,
-            corrections: vec![],
         }
     }
 
     #[test]
     fn test_finds_dependency() {
-        let annotation = make_annotation(
+        let note = make_v2_annotation(
             "commit1",
             "2025-01-01T00:00:00Z",
-            vec![make_region(
+            vec![make_dep_marker(
                 "src/mqtt/reconnect.rs",
                 "ReconnectHandler::attempt",
-                vec![SemanticDependency {
-                    file: "src/tls/session.rs".to_string(),
-                    anchor: "TlsSessionCache::max_sessions".to_string(),
-                    nature: "assumes max_sessions is 4".to_string(),
-                }],
+                "src/tls/session.rs",
+                "TlsSessionCache::max_sessions",
+                "assumes max_sessions is 4",
             )],
         );
 
         let mut notes = std::collections::HashMap::new();
-        notes.insert(
-            "commit1".to_string(),
-            serde_json::to_string(&annotation).unwrap(),
-        );
+        notes.insert("commit1".to_string(), note);
 
         let git = MockGitOps {
             annotated_commits: vec!["commit1".to_string()],
@@ -304,21 +314,10 @@ mod tests {
 
     #[test]
     fn test_no_dependencies() {
-        let annotation = make_annotation(
-            "commit1",
-            "2025-01-01T00:00:00Z",
-            vec![make_region(
-                "src/mqtt/reconnect.rs",
-                "ReconnectHandler::attempt",
-                vec![],
-            )],
-        );
+        let note = make_v2_annotation("commit1", "2025-01-01T00:00:00Z", vec![]);
 
         let mut notes = std::collections::HashMap::new();
-        notes.insert(
-            "commit1".to_string(),
-            serde_json::to_string(&annotation).unwrap(),
-        );
+        notes.insert("commit1".to_string(), note);
 
         let git = MockGitOps {
             annotated_commits: vec!["commit1".to_string()],
@@ -339,25 +338,20 @@ mod tests {
 
     #[test]
     fn test_unqualified_anchor_match() {
-        let annotation = make_annotation(
+        let note = make_v2_annotation(
             "commit1",
             "2025-01-01T00:00:00Z",
-            vec![make_region(
+            vec![make_dep_marker(
                 "src/mqtt/reconnect.rs",
                 "ReconnectHandler::attempt",
-                vec![SemanticDependency {
-                    file: "src/tls/session.rs".to_string(),
-                    anchor: "max_sessions".to_string(),
-                    nature: "assumes max_sessions is 4".to_string(),
-                }],
+                "src/tls/session.rs",
+                "max_sessions",
+                "assumes max_sessions is 4",
             )],
         );
 
         let mut notes = std::collections::HashMap::new();
-        notes.insert(
-            "commit1".to_string(),
-            serde_json::to_string(&annotation).unwrap(),
-        );
+        notes.insert("commit1".to_string(), note);
 
         let git = MockGitOps {
             annotated_commits: vec!["commit1".to_string()],
@@ -377,36 +371,32 @@ mod tests {
 
     #[test]
     fn test_multiple_dependents_from_different_commits() {
-        let ann1 = make_annotation(
+        let note1 = make_v2_annotation(
             "commit1",
             "2025-01-01T00:00:00Z",
-            vec![make_region(
+            vec![make_dep_marker(
                 "src/a.rs",
                 "fn_a",
-                vec![SemanticDependency {
-                    file: "src/shared.rs".to_string(),
-                    anchor: "shared_fn".to_string(),
-                    nature: "calls shared_fn".to_string(),
-                }],
+                "src/shared.rs",
+                "shared_fn",
+                "calls shared_fn",
             )],
         );
-        let ann2 = make_annotation(
+        let note2 = make_v2_annotation(
             "commit2",
             "2025-01-02T00:00:00Z",
-            vec![make_region(
+            vec![make_dep_marker(
                 "src/b.rs",
                 "fn_b",
-                vec![SemanticDependency {
-                    file: "src/shared.rs".to_string(),
-                    anchor: "shared_fn".to_string(),
-                    nature: "uses shared_fn return value".to_string(),
-                }],
+                "src/shared.rs",
+                "shared_fn",
+                "uses shared_fn return value",
             )],
         );
 
         let mut notes = std::collections::HashMap::new();
-        notes.insert("commit1".to_string(), serde_json::to_string(&ann1).unwrap());
-        notes.insert("commit2".to_string(), serde_json::to_string(&ann2).unwrap());
+        notes.insert("commit1".to_string(), note1);
+        notes.insert("commit2".to_string(), note2);
 
         let git = MockGitOps {
             annotated_commits: vec!["commit2".to_string(), "commit1".to_string()],
@@ -426,37 +416,32 @@ mod tests {
 
     #[test]
     fn test_deduplicates_same_file_anchor() {
-        // Two commits that both show src/a.rs:fn_a depending on src/shared.rs:shared_fn
-        let ann1 = make_annotation(
+        let note1 = make_v2_annotation(
             "commit1",
             "2025-01-01T00:00:00Z",
-            vec![make_region(
+            vec![make_dep_marker(
                 "src/a.rs",
                 "fn_a",
-                vec![SemanticDependency {
-                    file: "src/shared.rs".to_string(),
-                    anchor: "shared_fn".to_string(),
-                    nature: "old nature".to_string(),
-                }],
+                "src/shared.rs",
+                "shared_fn",
+                "old nature",
             )],
         );
-        let ann2 = make_annotation(
+        let note2 = make_v2_annotation(
             "commit2",
             "2025-01-02T00:00:00Z",
-            vec![make_region(
+            vec![make_dep_marker(
                 "src/a.rs",
                 "fn_a",
-                vec![SemanticDependency {
-                    file: "src/shared.rs".to_string(),
-                    anchor: "shared_fn".to_string(),
-                    nature: "new nature".to_string(),
-                }],
+                "src/shared.rs",
+                "shared_fn",
+                "new nature",
             )],
         );
 
         let mut notes = std::collections::HashMap::new();
-        notes.insert("commit1".to_string(), serde_json::to_string(&ann1).unwrap());
-        notes.insert("commit2".to_string(), serde_json::to_string(&ann2).unwrap());
+        notes.insert("commit1".to_string(), note1);
+        notes.insert("commit2".to_string(), note2);
 
         let git = MockGitOps {
             // newest first
@@ -479,22 +464,20 @@ mod tests {
 
     #[test]
     fn test_scan_limit_respected() {
-        let ann = make_annotation(
+        let note = make_v2_annotation(
             "commit1",
             "2025-01-01T00:00:00Z",
-            vec![make_region(
+            vec![make_dep_marker(
                 "src/a.rs",
                 "fn_a",
-                vec![SemanticDependency {
-                    file: "src/shared.rs".to_string(),
-                    anchor: "shared_fn".to_string(),
-                    nature: "test".to_string(),
-                }],
+                "src/shared.rs",
+                "shared_fn",
+                "test",
             )],
         );
 
         let mut notes = std::collections::HashMap::new();
-        notes.insert("commit1".to_string(), serde_json::to_string(&ann).unwrap());
+        notes.insert("commit1".to_string(), note);
 
         let git = MockGitOps {
             annotated_commits: vec!["commit1".to_string()],
@@ -516,42 +499,36 @@ mod tests {
 
     #[test]
     fn test_max_results_cap() {
-        let ann = make_annotation(
+        let note = make_v2_annotation(
             "commit1",
             "2025-01-01T00:00:00Z",
             vec![
-                make_region(
+                make_dep_marker(
                     "src/a.rs",
                     "fn_a",
-                    vec![SemanticDependency {
-                        file: "src/shared.rs".to_string(),
-                        anchor: "shared_fn".to_string(),
-                        nature: "dep 1".to_string(),
-                    }],
+                    "src/shared.rs",
+                    "shared_fn",
+                    "dep 1",
                 ),
-                make_region(
+                make_dep_marker(
                     "src/b.rs",
                     "fn_b",
-                    vec![SemanticDependency {
-                        file: "src/shared.rs".to_string(),
-                        anchor: "shared_fn".to_string(),
-                        nature: "dep 2".to_string(),
-                    }],
+                    "src/shared.rs",
+                    "shared_fn",
+                    "dep 2",
                 ),
-                make_region(
+                make_dep_marker(
                     "src/c.rs",
                     "fn_c",
-                    vec![SemanticDependency {
-                        file: "src/shared.rs".to_string(),
-                        anchor: "shared_fn".to_string(),
-                        nature: "dep 3".to_string(),
-                    }],
+                    "src/shared.rs",
+                    "shared_fn",
+                    "dep 3",
                 ),
             ],
         );
 
         let mut notes = std::collections::HashMap::new();
-        notes.insert("commit1".to_string(), serde_json::to_string(&ann).unwrap());
+        notes.insert("commit1".to_string(), note);
 
         let git = MockGitOps {
             annotated_commits: vec!["commit1".to_string()],
@@ -571,25 +548,20 @@ mod tests {
 
     #[test]
     fn test_file_only_query() {
-        let annotation = make_annotation(
+        let note = make_v2_annotation(
             "commit1",
             "2025-01-01T00:00:00Z",
-            vec![make_region(
+            vec![make_dep_marker(
                 "src/mqtt/reconnect.rs",
                 "ReconnectHandler::attempt",
-                vec![SemanticDependency {
-                    file: "src/tls/session.rs".to_string(),
-                    anchor: "TlsSessionCache::max_sessions".to_string(),
-                    nature: "assumes max_sessions is 4".to_string(),
-                }],
+                "src/tls/session.rs",
+                "TlsSessionCache::max_sessions",
+                "assumes max_sessions is 4",
             )],
         );
 
         let mut notes = std::collections::HashMap::new();
-        notes.insert(
-            "commit1".to_string(),
-            serde_json::to_string(&annotation).unwrap(),
-        );
+        notes.insert("commit1".to_string(), note);
 
         let git = MockGitOps {
             annotated_commits: vec!["commit1".to_string()],
