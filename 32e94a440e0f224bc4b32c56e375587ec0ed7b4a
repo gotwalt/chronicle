@@ -1,0 +1,54 @@
+{
+  "schema": "chronicle/v1",
+  "commit": "32e94a440e0f224bc4b32c56e375587ec0ed7b4a",
+  "timestamp": "2026-02-07T00:31:21.252726489+00:00",
+  "summary": "## Summary\n\nThis commit modifies the GitHub Actions release workflow to fix a versioning inconsistency issue. \n\n**Key Change:**\nThe \"Bump version\" step in `.github/workflows/release.yml` now derives the next version number from the **latest git tag** (sorted by version) instead of reading the current version from `Cargo.toml`. \n\n**What Changed:**\n- The workflow now executes `git tag --list 'v*' --sort=-v:refname | head -1` to find the latest version tag\n- Adds a fallback to \"0.1.0\" if no tags exist yet\n- The `CURRENT` variable from Cargo.toml is still read but moved later in the script, used only for the sed replacement operation\n- Version calculation (MAJOR, MINOR, PATCH) is now based on `LATEST` from git tags, not `CURRENT` from Cargo.toml\n\n**Why This Matters:**\nThis ensures that git tags serve as the single source of truth for version history, preventing potential drift between what's in Cargo.toml and what's actually tagged in the repository. This is particularly important for release automation where version consistency is critical for proper semantic versioning and package management.",
+  "context_level": "inferred",
+  "regions": [
+    {
+      "file": ".github/workflows/release.yml",
+      "ast_anchor": {
+        "unit_type": "step",
+        "name": "Bump version"
+      },
+      "lines": {
+        "start": 37,
+        "end": 48
+      },
+      "intent": "Change version bumping logic to derive the next version from the latest git tag instead of the current Cargo.toml version, ensuring git tags are the single source of truth for version history",
+      "reasoning": "The previous approach used Cargo.toml as the source for the current version, which could become out of sync with git tags. By querying git tags (sorted by version) and using that as the base for the next version, the workflow ensures that version history is properly tracked in git. The CURRENT variable is still read from Cargo.toml but only for the sed replacement command, not for calculating the next version. A fallback to \"0.1.0\" is added for repositories without any tags yet.",
+      "constraints": [
+        {
+          "text": "Must use git tags prefixed with 'v' as the source of truth for versioning",
+          "source": "inferred"
+        },
+        {
+          "text": "Must sort tags by version number (using -v:refname) to get the true latest version, not by creation date",
+          "source": "inferred"
+        },
+        {
+          "text": "Must strip the 'v' prefix from tags before version number parsing",
+          "source": "inferred"
+        },
+        {
+          "text": "Must handle the case where no tags exist yet by defaulting to 0.1.0",
+          "source": "inferred"
+        },
+        {
+          "text": "Must still read CURRENT from Cargo.toml to enable the sed replacement to work correctly",
+          "source": "inferred"
+        }
+      ],
+      "tags": [
+        "bugfix",
+        "ci-cd",
+        "version-management"
+      ],
+      "risk_notes": "If git tags are manually created or deleted, this could affect version sequencing. The version sort (-v:refname) requires Git 2.0+ to work correctly. The fallback to 0.1.0 means that if all tags are deleted, versioning will restart from 0.1.1."
+    }
+  ],
+  "provenance": {
+    "operation": "initial",
+    "original_annotations_preserved": false
+  }
+}
