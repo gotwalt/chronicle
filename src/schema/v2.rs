@@ -215,6 +215,8 @@ pub enum EffortPhase {
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct Provenance {
     pub source: ProvenanceSource,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub author: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub derived_from: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]

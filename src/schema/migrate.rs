@@ -94,6 +94,7 @@ pub fn v1_to_v2(ann: v1::Annotation) -> v2::Annotation {
     // Convert provenance
     let provenance = v2::Provenance {
         source: v2::ProvenanceSource::MigratedV1,
+        author: None,
         derived_from: ann.provenance.derived_from,
         notes: ann.provenance.synthesis_notes,
     };

@@ -382,6 +382,11 @@ pub fn handle_annotate_v2(git_ops: &dyn GitOps, input: LiveInput) -> Result<Live
         effort,
         provenance: v2::Provenance {
             source: v2::ProvenanceSource::Live,
+            author: git_ops
+                .config_get("chronicle.author")
+                .ok()
+                .flatten()
+                .or_else(|| git_ops.config_get("user.name").ok().flatten()),
             derived_from: Vec::new(),
             notes: None,
         },

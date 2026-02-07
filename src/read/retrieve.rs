@@ -193,6 +193,7 @@ mod tests {
             effort: None,
             provenance: v2::Provenance {
                 source: v2::ProvenanceSource::Live,
+                author: None,
                 derived_from: vec![],
                 notes: None,
             },
@@ -262,6 +263,7 @@ mod tests {
             effort: None,
             provenance: v2::Provenance {
                 source: v2::ProvenanceSource::Live,
+                author: None,
                 derived_from: vec![],
                 notes: None,
             },
@@ -340,6 +342,7 @@ mod tests {
             effort: None,
             provenance: v2::Provenance {
                 source: v2::ProvenanceSource::Live,
+                author: None,
                 derived_from: vec![],
                 notes: None,
             },
@@ -405,6 +408,7 @@ mod tests {
             effort: None,
             provenance: v2::Provenance {
                 source: v2::ProvenanceSource::Live,
+                author: None,
                 derived_from: vec![],
                 notes: None,
             },

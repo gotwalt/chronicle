@@ -47,6 +47,7 @@ pub fn run(
                 effort: None,
                 provenance: v2::Provenance {
                     source: v2::ProvenanceSource::Batch,
+                    author: None,
                     derived_from: Vec::new(),
                     notes: Some(format!("Skipped: {reason}")),
                 },
@@ -77,6 +78,7 @@ pub fn run(
                 effort,
                 provenance: v2::Provenance {
                     source: v2::ProvenanceSource::Batch,
+                    author: None,
                     derived_from: Vec::new(),
                     notes: Some(format!("Trivial: {reason}")),
                 },
@@ -112,6 +114,7 @@ pub fn run(
                 effort,
                 provenance: v2::Provenance {
                     source: v2::ProvenanceSource::Batch,
+                    author: None,
                     derived_from: Vec::new(),
                     notes: None,
                 },
