@@ -37,11 +37,13 @@ jobs:
       - name: Bump version
         id: version
         run: |
-          CURRENT=$(grep '^version' Cargo.toml | head -1 | sed 's/.*"\(.*\)"/\1/')
-          MAJOR=$(echo "$CURRENT" | cut -d. -f1)
-          MINOR=$(echo "$CURRENT" | cut -d. -f2)
-          PATCH=$(echo "$CURRENT" | cut -d. -f3)
+          LATEST=$(git tag --list 'v*' --sort=-v:refname | head -1 | sed 's/^v//')
+          if [ -z "$LATEST" ]; then LATEST="0.1.0"; fi
+          MAJOR=$(echo "$LATEST" | cut -d. -f1)
+          MINOR=$(echo "$LATEST" | cut -d. -f2)
+          PATCH=$(echo "$LATEST" | cut -d. -f3)
           NEW="$MAJOR.$MINOR.$((PATCH + 1))"
+          CURRENT=$(grep '^version' Cargo.toml | head -1 | sed 's/.*"\(.*\)"/\1/')
           sed -i "s/^version = \"$CURRENT\"/version = \"$NEW\"/" Cargo.toml
           echo "version=$NEW" >> "$GITHUB_OUTPUT"
           echo "tag=v$NEW" >> "$GITHUB_OUTPUT"
