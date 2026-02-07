@@ -1,6 +1,7 @@
 use crate::error::GitError;
 use crate::git::GitOps;
-use crate::schema::annotation::Annotation;
+use crate::schema::v1;
+type Annotation = v1::Annotation;
 
 use super::{MatchedRegion, ReadQuery};
 
@@ -110,7 +111,8 @@ mod tests {
 
     #[test]
     fn test_retrieve_filters_by_file() {
-        use crate::schema::annotation::*;
+        use crate::schema::v1::*;
+        use crate::schema::common::*;
 
         let git = MockGitOps {
             shas: vec!["abc123".to_string()],
@@ -184,7 +186,8 @@ mod tests {
 
     #[test]
     fn test_retrieve_filters_by_anchor() {
-        use crate::schema::annotation::*;
+        use crate::schema::v1::*;
+        use crate::schema::common::*;
 
         let git = MockGitOps {
             shas: vec!["abc123".to_string()],
@@ -257,7 +260,8 @@ mod tests {
 
     #[test]
     fn test_retrieve_filters_by_lines() {
-        use crate::schema::annotation::*;
+        use crate::schema::v1::*;
+        use crate::schema::common::*;
 
         let git = MockGitOps {
             shas: vec!["abc123".to_string()],

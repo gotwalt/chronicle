@@ -1,6 +1,7 @@
 use crate::error::GitError;
 use crate::git::GitOps;
-use crate::schema::annotation::Annotation;
+use crate::schema::v1;
+type Annotation = v1::Annotation;
 
 /// Query parameters for dependency inversion.
 #[derive(Debug, Clone)]
@@ -109,7 +110,7 @@ pub fn find_dependents(git: &dyn GitOps, query: &DepsQuery) -> Result<DepsOutput
 /// Check if a semantic dependency matches the queried file+anchor.
 /// Supports unqualified matching: "max_sessions" matches "TlsSessionCache::max_sessions".
 fn dep_matches(
-    dep: &crate::schema::annotation::SemanticDependency,
+    dep: &crate::schema::v1::SemanticDependency,
     query_file: &str,
     query_anchor: Option<&str>,
 ) -> bool {
@@ -155,7 +156,10 @@ fn deduplicate(dependents: &mut Vec<DependentEntry>) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::schema::annotation::*;
+    use crate::schema::common::{AstAnchor, LineRange};
+    use crate::schema::v1::{
+        ContextLevel, Provenance, ProvenanceOperation, RegionAnnotation, SemanticDependency,
+    };
 
     struct MockGitOps {
         annotated_commits: Vec<String>,

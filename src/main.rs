@@ -80,6 +80,13 @@ fn main() {
             commit,
             no_tui,
         } => chronicle::cli::show::run(path, anchor, commit, no_tui),
+        Commands::Schema { name } => chronicle::cli::schema::run(&name),
+        Commands::Contracts {
+            path,
+            anchor,
+            format,
+        } => chronicle::cli::contracts::run(path, anchor, format),
+        Commands::Decisions { path, format } => chronicle::cli::decisions::run(path, format),
         Commands::Summary {
             path,
             anchor,

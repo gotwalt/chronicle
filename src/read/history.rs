@@ -1,6 +1,7 @@
 use crate::error::GitError;
 use crate::git::GitOps;
-use crate::schema::annotation::Annotation;
+use crate::schema::v1;
+type Annotation = v1::Annotation;
 
 /// Query parameters for timeline reconstruction.
 #[derive(Debug, Clone)]
@@ -189,7 +190,10 @@ fn anchor_matches(region_anchor: &str, query_anchor: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::schema::annotation::*;
+    use crate::schema::common::{AstAnchor, LineRange};
+    use crate::schema::v1::{
+        ContextLevel, Provenance, ProvenanceOperation, RegionAnnotation, RelatedAnnotation,
+    };
 
     struct MockGitOps {
         file_log: Vec<String>,

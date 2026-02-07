@@ -41,8 +41,8 @@ pub fn run_plain(data: &ShowData, w: &mut dyn Write) -> std::io::Result<()> {
             writeln!(w, "        constraints:")?;
             for c in &r.region.constraints {
                 let source = match c.source {
-                    crate::schema::annotation::ConstraintSource::Author => "author",
-                    crate::schema::annotation::ConstraintSource::Inferred => "inferred",
+                    crate::schema::v1::ConstraintSource::Author => "author",
+                    crate::schema::v1::ConstraintSource::Inferred => "inferred",
                 };
                 writeln!(w, "          - {} [{source}]", c.text)?;
             }
@@ -75,7 +75,8 @@ pub fn run_plain(data: &ShowData, w: &mut dyn Write) -> std::io::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::schema::annotation::*;
+    use crate::schema::v1::*;
+    use crate::schema::common::*;
     use crate::show::data::RegionRef;
 
     fn make_test_data() -> ShowData {

@@ -5,9 +5,8 @@ use chronicle::git::CliOps;
 use chronicle::mcp::annotate_handler::{
     handle_annotate, AnchorInput, AnnotateInput, ConstraintInput, RegionInput,
 };
-use chronicle::schema::{
-    CrossCuttingConcern, CrossCuttingRegionRef, LineRange, SemanticDependency,
-};
+use chronicle::schema::common::LineRange;
+use chronicle::schema::v1::{CrossCuttingConcern, CrossCuttingRegionRef, SemanticDependency};
 
 #[test]
 fn annotate_head_commit() {

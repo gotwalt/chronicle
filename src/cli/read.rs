@@ -1,7 +1,7 @@
 use crate::error::Result;
 use crate::git::CliOps;
 use crate::read::{execute, ReadQuery};
-use crate::schema::annotation::LineRange;
+use crate::schema::LineRange;
 
 pub fn run(path: String, anchor: Option<String>, lines: Option<String>) -> Result<()> {
     let line_range = match lines {

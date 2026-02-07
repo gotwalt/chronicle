@@ -119,7 +119,7 @@ fn run_amend_migration(git_ops: &CliOps, commit: &str, old_sha: &str) -> Result<
         }
     };
 
-    let old_annotation: crate::schema::Annotation =
+    let old_annotation: crate::schema::v1::Annotation =
         serde_json::from_str(&old_json).context(JsonSnafu)?;
 
     let new_info = git_ops.commit_info(&resolved_commit).context(GitSnafu)?;
@@ -153,8 +153,11 @@ fn run_amend_migration(git_ops: &CliOps, commit: &str, old_sha: &str) -> Result<
     Ok(())
 }
 
-/// Live annotation path: read AnnotateInput JSON from stdin, call handle_annotate,
-/// print AnnotateResult JSON to stdout. Zero LLM cost.
+/// Live annotation path: read JSON from stdin, detect format (v2 or v1),
+/// call the appropriate handler, print result JSON to stdout. Zero LLM cost.
+///
+/// Detection: if the input JSON has a "regions" key, it's v1 format.
+/// Otherwise, it's v2 format (narrative-first).
 fn run_live(git_ops: &CliOps) -> Result<()> {
     let stdin = std::io::read_to_string(std::io::stdin()).map_err(|e| {
         crate::error::ChronicleError::Io {
@@ -163,20 +166,46 @@ fn run_live(git_ops: &CliOps) -> Result<()> {
         }
     })?;
 
-    let input: crate::mcp::annotate_handler::AnnotateInput =
+    // Peek at the JSON to detect format
+    let value: serde_json::Value =
         serde_json::from_str(&stdin).map_err(|e| crate::error::ChronicleError::Json {
             source: e,
             location: snafu::Location::default(),
         })?;
 
-    let result = crate::mcp::annotate_handler::handle_annotate(git_ops, input)?;
+    let is_v1 = value.get("regions").is_some();
 
-    let json =
-        serde_json::to_string_pretty(&result).map_err(|e| crate::error::ChronicleError::Json {
-            source: e,
-            location: snafu::Location::default(),
-        })?;
-    println!("{json}");
+    if is_v1 {
+        // v1 format: has "regions" array
+        let input: crate::mcp::annotate_handler::AnnotateInput =
+            serde_json::from_value(value).map_err(|e| crate::error::ChronicleError::Json {
+                source: e,
+                location: snafu::Location::default(),
+            })?;
+
+        let result = crate::mcp::annotate_handler::handle_annotate(git_ops, input)?;
+        let json = serde_json::to_string_pretty(&result)
+            .map_err(|e| crate::error::ChronicleError::Json {
+                source: e,
+                location: snafu::Location::default(),
+            })?;
+        println!("{json}");
+    } else {
+        // v2 format: narrative-first
+        let input: crate::annotate::live::LiveInput =
+            serde_json::from_value(value).map_err(|e| crate::error::ChronicleError::Json {
+                source: e,
+                location: snafu::Location::default(),
+            })?;
+
+        let result = crate::annotate::live::handle_annotate_v2(git_ops, input)?;
+        let json = serde_json::to_string_pretty(&result)
+            .map_err(|e| crate::error::ChronicleError::Json {
+                source: e,
+                location: snafu::Location::default(),
+            })?;
+        println!("{json}");
+    }
 
     Ok(())
 }

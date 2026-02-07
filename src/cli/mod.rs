@@ -1,7 +1,9 @@
 pub mod annotate;
 pub mod backfill;
 pub mod context;
+pub mod contracts;
 pub mod correct;
+pub mod decisions;
 pub mod deps;
 pub mod doctor;
 pub mod export;
@@ -11,6 +13,7 @@ pub mod import;
 pub mod init;
 pub mod read;
 pub mod reconfigure;
+pub mod schema;
 pub mod setup;
 pub mod show;
 pub mod summary;
@@ -260,6 +263,36 @@ pub enum Commands {
         /// Force non-interactive plain-text output
         #[arg(long)]
         no_tui: bool,
+    },
+
+    /// Print JSON Schema for annotation types (self-documenting for AI agents)
+    Schema {
+        /// Schema name: annotate-input, annotation
+        name: String,
+    },
+
+    /// Query contracts and dependencies for a file/anchor ("What must I not break?")
+    Contracts {
+        /// File path to query
+        path: String,
+
+        /// AST anchor name to query
+        #[arg(long)]
+        anchor: Option<String>,
+
+        /// Output format (json or pretty)
+        #[arg(long, default_value = "json")]
+        format: String,
+    },
+
+    /// Query design decisions and rejected alternatives ("What was decided?")
+    Decisions {
+        /// File path to scope decisions to (omit for all)
+        path: Option<String>,
+
+        /// Output format (json or pretty)
+        #[arg(long, default_value = "json")]
+        format: String,
     },
 
     /// Show condensed annotation summary for a file

@@ -7,10 +7,12 @@ use snafu::ResultExt;
 use crate::ast::{self, AnchorMatch, Language};
 use crate::error::{chronicle_error, Result};
 use crate::git::GitOps;
-use crate::schema::{
-    Annotation, AstAnchor, Constraint, ConstraintSource, ContextLevel, CrossCuttingConcern,
-    LineRange, Provenance, ProvenanceOperation, RegionAnnotation, SemanticDependency,
+use crate::schema::common::{AstAnchor, LineRange};
+use crate::schema::v1::{
+    self, Constraint, ConstraintSource, ContextLevel, CrossCuttingConcern,
+    Provenance, ProvenanceOperation, RegionAnnotation, SemanticDependency,
 };
+type Annotation = v1::Annotation;
 
 // ---------------------------------------------------------------------------
 // Input types (from the calling agent)

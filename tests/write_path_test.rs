@@ -5,10 +5,12 @@ use chronicle::git::{CliOps, GitOps};
 use chronicle::mcp::annotate_handler::{
     handle_annotate, AnchorInput, AnchorResolutionKind, AnnotateInput, ConstraintInput, RegionInput,
 };
-use chronicle::schema::{
-    Annotation, ConstraintSource, ContextLevel, CrossCuttingConcern, CrossCuttingRegionRef,
-    LineRange, ProvenanceOperation, SemanticDependency,
+use chronicle::schema::common::LineRange;
+use chronicle::schema::v1::{
+    self, ConstraintSource, ContextLevel, CrossCuttingConcern, CrossCuttingRegionRef,
+    ProvenanceOperation, SemanticDependency,
 };
+type Annotation = v1::Annotation;
 
 const SAMPLE_RUST_FILE: &str = r#"pub fn greet(name: &str) -> String {
     format!("Hello, {}!", name)

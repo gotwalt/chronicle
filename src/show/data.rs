@@ -2,7 +2,7 @@ use crate::ast::outline::OutlineEntry;
 use crate::error::{ChronicleError, Result};
 use crate::git::GitOps;
 use crate::read::{self, MatchedRegion, ReadQuery};
-use crate::schema::annotation::{ContextLevel, Provenance, RegionAnnotation};
+use crate::schema::v1::{ContextLevel, Provenance, RegionAnnotation};
 
 /// A region annotation with its commit-level metadata.
 #[derive(Debug, Clone)]
@@ -142,7 +142,7 @@ fn dedup_regions(matched: Vec<MatchedRegion>) -> Vec<RegionRef> {
             summary: m.summary,
             context_level: ContextLevel::Inferred, // read pipeline doesn't return this yet
             provenance: Provenance {
-                operation: crate::schema::annotation::ProvenanceOperation::Initial,
+                operation: crate::schema::v1::ProvenanceOperation::Initial,
                 derived_from: vec![],
                 original_annotations_preserved: false,
                 synthesis_notes: None,
@@ -174,7 +174,8 @@ mod tests {
 
     #[test]
     fn test_line_annotation_map_coverage() {
-        use crate::schema::annotation::*;
+        use crate::schema::v1::*;
+    use crate::schema::common::*;
 
         let regions = vec![RegionRef {
             region: RegionAnnotation {
@@ -217,7 +218,8 @@ mod tests {
 
     #[test]
     fn test_next_prev_annotated_line() {
-        use crate::schema::annotation::*;
+        use crate::schema::v1::*;
+    use crate::schema::common::*;
 
         let regions = vec![RegionRef {
             region: RegionAnnotation {

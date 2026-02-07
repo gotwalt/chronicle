@@ -1,6 +1,7 @@
 use crate::error::Result;
 use crate::git::{CliOps, GitOps};
-use crate::schema::annotation::Annotation;
+use crate::schema::v1;
+type Annotation = v1::Annotation;
 use crate::schema::correction::{resolve_author, Correction, CorrectionType};
 
 /// Run the `git chronicle flag` command.
@@ -135,7 +136,10 @@ fn find_matching_region(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::schema::annotation::*;
+    use crate::schema::common::{AstAnchor, LineRange};
+    use crate::schema::v1::{
+        ContextLevel, Provenance, ProvenanceOperation, RegionAnnotation,
+    };
 
     #[test]
     fn test_find_matching_region_by_anchor() {

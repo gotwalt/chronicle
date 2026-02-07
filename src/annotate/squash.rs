@@ -6,10 +6,11 @@ use serde::{Deserialize, Serialize};
 use crate::error::chronicle_error::{IoSnafu, JsonSnafu};
 use crate::error::Result;
 use crate::git::GitOps;
-use crate::schema::{
-    Annotation, ContextLevel, CrossCuttingConcern, Provenance, ProvenanceOperation,
+use crate::schema::v1::{
+    self, ContextLevel, CrossCuttingConcern, Provenance, ProvenanceOperation,
     RegionAnnotation,
 };
+type Annotation = v1::Annotation;
 use snafu::ResultExt;
 
 /// Expiry time for pending-squash.json files, in seconds.
@@ -294,9 +295,10 @@ pub fn collect_source_messages(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::schema::{
-        AstAnchor, Constraint, ConstraintSource, CrossCuttingConcern, CrossCuttingRegionRef,
-        LineRange, SemanticDependency,
+    use crate::schema::common::{AstAnchor, LineRange};
+    use crate::schema::v1::{
+        Constraint, ConstraintSource, CrossCuttingConcern, CrossCuttingRegionRef,
+        SemanticDependency,
     };
 
     fn make_test_annotation(commit: &str, file: &str, anchor: &str) -> Annotation {

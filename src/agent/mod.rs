@@ -8,17 +8,20 @@ use crate::error::agent_error::{MaxTurnsExceededSnafu, NoAnnotationsSnafu, Provi
 use crate::error::AgentError;
 use crate::git::GitOps;
 use crate::provider::{CompletionRequest, ContentBlock, LlmProvider, Message, Role, StopReason};
-use crate::schema::{CrossCuttingConcern, RegionAnnotation};
+use crate::schema::v2::Narrative;
+
+pub use tools::CollectedOutput;
 
 const MAX_TURNS: u32 = 20;
 
 /// Run the annotation agent loop. Calls the LLM with tools until it finishes
-/// or hits the turn limit. Returns collected annotations.
+/// or hits the turn limit. Returns collected v2 output (narrative, decisions, markers)
+/// plus a summary string.
 pub fn run_agent_loop(
     provider: &dyn LlmProvider,
     git_ops: &dyn GitOps,
     context: &AnnotationContext,
-) -> Result<(Vec<RegionAnnotation>, Vec<CrossCuttingConcern>, String), AgentError> {
+) -> Result<(CollectedOutput, String), AgentError> {
     let system_prompt = prompt::build_system_prompt(context);
     let tool_defs = tools::tool_definitions();
 
@@ -29,8 +32,7 @@ pub fn run_agent_loop(
         }],
     }];
 
-    let mut collected_regions: Vec<RegionAnnotation> = Vec::new();
-    let mut collected_cross_cutting: Vec<CrossCuttingConcern> = Vec::new();
+    let mut collected = CollectedOutput::default();
     let mut summary = String::new();
 
     for turn in 0..MAX_TURNS {
@@ -74,14 +76,7 @@ pub fn run_agent_loop(
         // Process tool uses
         let mut tool_results: Vec<ContentBlock> = Vec::new();
         for (id, name, input) in &tool_uses {
-            let result = tools::dispatch_tool(
-                name,
-                input,
-                git_ops,
-                context,
-                &mut collected_regions,
-                &mut collected_cross_cutting,
-            );
+            let result = tools::dispatch_tool(name, input, git_ops, context, &mut collected);
             match result {
                 Ok(content) => {
                     tool_results.push(ContentBlock::ToolResult {
@@ -121,14 +116,23 @@ pub fn run_agent_loop(
         }
     }
 
-    if collected_regions.is_empty() {
-        return NoAnnotationsSnafu.fail();
+    // Narrative is required — if the agent didn't emit one, construct a minimal one
+    if collected.narrative.is_none() {
+        if summary.is_empty() {
+            return NoAnnotationsSnafu.fail();
+        }
+        collected.narrative = Some(Narrative {
+            summary: summary.clone(),
+            motivation: None,
+            rejected_alternatives: Vec::new(),
+            follow_up: None,
+            files_changed: Vec::new(),
+        });
     }
 
-    // Use the last text block as summary, fall back to a default
     if summary.is_empty() {
         summary = "Annotation complete.".to_string();
     }
 
-    Ok((collected_regions, collected_cross_cutting, summary))
+    Ok((collected, summary))
 }

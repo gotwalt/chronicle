@@ -275,8 +275,8 @@ mod views {
             ));
             for c in &r.region.constraints {
                 let source = match c.source {
-                    crate::schema::annotation::ConstraintSource::Author => "author",
-                    crate::schema::annotation::ConstraintSource::Inferred => "inferred",
+                    crate::schema::v1::ConstraintSource::Author => "author",
+                    crate::schema::v1::ConstraintSource::Inferred => "inferred",
                 };
                 text_lines.push(Line::raw(format!("  - {} [{source}]", c.text)));
             }

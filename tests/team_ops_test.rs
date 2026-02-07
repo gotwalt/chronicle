@@ -6,10 +6,12 @@ use chronicle::doctor::{run_doctor, DoctorStatus};
 use chronicle::export::export_annotations;
 use chronicle::git::{CliOps, GitOps};
 use chronicle::import::import_annotations;
-use chronicle::schema::annotation::{
-    Annotation, AstAnchor, ContextLevel, CrossCuttingConcern, CrossCuttingRegionRef, LineRange,
-    Provenance, ProvenanceOperation, RegionAnnotation,
+use chronicle::schema::common::{AstAnchor, LineRange};
+use chronicle::schema::v1::{
+    self, ContextLevel, CrossCuttingConcern, CrossCuttingRegionRef, Provenance,
+    ProvenanceOperation, RegionAnnotation,
 };
+type Annotation = v1::Annotation;
 use chronicle::sync::{enable_sync, get_sync_config, get_sync_status};
 
 fn create_temp_repo() -> (tempfile::TempDir, CliOps) {
@@ -191,7 +193,7 @@ fn export_import_roundtrip() {
     let entry = chronicle::export::ExportEntry {
         commit_sha: sha.clone(),
         timestamp: annotation.timestamp.clone(),
-        annotation: annotation.clone(),
+        annotation: serde_json::to_value(&annotation).unwrap(),
     };
     let line = serde_json::to_string(&entry).unwrap();
     let export_buf = format!("{line}\n").into_bytes();
@@ -239,7 +241,7 @@ fn import_skips_existing_notes_without_force() {
     let entry = chronicle::export::ExportEntry {
         commit_sha: sha.clone(),
         timestamp: annotation.timestamp.clone(),
-        annotation,
+        annotation: serde_json::to_value(&annotation).unwrap(),
     };
     let line = serde_json::to_string(&entry).unwrap();
     let data = format!("{line}\n");
@@ -265,7 +267,7 @@ fn import_with_force_overwrites() {
     let entry = chronicle::export::ExportEntry {
         commit_sha: sha.clone(),
         timestamp: annotation.timestamp.clone(),
-        annotation,
+        annotation: serde_json::to_value(&annotation).unwrap(),
     };
     let line = serde_json::to_string(&entry).unwrap();
     let data = format!("{line}\n");
@@ -291,7 +293,7 @@ fn import_skips_unknown_commits() {
     let entry = chronicle::export::ExportEntry {
         commit_sha: "0000000000000000000000000000000000000000".to_string(),
         timestamp: annotation.timestamp.clone(),
-        annotation,
+        annotation: serde_json::to_value(&annotation).unwrap(),
     };
     let line = serde_json::to_string(&entry).unwrap();
     let data = format!("{line}\n");
@@ -325,7 +327,7 @@ fn import_dry_run_does_not_write() {
     let entry = chronicle::export::ExportEntry {
         commit_sha: sha.clone(),
         timestamp: annotation.timestamp.clone(),
-        annotation,
+        annotation: serde_json::to_value(&annotation).unwrap(),
     };
     let line = serde_json::to_string(&entry).unwrap();
     let data = format!("{line}\n");

@@ -1,6 +1,7 @@
 use crate::error::Result;
 use crate::git::{CliOps, GitOps};
-use crate::schema::annotation::Annotation;
+use crate::schema::v1;
+type Annotation = v1::Annotation;
 use crate::schema::correction::{resolve_author, Correction, CorrectionType};
 
 /// Run the `git chronicle correct` command.
@@ -150,7 +151,7 @@ pub fn run(
 }
 
 /// Validate that the given field name corresponds to a non-empty field on the region.
-fn validate_field(region: &crate::schema::annotation::RegionAnnotation, field: &str) -> Result<()> {
+fn validate_field(region: &crate::schema::v1::RegionAnnotation, field: &str) -> Result<()> {
     let is_empty = match field {
         "intent" => region.intent.is_empty(),
         "reasoning" => region.reasoning.as_ref().is_none_or(|s| s.is_empty()),
@@ -185,7 +186,8 @@ fn validate_field(region: &crate::schema::annotation::RegionAnnotation, field: &
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::schema::annotation::*;
+    use crate::schema::v1::*;
+    use crate::schema::common::*;
     use crate::schema::correction::Correction;
 
     fn make_region() -> RegionAnnotation {

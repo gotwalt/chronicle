@@ -3,22 +3,24 @@ use std::io::Write;
 use crate::error::chronicle_error::GitSnafu;
 use crate::error::Result;
 use crate::git::GitOps;
-use crate::schema::annotation::Annotation;
 use serde::{Deserialize, Serialize};
 use snafu::ResultExt;
 
-/// A single export entry: commit SHA + timestamp + full annotation.
+/// A single export entry: commit SHA + timestamp + raw annotation JSON.
+///
+/// The annotation field is `serde_json::Value` so we can export both v1 and v2
+/// annotations without needing to know the schema version.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExportEntry {
     pub commit_sha: String,
     pub timestamp: String,
-    pub annotation: Annotation,
+    pub annotation: serde_json::Value,
 }
 
 /// Export annotations as JSONL to a writer.
 ///
-/// Iterates all notes under `refs/notes/chronicle`, deserializes each as an
-/// Annotation, and writes one JSON object per line.
+/// Iterates all notes under `refs/notes/chronicle`, and writes one JSON object
+/// per line. Preserves the raw annotation format (v1 or v2).
 pub fn export_annotations<W: Write>(git_ops: &dyn GitOps, writer: &mut W) -> Result<usize> {
     let note_list = list_annotated_commits(git_ops)?;
     let mut count = 0;
@@ -29,14 +31,20 @@ pub fn export_annotations<W: Write>(git_ops: &dyn GitOps, writer: &mut W) -> Res
             None => continue,
         };
 
-        let annotation: Annotation = match serde_json::from_str(&note_content) {
+        let annotation: serde_json::Value = match serde_json::from_str(&note_content) {
             Ok(a) => a,
             Err(_) => continue, // skip malformed notes
         };
 
+        let timestamp = annotation
+            .get("timestamp")
+            .and_then(|t| t.as_str())
+            .unwrap_or("")
+            .to_string();
+
         let entry = ExportEntry {
             commit_sha: sha.clone(),
-            timestamp: annotation.timestamp.clone(),
+            timestamp,
             annotation,
         };
 

@@ -5,28 +5,26 @@ pub fn build_system_prompt(context: &AnnotationContext) -> String {
     let mut prompt = String::new();
 
     prompt.push_str(
-        "You are an expert code annotator for the chronicle system. Your role is to analyze \
-         code changes in a git commit and produce structured annotations that capture the intent, \
-         reasoning, and constraints behind each change.\n\n",
+        "You are an expert code annotator for the Chronicle system. Your role is to analyze \
+         code changes in a git commit and produce structured annotations that capture the **story** \
+         behind the change: why this approach was chosen, what was considered and rejected, and \
+         what is non-obvious about the code.\n\n",
     );
 
     prompt.push_str(
-        "## Schema: chronicle/v1\n\n\
-         Each annotation describes a **region** (a semantic unit of change) with:\n\
-         - `file`: the file path\n\
-         - `ast_anchor`: identifies the semantic unit (unit_type, name, optional signature)\n\
-         - `lines`: start and end line numbers in the new file\n\
-         - `intent`: a clear description of what this change does and why\n\
-         - `reasoning`: (optional) deeper explanation of the approach\n\
-         - `constraints`: (optional) invariants or requirements this change must satisfy\n\
-         - `semantic_dependencies`: (optional) other code this change depends on\n\
-         - `tags`: (optional) categorical labels like \"refactor\", \"bugfix\", \"feature\"\n\
-         - `risk_notes`: (optional) potential risks or concerns\n\n",
-    );
-
-    prompt.push_str(
-        "Cross-cutting concerns span multiple regions and describe patterns like \
-         \"error handling changes across all API endpoints\".\n\n",
+        "## Schema: chronicle/v2 (narrative-first)\n\n\
+         The commit is the primary unit of annotation. Your job is to tell the story:\n\n\
+         1. **Narrative** (required, commit-level): What this commit does and WHY this approach. \
+         Not a diff restatement. Include motivation and rejected alternatives if known.\n\
+         2. **Decisions** (optional): Architectural or design decisions made in this commit, \
+         with stability level (permanent, provisional, experimental).\n\
+         3. **Code markers** (optional): Only flag non-obvious code behavior:\n\
+         - `contract`: behavioral invariants or preconditions\n\
+         - `hazard`: something that could cause bugs if misunderstood\n\
+         - `dependency`: code that assumes something about code elsewhere\n\
+         - `unstable`: provisional code that should be revisited\n\n\
+         DO NOT annotate every function. Only emit markers where there is something \
+         genuinely non-obvious that a future developer needs to know.\n\n",
     );
 
     // Include author context instructions based on whether it's present
@@ -50,16 +48,18 @@ pub fn build_system_prompt(context: &AnnotationContext) -> String {
         }
         prompt.push('\n');
         prompt.push_str(
-            "Use the author's reasoning and constraints as the primary basis for annotation. \
-             Add inferred information only to supplement what the author provided.\n\n",
+            "Use the author's reasoning as the primary basis for the narrative. \
+             The author's notes about alternatives and constraints are high-value — \
+             include them as rejected_alternatives and decisions.\n\n",
         );
     } else {
         prompt.push_str(
             "## Context Level: Inferred\n\n\
-             No author context was provided. Be conservative in your annotations:\n\
-             - Focus on what is clearly evident from the code\n\
-             - Mark constraints as `inferred` rather than `author`\n\
-             - Avoid speculating about intent when it is not clear from the diff\n\n",
+             No author context was provided. Be conservative:\n\
+             - Focus on what is clearly evident from the code and commit message\n\
+             - Mark contracts as `inferred` rather than `author`\n\
+             - Avoid speculating about motivation when it is not clear\n\
+             - Still identify genuine hazards and dependencies\n\n",
         );
     }
 
@@ -73,11 +73,12 @@ pub fn build_system_prompt(context: &AnnotationContext) -> String {
          1. Use `get_diff` to examine the full diff\n\
          2. Use `get_file_content` and `get_ast_outline` to understand the changed files\n\
          3. Use `get_commit_info` if you need additional commit metadata\n\
-         4. Emit one `emit_annotation` call per changed semantic unit (function, struct, impl block, etc.)\n\
-         5. If changes span multiple files with a common theme, also emit `emit_cross_cutting`\n\
-         6. Be precise with line ranges and AST anchors\n\
-         7. Write clear, concise intent descriptions\n\
-         8. After emitting all annotations, provide a brief summary of the overall change\n"
+         4. Call `emit_narrative` ONCE with the commit-level story (required)\n\
+         5. Call `emit_decision` for each architectural/design decision (if any)\n\
+         6. Call `emit_marker` ONLY for genuinely non-obvious code (contracts, hazards, dependencies)\n\
+         7. After emitting, provide a brief summary\n\n\
+         Most commits need only `emit_narrative`. A typical commit produces 1-3 tool calls total, \
+         not one per function.\n",
     );
 
     prompt

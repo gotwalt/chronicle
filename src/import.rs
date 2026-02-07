@@ -4,6 +4,7 @@ use crate::error::chronicle_error::GitSnafu;
 use crate::error::Result;
 use crate::export::ExportEntry;
 use crate::git::GitOps;
+use crate::schema;
 use snafu::ResultExt;
 
 /// Summary of an import operation.
@@ -18,9 +19,10 @@ pub struct ImportSummary {
 /// Import annotations from a JSONL reader.
 ///
 /// Each line is an `ExportEntry` JSON object. For each entry:
-/// 1. Check if the commit SHA exists locally.
-/// 2. If the commit has no existing note (or `force` is set), write the annotation.
-/// 3. Otherwise skip.
+/// 1. Validate the annotation can be parsed (v1 or v2).
+/// 2. Check if the commit SHA exists locally.
+/// 3. If the commit has no existing note (or `force` is set), write the annotation.
+/// 4. Otherwise skip.
 pub fn import_annotations<R: BufRead>(
     git_ops: &dyn GitOps,
     reader: R,
@@ -53,8 +55,9 @@ pub fn import_annotations<R: BufRead>(
             }
         };
 
-        // Validate annotation
-        if entry.annotation.validate().is_err() {
+        // Validate annotation by trying to parse it (handles both v1 and v2)
+        let annotation_json = serde_json::to_string(&entry.annotation).unwrap_or_default();
+        if schema::parse_annotation(&annotation_json).is_err() {
             summary.skipped_invalid += 1;
             continue;
         }
@@ -77,14 +80,9 @@ pub fn import_annotations<R: BufRead>(
         }
 
         if !dry_run {
-            let content = serde_json::to_string(&entry.annotation).map_err(|e| {
-                crate::error::ChronicleError::Json {
-                    source: e,
-                    location: snafu::Location::default(),
-                }
-            })?;
+            // Write the raw annotation JSON (preserving original format)
             git_ops
-                .note_write(&entry.commit_sha, &content)
+                .note_write(&entry.commit_sha, &annotation_json)
                 .context(GitSnafu)?;
         }
 

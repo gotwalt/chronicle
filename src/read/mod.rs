@@ -1,3 +1,5 @@
+pub mod contracts;
+pub mod decisions;
 pub mod deps;
 pub mod history;
 pub mod retrieve;
@@ -5,7 +7,8 @@ pub mod summary;
 
 use crate::error::{ChronicleError, Result};
 use crate::git::GitOps;
-use crate::schema::annotation::{LineRange, RegionAnnotation};
+use crate::schema::common::LineRange;
+use crate::schema::v1::RegionAnnotation;
 
 /// Query parameters for reading annotations.
 #[derive(Debug, Clone)]

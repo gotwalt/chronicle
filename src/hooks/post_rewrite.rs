@@ -2,7 +2,8 @@ use crate::annotate::squash::{migrate_amend_annotation, AmendMigrationContext};
 use crate::error::chronicle_error::{GitSnafu, JsonSnafu};
 use crate::error::Result;
 use crate::git::GitOps;
-use crate::schema::Annotation;
+use crate::schema::v1;
+type Annotation = v1::Annotation;
 use snafu::ResultExt;
 
 /// A mapping from old SHA to new SHA, as provided by git's post-rewrite hook.

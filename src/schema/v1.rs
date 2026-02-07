@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 
+use super::common::{AstAnchor, LineRange};
 use super::correction::Correction;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -103,20 +104,6 @@ pub struct RegionAnnotation {
     pub risk_notes: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub corrections: Vec<Correction>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AstAnchor {
-    pub unit_type: String,
-    pub name: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub signature: Option<String>,
-}
-
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-pub struct LineRange {
-    pub start: u32,
-    pub end: u32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

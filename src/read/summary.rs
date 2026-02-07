@@ -1,6 +1,7 @@
 use crate::error::GitError;
 use crate::git::GitOps;
-use crate::schema::annotation::{Annotation, LineRange};
+use crate::schema::common::LineRange;
+use crate::schema::{self, v2};
 
 /// Query parameters for a condensed summary.
 #[derive(Debug, Clone)]
@@ -55,19 +56,30 @@ pub struct QueryEcho {
     pub anchor: Option<String>,
 }
 
+/// Accumulated state for a single anchor across markers.
+struct AnchorAccumulator {
+    anchor: SummaryAnchor,
+    lines: LineRange,
+    intent: String,
+    constraints: Vec<String>,
+    risk_notes: Option<String>,
+    timestamp: String,
+}
+
 /// Build a condensed summary for a file (or file+anchor).
 ///
-/// 1. Get commits that touched the file via `log_for_file`
-/// 2. For each commit, fetch annotation and filter to matching regions
-/// 3. For each unique anchor, keep the most recent annotation
-/// 4. Extract only intent, constraints, risk_notes
+/// Handles both v1 (migrated) and native v2 annotations:
+/// - Markers with anchors produce per-anchor units (contracts, hazards, deps)
+/// - Annotations touching the file contribute their narrative as file-level context
+/// - For each unique anchor, the most recent commit wins
 pub fn build_summary(git: &dyn GitOps, query: &SummaryQuery) -> Result<SummaryOutput, GitError> {
     let shas = git.log_for_file(&query.file)?;
     let commits_examined = shas.len() as u32;
 
-    // Collect all matching regions with their timestamps.
-    // Key: anchor name, Value: (timestamp, SummaryUnit)
-    let mut best: std::collections::HashMap<String, (String, SummaryUnit)> =
+    // Key: anchor name -> AnchorAccumulator
+    // Within a single commit, markers for the same anchor are merged.
+    // Across commits, the first (newest) commit for each anchor wins.
+    let mut best: std::collections::HashMap<String, AnchorAccumulator> =
         std::collections::HashMap::new();
 
     for sha in &shas {
@@ -76,46 +88,119 @@ pub fn build_summary(git: &dyn GitOps, query: &SummaryQuery) -> Result<SummaryOu
             None => continue,
         };
 
-        let annotation: Annotation = match serde_json::from_str(&note) {
+        let annotation: v2::Annotation = match schema::parse_annotation(&note) {
             Ok(a) => a,
             Err(_) => continue,
         };
 
-        for region in &annotation.regions {
-            if !file_matches(&region.file, &query.file) {
+        // Collect markers from this commit, grouped by anchor name
+        let mut commit_anchors: std::collections::HashMap<String, AnchorAccumulator> =
+            std::collections::HashMap::new();
+
+        for marker in &annotation.markers {
+            if !file_matches(&marker.file, &query.file) {
                 continue;
             }
-            if let Some(ref anchor_name) = query.anchor {
-                if !anchor_matches(&region.ast_anchor.name, anchor_name) {
+
+            let anchor_name = marker
+                .anchor
+                .as_ref()
+                .map(|a| a.name.as_str())
+                .unwrap_or("");
+
+            if let Some(ref query_anchor) = query.anchor {
+                if !anchor_matches(anchor_name, query_anchor) {
                     continue;
                 }
             }
 
-            let key = region.ast_anchor.name.clone();
-            let constraints: Vec<String> =
-                region.constraints.iter().map(|c| c.text.clone()).collect();
+            let key = anchor_name.to_string();
 
-            let unit = SummaryUnit {
-                anchor: SummaryAnchor {
-                    unit_type: region.ast_anchor.unit_type.clone(),
-                    name: region.ast_anchor.name.clone(),
-                    signature: region.ast_anchor.signature.clone(),
-                },
-                lines: region.lines,
-                intent: region.intent.clone(),
-                constraints,
-                risk_notes: region.risk_notes.clone(),
-                last_modified: annotation.timestamp.clone(),
+            // Skip if we already have a newer entry for this anchor
+            if best.contains_key(&key) {
+                continue;
+            }
+
+            let (anchor_info, lines) = match &marker.anchor {
+                Some(anchor) => (
+                    SummaryAnchor {
+                        unit_type: anchor.unit_type.clone(),
+                        name: anchor.name.clone(),
+                        signature: anchor.signature.clone(),
+                    },
+                    marker.lines.unwrap_or(LineRange { start: 0, end: 0 }),
+                ),
+                None => (
+                    SummaryAnchor {
+                        unit_type: "file".to_string(),
+                        name: marker.file.clone(),
+                        signature: None,
+                    },
+                    marker.lines.unwrap_or(LineRange { start: 0, end: 0 }),
+                ),
             };
 
-            // Keep the entry with the most recent (lexicographically largest) timestamp.
-            // Since git log returns newest first, the first match per anchor wins.
-            best.entry(key)
-                .or_insert((annotation.timestamp.clone(), unit));
+            // Merge markers within the same commit for the same anchor
+            let acc = commit_anchors.entry(key).or_insert_with(|| {
+                AnchorAccumulator {
+                    anchor: anchor_info,
+                    lines,
+                    intent: annotation.narrative.summary.clone(),
+                    constraints: vec![],
+                    risk_notes: None,
+                    timestamp: annotation.timestamp.clone(),
+                }
+            });
+
+            match &marker.kind {
+                v2::MarkerKind::Contract { description, .. } => {
+                    if !acc.constraints.contains(description) {
+                        acc.constraints.push(description.clone());
+                    }
+                }
+                v2::MarkerKind::Hazard { description } => {
+                    acc.risk_notes = Some(description.clone());
+                }
+                v2::MarkerKind::Dependency {
+                    assumption,
+                    target_file,
+                    target_anchor,
+                    ..
+                } => {
+                    let dep_note =
+                        format!("depends on {target_file}:{target_anchor}: {assumption}");
+                    acc.risk_notes = Some(match acc.risk_notes.take() {
+                        Some(existing) => format!("{existing}; {dep_note}"),
+                        None => dep_note,
+                    });
+                }
+                v2::MarkerKind::Unstable { description, .. } => {
+                    let unstable_note = format!("UNSTABLE: {description}");
+                    acc.risk_notes = Some(match acc.risk_notes.take() {
+                        Some(existing) => format!("{existing}; {unstable_note}"),
+                        None => unstable_note,
+                    });
+                }
+            }
+        }
+
+        // Only insert anchors from this commit that we haven't seen yet
+        for (key, acc) in commit_anchors {
+            best.entry(key).or_insert(acc);
         }
     }
 
-    let mut units: Vec<SummaryUnit> = best.into_values().map(|(_, unit)| unit).collect();
+    let mut units: Vec<SummaryUnit> = best
+        .into_values()
+        .map(|acc| SummaryUnit {
+            anchor: acc.anchor,
+            lines: acc.lines,
+            intent: acc.intent,
+            constraints: acc.constraints,
+            risk_notes: acc.risk_notes,
+            last_modified: acc.timestamp,
+        })
+        .collect();
     // Sort by line start for deterministic output
     units.sort_by_key(|u| u.lines.start);
 
@@ -154,7 +239,12 @@ fn anchor_matches(region_anchor: &str, query_anchor: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::schema::annotation::*;
+    use crate::schema::common::{AstAnchor, LineRange};
+    use crate::schema::v1::{
+        self, Constraint, ConstraintSource, ContextLevel, Provenance, ProvenanceOperation,
+        RegionAnnotation,
+    };
+    type Annotation = v1::Annotation;
 
     struct MockGitOps {
         file_log: Vec<String>,
@@ -236,7 +326,7 @@ mod tests {
         anchor: &str,
         unit_type: &str,
         lines: LineRange,
-        intent: &str,
+        _intent: &str,
         constraints: Vec<Constraint>,
         risk_notes: Option<&str>,
     ) -> RegionAnnotation {
@@ -248,7 +338,7 @@ mod tests {
                 signature: None,
             },
             lines,
-            intent: intent.to_string(),
+            intent: "test intent".to_string(),
             reasoning: Some("detailed reasoning".to_string()),
             constraints,
             semantic_dependencies: vec![],
@@ -260,33 +350,24 @@ mod tests {
     }
 
     #[test]
-    fn test_summary_single_file() {
+    fn test_summary_with_constraints_and_risk() {
+        // v1 regions with constraints and risk_notes migrate to markers,
+        // which produce summary units.
         let ann = make_annotation(
             "commit1",
             "2025-01-01T00:00:00Z",
-            vec![
-                make_region(
-                    "src/main.rs",
-                    "main",
-                    "fn",
-                    LineRange { start: 1, end: 10 },
-                    "entry point",
-                    vec![Constraint {
-                        text: "must not panic".to_string(),
-                        source: ConstraintSource::Author,
-                    }],
-                    Some("error handling is fragile"),
-                ),
-                make_region(
-                    "src/main.rs",
-                    "helper",
-                    "fn",
-                    LineRange { start: 12, end: 20 },
-                    "helper fn",
-                    vec![],
-                    None,
-                ),
-            ],
+            vec![make_region(
+                "src/main.rs",
+                "main",
+                "fn",
+                LineRange { start: 1, end: 10 },
+                "entry point",
+                vec![Constraint {
+                    text: "must not panic".to_string(),
+                    source: ConstraintSource::Author,
+                }],
+                Some("error handling is fragile"),
+            )],
         );
 
         let mut notes = std::collections::HashMap::new();
@@ -303,25 +384,19 @@ mod tests {
         };
 
         let result = build_summary(&git, &query).unwrap();
-        assert_eq!(result.units.len(), 2);
-
-        // Sorted by line start
+        // The "main" anchor should have both contract and hazard markers aggregated
+        assert_eq!(result.units.len(), 1);
         assert_eq!(result.units[0].anchor.name, "main");
-        assert_eq!(result.units[0].intent, "entry point");
         assert_eq!(result.units[0].constraints, vec!["must not panic"]);
         assert_eq!(
             result.units[0].risk_notes,
             Some("error handling is fragile".to_string())
         );
-
-        assert_eq!(result.units[1].anchor.name, "helper");
-        assert_eq!(result.units[1].intent, "helper fn");
-        assert!(result.units[1].constraints.is_empty());
-        assert!(result.units[1].risk_notes.is_none());
     }
 
     #[test]
-    fn test_summary_keeps_most_recent() {
+    fn test_summary_keeps_most_recent_marker() {
+        // Two commits with same anchor constraint. Newest first in git log.
         let ann1 = make_annotation(
             "commit1",
             "2025-01-01T00:00:00Z",
@@ -330,8 +405,11 @@ mod tests {
                 "main",
                 "fn",
                 LineRange { start: 1, end: 10 },
-                "old intent",
-                vec![],
+                "",
+                vec![Constraint {
+                    text: "old constraint".to_string(),
+                    source: ConstraintSource::Author,
+                }],
                 None,
             )],
         );
@@ -343,8 +421,11 @@ mod tests {
                 "main",
                 "fn",
                 LineRange { start: 1, end: 10 },
-                "new intent",
-                vec![],
+                "",
+                vec![Constraint {
+                    text: "new constraint".to_string(),
+                    source: ConstraintSource::Author,
+                }],
                 None,
             )],
         );
@@ -366,7 +447,8 @@ mod tests {
 
         let result = build_summary(&git, &query).unwrap();
         assert_eq!(result.units.len(), 1);
-        assert_eq!(result.units[0].intent, "new intent");
+        assert_eq!(result.units[0].constraints, vec!["new constraint"]);
+        assert_eq!(result.units[0].last_modified, "2025-01-02T00:00:00Z");
     }
 
     #[test]
@@ -381,7 +463,10 @@ mod tests {
                 "fn",
                 LineRange { start: 1, end: 10 },
                 "entry point",
-                vec![],
+                vec![Constraint {
+                    text: "must be fast".to_string(),
+                    source: ConstraintSource::Inferred,
+                }],
                 None,
             )],
         );
@@ -434,8 +519,11 @@ mod tests {
                     "main",
                     "fn",
                     LineRange { start: 1, end: 10 },
-                    "entry point",
-                    vec![],
+                    "",
+                    vec![Constraint {
+                        text: "must not panic".to_string(),
+                        source: ConstraintSource::Author,
+                    }],
                     None,
                 ),
                 make_region(
@@ -443,8 +531,11 @@ mod tests {
                     "helper",
                     "fn",
                     LineRange { start: 12, end: 20 },
-                    "helper fn",
-                    vec![],
+                    "",
+                    vec![Constraint {
+                        text: "must be pure".to_string(),
+                        source: ConstraintSource::Inferred,
+                    }],
                     None,
                 ),
             ],
@@ -466,5 +557,120 @@ mod tests {
         let result = build_summary(&git, &query).unwrap();
         assert_eq!(result.units.len(), 1);
         assert_eq!(result.units[0].anchor.name, "main");
+        assert_eq!(result.units[0].constraints, vec!["must not panic"]);
+    }
+
+    #[test]
+    fn test_summary_native_v2_annotation() {
+        // Test with a native v2 annotation (not migrated from v1)
+        let v2_ann = v2::Annotation {
+            schema: "chronicle/v2".to_string(),
+            commit: "commit1".to_string(),
+            timestamp: "2025-01-01T00:00:00Z".to_string(),
+            narrative: v2::Narrative {
+                summary: "Add caching layer".to_string(),
+                motivation: None,
+                rejected_alternatives: vec![],
+                follow_up: None,
+                files_changed: vec!["src/cache.rs".to_string()],
+            },
+            decisions: vec![],
+            markers: vec![
+                v2::CodeMarker {
+                    file: "src/cache.rs".to_string(),
+                    anchor: Some(AstAnchor {
+                        unit_type: "function".to_string(),
+                        name: "Cache::get".to_string(),
+                        signature: None,
+                    }),
+                    lines: Some(LineRange { start: 10, end: 20 }),
+                    kind: v2::MarkerKind::Contract {
+                        description: "Must return None for expired entries".to_string(),
+                        source: v2::ContractSource::Author,
+                    },
+                },
+                v2::CodeMarker {
+                    file: "src/cache.rs".to_string(),
+                    anchor: Some(AstAnchor {
+                        unit_type: "function".to_string(),
+                        name: "Cache::get".to_string(),
+                        signature: None,
+                    }),
+                    lines: Some(LineRange { start: 10, end: 20 }),
+                    kind: v2::MarkerKind::Hazard {
+                        description: "Not thread-safe without external locking".to_string(),
+                    },
+                },
+            ],
+            effort: None,
+            provenance: v2::Provenance {
+                source: v2::ProvenanceSource::Live,
+                derived_from: vec![],
+                notes: None,
+            },
+        };
+        let note = serde_json::to_string(&v2_ann).unwrap();
+
+        let mut notes = std::collections::HashMap::new();
+        notes.insert("commit1".to_string(), note);
+
+        let git = MockGitOps {
+            file_log: vec!["commit1".to_string()],
+            notes,
+        };
+
+        let query = SummaryQuery {
+            file: "src/cache.rs".to_string(),
+            anchor: None,
+        };
+
+        let result = build_summary(&git, &query).unwrap();
+        assert_eq!(result.units.len(), 1);
+        assert_eq!(result.units[0].anchor.name, "Cache::get");
+        assert_eq!(result.units[0].intent, "Add caching layer");
+        assert_eq!(
+            result.units[0].constraints,
+            vec!["Must return None for expired entries"]
+        );
+        assert_eq!(
+            result.units[0].risk_notes,
+            Some("Not thread-safe without external locking".to_string())
+        );
+    }
+
+    #[test]
+    fn test_summary_no_markers_no_units() {
+        // v1 regions with no constraints/risk/deps produce no markers,
+        // so they correctly produce no summary units (v2 summary is marker-based)
+        let ann = make_annotation(
+            "commit1",
+            "2025-01-01T00:00:00Z",
+            vec![make_region(
+                "src/main.rs",
+                "main",
+                "fn",
+                LineRange { start: 1, end: 10 },
+                "entry point",
+                vec![],
+                None,
+            )],
+        );
+
+        let mut notes = std::collections::HashMap::new();
+        notes.insert("commit1".to_string(), serde_json::to_string(&ann).unwrap());
+
+        let git = MockGitOps {
+            file_log: vec!["commit1".to_string()],
+            notes,
+        };
+
+        let query = SummaryQuery {
+            file: "src/main.rs".to_string(),
+            anchor: None,
+        };
+
+        let result = build_summary(&git, &query).unwrap();
+        // No constraints/risk/deps = no markers = no units (this is expected in v2)
+        assert!(result.units.is_empty());
     }
 }
