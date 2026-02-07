@@ -134,3 +134,7 @@ pub fn read_message(json: &str) -> Result<Message, MessageError> {
 ## Parallel agent workflow
 
 Use git worktrees to allow simultaneous agent development in non-conflicting areas of code.
+
+## Versioning
+
+Do not increment the version number. It is done as part of a workflow step at github automatically upon release.
