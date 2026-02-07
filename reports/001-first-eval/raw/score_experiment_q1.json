@@ -1,0 +1,38 @@
+{
+  "question": "Q1",
+  "group": "experiment",
+  "claims": [
+    {
+      "claim": "Identifies parse_annotation() as the required function",
+      "points": 2.0,
+      "hit": true,
+      "evidence": "Response states 'All annotation JSON deserialization in the git-chronicle codebase must use the single function: schema::parse_annotation(json: &str) -> Result<v2::Annotation, ParseAnnotationError>'"
+    },
+    {
+      "claim": "States must not use serde_json::from_str directly",
+      "points": 2.0,
+      "hit": true,
+      "evidence": "Response explicitly states 'Never deserialize annotations directly using serde_json::from_str, regardless of whether deserializing to a specific type' with incorrect examples shown"
+    },
+    {
+      "claim": "Explains it detects schema version",
+      "points": 2.0,
+      "hit": true,
+      "evidence": "Response explains 'Detects schema version: Peeks at the schema field in the JSON to determine whether the annotation is chronicle/v1 or chronicle/v2'"
+    },
+    {
+      "claim": "Explains it migrates v1 to v2",
+      "points": 2.0,
+      "hit": true,
+      "evidence": "Response states 'Handles migration: Automatically converts chronicle/v1 annotations to the canonical chronicle/v2 format via the migrate::v1_to_v2() function'"
+    },
+    {
+      "claim": "Explains why bypassing is dangerous",
+      "points": 2.0,
+      "hit": true,
+      "evidence": "Response provides comprehensive explanation in 'Without using this function, code risks:' section, listing 4 specific dangers including deserializing v1 annotations that would fail when typed as v2, bypassing version detection, creating inconsistent state, and breaking with schema migrations"
+    }
+  ],
+  "total_possible": 10.0,
+  "total_scored": 10.0
+}

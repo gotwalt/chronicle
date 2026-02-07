@@ -1,0 +1,50 @@
+{
+  "question": "Q4",
+  "group": "experiment",
+  "claims": [
+    {
+      "claim": "Names approach 1: enrich/extend v1 schema",
+      "points": 1.0,
+      "hit": true,
+      "evidence": "\"Enrich v1 with optional commit-level fields\" - Section 3 names this as \"Enrich v1 with optional commit-level fields\""
+    },
+    {
+      "claim": "Explains why enriching v1 was rejected",
+      "points": 1.5,
+      "hit": true,
+      "evidence": "\"Per-region structure still dominates and creates noise. Would be a half-measure that keeps the wrong primary unit.\" and \"Adding commit-level fields on top of per-region annotations would have created a half-measure with conflicting primary units. The v2 design inverted this: the commit becomes the primary unit of annotation\""
+    },
+    {
+      "claim": "Names approach 2: bulk-migrate v1 notes to v2",
+      "points": 1.0,
+      "hit": true,
+      "evidence": "\"Bulk-migrate existing v1 notes to v2 on disk\" - Section 2 names this as a distinct approach"
+    },
+    {
+      "claim": "Explains why bulk migration was rejected",
+      "points": 1.5,
+      "hit": true,
+      "evidence": "\"Risky rewrite of git notes history. Lazy migration on read is safer and requires no bulk operation.\" and \"any bug in the migration script would corrupt the git notes history, and there's no way to atomically update all notes across all branches and worktrees.\""
+    },
+    {
+      "claim": "Names approach 3: MCP server approach",
+      "points": 1.0,
+      "hit": true,
+      "evidence": "\"Use MCP server as the integration surface\" - Section 1 names this as the MCP server approach"
+    },
+    {
+      "claim": "Explains why MCP server was rejected",
+      "points": 1.5,
+      "hit": true,
+      "evidence": "\"MCP server was never fully built. Skills + CLI provide better workflow with self-documenting schema via `git chronicle schema`.\" and \"The MCP server was never built beyond the initial `src/mcp/annotate_handler.rs` stub. Instead, the team found that a combination of skills and a self-documenting CLI were more practical\""
+    },
+    {
+      "claim": "Completeness bonus: all three alternatives present",
+      "points": 2.5,
+      "hit": true,
+      "evidence": "All three alternatives are clearly named and explained: (1) Enrich v1 with optional commit-level fields, (2) Bulk-migrate existing v1 notes to v2 on disk, (3) Use MCP server as the integration surface"
+    }
+  ],
+  "total_possible": 10.0,
+  "total_scored": 10.0
+}

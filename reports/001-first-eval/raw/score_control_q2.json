@@ -1,0 +1,38 @@
+{
+  "question": "Q2",
+  "group": "control",
+  "claims": [
+    {
+      "claim": "Names the strategy as lazy migration on read",
+      "points": 2.0,
+      "hit": true,
+      "evidence": "The codebase uses a **lazy migration strategy** for handling old v1 notes. Rather than performing a bulk rewrite of existing git notes when the v2 schema was introduced, all v1 annotations remain as-is in git, and the system transparently migrates them to v2 format only when they are read."
+    },
+    {
+      "claim": "States v1 notes are never rewritten in git notes store",
+      "points": 2.0,
+      "hit": true,
+      "evidence": "No bulk rewrite needed. Old v1 notes stay as v1 in git."
+    },
+    {
+      "claim": "Describes on-the-fly migration via parse_annotation()",
+      "points": 2.0,
+      "hit": true,
+      "evidence": "The function `parse_annotation(json: &str) -> Result<v2::Annotation, ParseAnnotationError>` in `/Users/aaron/src/git-chronicle/src/schema/mod.rs` is the sole entry point for deserializing annotations from JSON... For `\"chronicle/v1\"`: deserializes to `v1::Annotation`, then calls `migrate::v1_to_v2()` to convert it... Always returns the canonical type (`v2::Annotation`)"
+    },
+    {
+      "claim": "Explains why bulk migration was rejected (risky/destructive)",
+      "points": 2.0,
+      "hit": true,
+      "evidence": "Non-disruptive: Existing git notes don't need to be rewritten, avoiding large history-altering operations"
+    },
+    {
+      "claim": "Identifies parse_annotation() as implementing this",
+      "points": 2.0,
+      "hit": true,
+      "evidence": "The function `parse_annotation(json: &str) -> Result<v2::Annotation, ParseAnnotationError>` in `/Users/aaron/src/git-chronicle/src/schema/mod.rs` is the sole entry point for deserializing annotations from JSON... serves multiple critical functions... Version Detection and Routing... Transparent Migration... Canonical Type Contract"
+    }
+  ],
+  "total_possible": 10.0,
+  "total_scored": 10.0
+}

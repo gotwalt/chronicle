@@ -1,0 +1,38 @@
+{
+  "question": "Q3",
+  "group": "control",
+  "claims": [
+    {
+      "claim": "Identifies MarkerKind uses #[serde(tag = \"type\")] internally tagged enum",
+      "points": 2.0,
+      "hit": true,
+      "evidence": "The `MarkerKind` enum in `src/schema/v2.rs` (line 148) uses Rust's externally-tagged serde format: [code block showing] #[serde(rename_all = \"snake_case\", tag = \"type\")]"
+    },
+    {
+      "claim": "Explains format mismatch: flat JSON vs tagged enum expectation",
+      "points": 2.0,
+      "hit": true,
+      "evidence": "The `tag = \"type\"` attribute produces JSON like... However, the agent's `emit_marker` tool schema... defines the input as a **flat object with `kind` as a string discriminator** (not `type`)... **This is fundamentally incompatible with serde's `tag = \"type\"` deserialization.**"
+    },
+    {
+      "claim": "Describes manual construction from flat JSON fields",
+      "points": 2.0,
+      "hit": true,
+      "evidence": "The manual construction in `dispatch_emit_marker` (lines 329-447)... manual extraction uses defensive patterns... Field drift via unwrap_or defaults: The manual extraction uses defensive patterns."
+    },
+    {
+      "claim": "Identifies hazard: must stay in sync with MarkerKind variants",
+      "points": 2.0,
+      "hit": true,
+      "evidence": "any future changes to `MarkerKind` enum variants or their fields must be manually reflected in `dispatch_emit_marker`'s match statement... **No exhaustiveness checking on variants**: Adding a new `MarkerKind` variant would not cause a compile error in `dispatch_emit_marker`."
+    },
+    {
+      "claim": "Names 3+ MarkerKind variants (e.g., Contract, Decision, Dependency, Complexity, Hazard)",
+      "points": 2.0,
+      "hit": true,
+      "evidence": "Response explicitly names: Contract, Hazard, Dependency, Unstable (4 variants total, exceeding 3+ requirement). All variants are actual MarkerKind enum variants from src/schema/v2.rs lines 149-167."
+    }
+  ],
+  "total_possible": 10.0,
+  "total_scored": 10.0
+}

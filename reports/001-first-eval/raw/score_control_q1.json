@@ -1,0 +1,38 @@
+{
+  "question": "Q1",
+  "group": "control",
+  "claims": [
+    {
+      "claim": "Identifies parse_annotation() as the required function",
+      "points": 2.0,
+      "hit": true,
+      "evidence": "Response states 'Function that MUST be used: schema::parse_annotation(json: &str) -> Result<Annotation, ParseAnnotationError>' and provides module location in src/schema/mod.rs"
+    },
+    {
+      "claim": "States must not use serde_json::from_str directly",
+      "points": 2.0,
+      "hit": true,
+      "evidence": "Response clearly states 'FORBIDDEN: Direct deserialization using serde_json::from_str' and quotes the code comment 'All code that reads annotations from git notes should call this instead of using serde_json::from_str directly.'"
+    },
+    {
+      "claim": "Explains it detects schema version",
+      "points": 2.0,
+      "hit": true,
+      "evidence": "Response explains 'Version Detection (lines 25-28): It first \"peeks\" at the JSON to extract the schema field, examining only the version identifier without full deserialization.'"
+    },
+    {
+      "claim": "Explains it migrates v1 to v2",
+      "points": 2.0,
+      "hit": true,
+      "evidence": "Response details 'If schema is \"chronicle/v1\": Deserializes as v1::Annotation, then calls migrate::v1_to_v2() to automatically convert to canonical v2 format'"
+    },
+    {
+      "claim": "Explains why bypassing is dangerous",
+      "points": 2.0,
+      "hit": true,
+      "evidence": "Response explains 'Bypassing this function would break backward compatibility and create inconsistencies where some code sees v1 types and other code sees v2 types.' Also explains the canonical type enforcement and that all internal code must operate on schema::Annotation (v2)."
+    }
+  ],
+  "total_possible": 10.0,
+  "total_scored": 10.0
+}

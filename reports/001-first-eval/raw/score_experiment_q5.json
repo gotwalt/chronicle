@@ -1,0 +1,44 @@
+{
+  "question": "Q5",
+  "group": "experiment",
+  "claims": [
+    {
+      "claim": "Lists module structure: v1.rs, v2.rs, common.rs, migrate.rs",
+      "points": 1.0,
+      "hit": true,
+      "evidence": "src/schema/ structure explicitly lists: v1.rs (Legacy schema), v2.rs (Current canonical schema), common.rs (Shared types), migrate.rs (Migration logic)"
+    },
+    {
+      "claim": "Explains canonical type alias pattern",
+      "points": 1.5,
+      "hit": true,
+      "evidence": "Clearly explains: 'The canonical type pattern is implemented via re-exports and type aliasing in mod.rs' with code example showing 'pub use v2::Annotation; pub use v2::*;' and the three-point explanation of how it works"
+    },
+    {
+      "claim": "Identifies deserialization chokepoint in parse_annotation()",
+      "points": 1.5,
+      "hit": true,
+      "evidence": "Explicitly states 'The parse_annotation() function (lines 23-44) is the single deserialization chokepoint' and emphasizes 'Transparent migration: All code reads/writes v2, migration happens transparently at deserialization boundary'"
+    },
+    {
+      "claim": "For v3: add v3.rs and v2_to_v3() migration",
+      "points": 2.0,
+      "hit": true,
+      "evidence": "Under 'FILES THAT CHANGE' section: '1. Create src/schema/v3.rs - Define the new v3::Annotation struct' and '3. Update src/schema/migrate.rs - Add function pub fn v2_to_v3(ann: v2::Annotation) -> v3::Annotation'"
+    },
+    {
+      "claim": "For v3: update type alias and parse_annotation()",
+      "points": 2.0,
+      "hit": true,
+      "evidence": "Under '2. Update src/schema/mod.rs' section: 'Update canonical re-exports: pub use v3::Annotation; pub use v3::*;' and 'Extend parse_annotation() match statement'"
+    },
+    {
+      "claim": "For v3: v1_to_v2() does NOT change (additive chain)",
+      "points": 2.0,
+      "hit": true,
+      "evidence": "Under 'FILES THAT DO NOT CHANGE' section explicitly states: 'All code outside src/schema/: CLI commands, agent loops, storage layers, export/import all continue working.' And emphasizes the migration chain pattern with example showing v1→v2 transformation flow that remains unchanged"
+    }
+  ],
+  "total_possible": 10.0,
+  "total_scored": 10.0
+}

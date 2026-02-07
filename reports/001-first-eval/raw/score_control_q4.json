@@ -1,0 +1,50 @@
+{
+  "question": "Q4",
+  "group": "control",
+  "claims": [
+    {
+      "claim": "Names approach 1: enrich/extend v1 schema",
+      "points": 1.0,
+      "hit": false,
+      "evidence": "Response does not name or identify a first alternative approach. States 'source code does not explicitly document three specific alternative approaches.'"
+    },
+    {
+      "claim": "Explains why enriching v1 was rejected",
+      "points": 1.5,
+      "hit": false,
+      "evidence": "No explanation provided for rejection of approach 1, as no approach was identified."
+    },
+    {
+      "claim": "Names approach 2: bulk-migrate v1 notes to v2",
+      "points": 1.0,
+      "hit": false,
+      "evidence": "Response does not identify a second alternative approach."
+    },
+    {
+      "claim": "Explains why bulk migration was rejected",
+      "points": 1.5,
+      "hit": false,
+      "evidence": "No explanation provided for rejection of approach 2, as no approach was identified."
+    },
+    {
+      "claim": "Names approach 3: MCP server approach",
+      "points": 1.0,
+      "hit": false,
+      "evidence": "Response does not identify a third alternative approach."
+    },
+    {
+      "claim": "Explains why MCP server was rejected",
+      "points": 1.5,
+      "hit": false,
+      "evidence": "No explanation provided for rejection of approach 3, as no approach was identified."
+    },
+    {
+      "claim": "Completeness bonus: all three alternatives present",
+      "points": 2.5,
+      "hit": false,
+      "evidence": "Response explicitly states design process alternatives were not formally documented in source code. Zero of three required alternatives are identified."
+    }
+  ],
+  "total_possible": 10.0,
+  "total_scored": 0.0
+}

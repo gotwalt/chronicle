@@ -1,0 +1,798 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chronicle A/B Evaluation Report</title>
+<style>
+  :root {
+    --bg: #fafafa;
+    --card: #fff;
+    --border: #e0e0e0;
+    --text: #1a1a1a;
+    --muted: #666;
+    --accent: #2563eb;
+    --green: #16a34a;
+    --red: #dc2626;
+    --green-bg: #f0fdf4;
+    --red-bg: #fef2f2;
+    --yellow-bg: #fefce8;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 2rem 1rem;
+  }
+  h1 { font-size: 1.75rem; margin-bottom: 0.25rem; }
+  h2 { font-size: 1.35rem; margin: 2rem 0 1rem; border-bottom: 2px solid var(--border); padding-bottom: 0.5rem; }
+  h3 { font-size: 1.1rem; margin: 1.25rem 0 0.5rem; }
+  .subtitle { color: var(--muted); font-size: 0.95rem; margin-bottom: 1.5rem; }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.25rem;
+    margin-bottom: 1rem;
+  }
+  .executive {
+    background: #eff6ff;
+    border-color: #bfdbfe;
+  }
+  .headline {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--accent);
+    margin-bottom: 0.5rem;
+  }
+  .score-big {
+    font-size: 2.5rem;
+    font-weight: 800;
+    line-height: 1;
+  }
+  .score-big .label {
+    font-size: 0.85rem;
+    font-weight: 400;
+    color: var(--muted);
+    display: block;
+    margin-top: 0.25rem;
+  }
+  .score-row {
+    display: flex;
+    gap: 2rem;
+    margin: 1rem 0;
+  }
+  .score-col { text-align: center; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1rem 0;
+  }
+  th, td {
+    padding: 0.6rem 0.75rem;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+  }
+  th {
+    background: #f5f5f5;
+    font-weight: 600;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+  td.num { text-align: center; font-variant-numeric: tabular-nums; }
+  tr.winner td { font-weight: 600; }
+  .hit { color: var(--green); font-weight: 600; }
+  .miss { color: var(--red); font-weight: 600; }
+  .delta-pos { color: var(--green); }
+  .delta-zero { color: var(--muted); }
+  details {
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    margin-bottom: 0.75rem;
+  }
+  details > summary {
+    padding: 0.6rem 1rem;
+    cursor: pointer;
+    font-weight: 500;
+    background: #f9f9f9;
+    border-radius: 6px;
+    user-select: none;
+  }
+  details[open] > summary {
+    border-bottom: 1px solid var(--border);
+    border-radius: 6px 6px 0 0;
+  }
+  details .content {
+    padding: 1rem;
+  }
+  .claim-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+    margin: 0.5rem 0;
+  }
+  .claim-card {
+    padding: 0.6rem 0.75rem;
+    border-radius: 6px;
+    font-size: 0.9rem;
+  }
+  .claim-card.hit-bg { background: var(--green-bg); border-left: 3px solid var(--green); }
+  .claim-card.miss-bg { background: var(--red-bg); border-left: 3px solid var(--red); }
+  .claim-card .pts { font-size: 0.8rem; color: var(--muted); }
+  .claim-card .ev { font-size: 0.8rem; color: var(--muted); font-style: italic; margin-top: 0.25rem; }
+  .raw-response {
+    white-space: pre-wrap;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 0.8rem;
+    background: #f5f5f5;
+    padding: 1rem;
+    border-radius: 4px;
+    max-height: 400px;
+    overflow-y: auto;
+  }
+  .tag {
+    display: inline-block;
+    padding: 0.15rem 0.5rem;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+  .tag-control { background: #fee2e2; color: #991b1b; }
+  .tag-experiment { background: #dcfce7; color: #166534; }
+  .confound {
+    background: var(--yellow-bg);
+    border-left: 3px solid #eab308;
+    padding: 0.75rem 1rem;
+    margin: 0.5rem 0;
+    border-radius: 4px;
+    font-size: 0.9rem;
+  }
+  footer {
+    margin-top: 3rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border);
+    color: var(--muted);
+    font-size: 0.8rem;
+    text-align: center;
+  }
+</style>
+</head>
+<body>
+
+<h1>Chronicle A/B Evaluation Report</h1>
+<p class="subtitle">Does Chronicle context help AI agents understand code? &mdash; 2026-02-07</p>
+
+<!-- Executive Summary -->
+<div class="card executive">
+  <div class="headline">Result: Chronicle made the difference on Q4</div>
+  <p>Both groups scored perfectly on Q1&ndash;Q3 and Q5 (questions answerable from source code). On Q4 (rejected alternatives), the control agent scored <strong>0/10</strong> while the experiment agent scored <strong>10/10</strong> &mdash; information only available through Chronicle annotations.</p>
+  <div class="score-row">
+    <div class="score-col">
+      <div class="score-big">40<span style="font-size:1.2rem;color:var(--muted)">/50</span></div>
+      <span class="score-big label">Control</span>
+    </div>
+    <div class="score-col">
+      <div class="score-big" style="color:var(--green)">50<span style="font-size:1.2rem;color:var(--muted)">/50</span></div>
+      <span class="score-big label">Experiment</span>
+    </div>
+    <div class="score-col">
+      <div class="score-big" style="color:var(--accent)">+10</div>
+      <span class="score-big label">Delta</span>
+    </div>
+  </div>
+  <p style="font-size:0.9rem;color:var(--muted)">n=1 per group. These results are directional, not statistically significant.</p>
+</div>
+
+<!-- Results Table -->
+<h2>Results by Question</h2>
+<table>
+  <thead>
+    <tr>
+      <th>Q#</th>
+      <th>Dimension</th>
+      <th style="text-align:center">Control</th>
+      <th style="text-align:center">Experiment</th>
+      <th style="text-align:center">Delta</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Q1</td>
+      <td>Contract Awareness</td>
+      <td class="num">10/10</td>
+      <td class="num">10/10</td>
+      <td class="num delta-zero">0</td>
+    </tr>
+    <tr>
+      <td>Q2</td>
+      <td>Decision Understanding</td>
+      <td class="num">10/10</td>
+      <td class="num">10/10</td>
+      <td class="num delta-zero">0</td>
+    </tr>
+    <tr>
+      <td>Q3</td>
+      <td>Hazard Identification</td>
+      <td class="num">10/10</td>
+      <td class="num">10/10</td>
+      <td class="num delta-zero">0</td>
+    </tr>
+    <tr class="winner" style="background:#f0fdf4">
+      <td>Q4</td>
+      <td>Rejected Alternatives</td>
+      <td class="num" style="color:var(--red)">0/10</td>
+      <td class="num" style="color:var(--green)">10/10</td>
+      <td class="num delta-pos">+10</td>
+    </tr>
+    <tr>
+      <td>Q5</td>
+      <td>Architecture Comprehension</td>
+      <td class="num">10/10</td>
+      <td class="num">10/10</td>
+      <td class="num delta-zero">0</td>
+    </tr>
+    <tr style="font-weight:700;border-top:2px solid var(--text)">
+      <td colspan="2">Total</td>
+      <td class="num">40/50</td>
+      <td class="num">50/50</td>
+      <td class="num delta-pos">+10</td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- Per-Question Breakdown -->
+<h2>Per-Question Claim Breakdown</h2>
+
+<details>
+  <summary>Q1 &mdash; Contract Awareness (Control: 10, Experiment: 10)</summary>
+  <div class="content">
+    <p><strong>Question:</strong> What is the mandatory rule for how annotation JSON is deserialized in this codebase?</p>
+    <div class="claim-grid">
+      <div>
+        <h3><span class="tag tag-control">Control</span></h3>
+        <div class="claim-card hit-bg"><span class="hit">HIT</span> <span class="pts">(2 pts)</span> Identifies parse_annotation() as the required function<div class="ev">"Function that MUST be used: schema::parse_annotation(...)"</div></div>
+        <div class="claim-card hit-bg"><span class="hit">HIT</span> <span class="pts">(2 pts)</span> States must not use serde_json::from_str directly<div class="ev">"FORBIDDEN: Direct deserialization using serde_json::from_str"</div></div>
+        <div class="claim-card hit-bg"><span class="hit">HIT</span> <span class="pts">(2 pts)</span> Explains it detects schema version<div class="ev">"It first 'peeks' at the JSON to extract the schema field"</div></div>
+        <div class="claim-card hit-bg"><span class="hit">HIT</span> <span class="pts">(2 pts)</span> Explains it migrates v1 to v2<div class="ev">"calls migrate::v1_to_v2() to automatically convert to canonical v2 format"</div></div>
+        <div class="claim-card hit-bg"><span class="hit">HIT</span> <span class="pts">(2 pts)</span> Explains why bypassing is dangerous<div class="ev">"Bypassing this function would break backward compatibility..."</div></div>
+      </div>
+      <div>
+        <h3><span class="tag tag-experiment">Experiment</span></h3>
+        <div class="claim-card hit-bg"><span class="hit">HIT</span> <span class="pts">(2 pts)</span> Identifies parse_annotation() as the required function<div class="ev">"All annotation JSON deserialization...must use the single function: schema::parse_annotation(...)"</div></div>
+        <div class="claim-card hit-bg"><span class="hit">HIT</span> <span class="pts">(2 pts)</span> States must not use serde_json::from_str directly<div class="ev">"Never deserialize annotations directly using serde_json::from_str"</div></div>
+        <div class="claim-card hit-bg"><span class="hit">HIT</span> <span class="pts">(2 pts)</span> Explains it detects schema version<div class="ev">"Detects schema version: Peeks at the schema field in the JSON"</div></div>
+        <div class="claim-card hit-bg"><span class="hit">HIT</span> <span class="pts">(2 pts)</span> Explains it migrates v1 to v2<div class="ev">"Automatically converts chronicle/v1 annotations to the canonical chronicle/v2 format"</div></div>
+        <div class="claim-card hit-bg"><span class="hit">HIT</span> <span class="pts">(2 pts)</span> Explains why bypassing is dangerous<div class="ev">"Without using this function, code risks: Deserializing v1 annotations that would fail..."</div></div>
+      </div>
+    </div>
+  </div>
+</details>
+
+<details>
+  <summary>Q2 &mdash; Decision Understanding (Control: 10, Experiment: 10)</summary>
+  <div class="content">
+    <p><strong>Question:</strong> What strategy does the codebase use to handle old v1 notes?</p>
+    <div class="claim-grid">
+      <div>
+        <h3><span class="tag tag-control">Control</span></h3>
+        <div class="claim-card hit-bg"><span class="hit">HIT</span> <span class="pts">(2 pts)</span> Names lazy migration on read<div class="ev">"The codebase uses a lazy migration strategy"</div></div>
+        <div class="claim-card hit-bg"><span class="hit">HIT</span> <span class="pts">(2 pts)</span> v1 notes never rewritten<div class="ev">"Old v1 notes stay as v1 in git"</div></div>
+        <div class="claim-card hit-bg"><span class="hit">HIT</span> <span class="pts">(2 pts)</span> On-the-fly migration via parse_annotation()<div class="ev">"deserializes to v1::Annotation, then calls migrate::v1_to_v2()"</div></div>
+        <div class="claim-card hit-bg"><span class="hit">HIT</span> <span class="pts">(2 pts)</span> Bulk migration rejected as risky<div class="ev">"Non-disruptive: Existing git notes don't need to be rewritten, avoiding large history-altering operations"</div></div>
+        <div class="claim-card hit-bg"><span class="hit">HIT</span> <span class="pts">(2 pts)</span> parse_annotation() implements this<div class="ev">"the sole entry point for deserializing annotations from JSON"</div></div>
+      </div>
+      <div>
+        <h3><span class="tag tag-experiment">Experiment</span></h3>
+        <div class="claim-card hit-bg"><span class="hit">HIT</span> <span class="pts">(2 pts)</span> Names lazy migration on read<div class="ev">"Strategy: Lazy On-Read Migration"</div></div>
+        <div class="claim-card hit-bg"><span class="hit">HIT</span> <span class="pts">(2 pts)</span> v1 notes never rewritten<div class="ev">"No bulk rewrite: Old v1 notes remain stored as v1 in git notes"</div></div>
+        <div class="claim-card hit-bg"><span class="hit">HIT</span> <span class="pts">(2 pts)</span> On-the-fly migration via parse_annotation()<div class="ev">"Migrates v1 to v2 using migrate::v1_to_v2() before returning"</div></div>
+        <div class="claim-card hit-bg"><span class="hit">HIT</span> <span class="pts">(2 pts)</span> Bulk migration rejected as risky<div class="ev">"No Repository Disruption: No need to run a bulk migration step or rewrite git history"</div></div>
+        <div class="claim-card hit-bg"><span class="hit">HIT</span> <span class="pts">(2 pts)</span> parse_annotation() implements this<div class="ev">"the single enforced chokepoint for all annotation deserialization"</div></div>
+      </div>
+    </div>
+  </div>
+</details>
+
+<details>
+  <summary>Q3 &mdash; Hazard Identification (Control: 10, Experiment: 10)</summary>
+  <div class="content">
+    <p><strong>Question:</strong> Why does dispatch_emit_marker manually construct CodeMarker structs?</p>
+    <div class="claim-grid">
+      <div>
+        <h3><span class="tag tag-control">Control</span></h3>
+        <div class="claim-card hit-bg"><span class="hit">HIT</span> <span class="pts">(2 pts)</span> MarkerKind uses #[serde(tag = "type")]<div class="ev">"uses Rust's externally-tagged serde format: #[serde(rename_all = 'snake_case', tag = 'type')]"</div></div>
+        <div class="claim-card hit-bg"><span class="hit">HIT</span> <span class="pts">(2 pts)</span> Format mismatch: flat JSON vs tagged enum<div class="ev">"flat object with kind as a string discriminator (not type)...fundamentally incompatible"</div></div>
+        <div class="claim-card hit-bg"><span class="hit">HIT</span> <span class="pts">(2 pts)</span> Manual construction from flat JSON<div class="ev">"manual construction in dispatch_emit_marker (lines 329-447)"</div></div>
+        <div class="claim-card hit-bg"><span class="hit">HIT</span> <span class="pts">(2 pts)</span> Must stay in sync with MarkerKind variants<div class="ev">"any future changes to MarkerKind enum variants...must be manually reflected"</div></div>
+        <div class="claim-card hit-bg"><span class="hit">HIT</span> <span class="pts">(2 pts)</span> Names 3+ variants<div class="ev">Contract, Hazard, Dependency, Unstable (4 variants)</div></div>
+      </div>
+      <div>
+        <h3><span class="tag tag-experiment">Experiment</span></h3>
+        <div class="claim-card hit-bg"><span class="hit">HIT</span> <span class="pts">(2 pts)</span> MarkerKind uses #[serde(tag = "type")]<div class="ev">"uses serde's internally tagged discriminator: #[serde(rename_all = 'snake_case', tag = 'type')]"</div></div>
+        <div class="claim-card hit-bg"><span class="hit">HIT</span> <span class="pts">(2 pts)</span> Format mismatch: flat JSON vs tagged enum<div class="ev">"agent emits a flat JSON object with kind as a string discriminator (not type)...cannot be directly deserialized"</div></div>
+        <div class="claim-card hit-bg"><span class="hit">HIT</span> <span class="pts">(2 pts)</span> Manual construction from flat JSON<div class="ev">"dispatch_emit_marker manually parses the JSON"</div></div>
+        <div class="claim-card hit-bg"><span class="hit">HIT</span> <span class="pts">(2 pts)</span> Must stay in sync with MarkerKind variants<div class="ev">"Schema Drift: If MarkerKind enum variants change, the manual construction logic must be manually updated"</div></div>
+        <div class="claim-card hit-bg"><span class="hit">HIT</span> <span class="pts">(2 pts)</span> Names 3+ variants<div class="ev">Contract, Hazard, Dependency, Unstable (4 variants)</div></div>
+      </div>
+    </div>
+  </div>
+</details>
+
+<details open>
+  <summary>Q4 &mdash; Rejected Alternatives (Control: 0, Experiment: 10) &mdash; KEY DIFFERENTIATOR</summary>
+  <div class="content">
+    <p><strong>Question:</strong> Three alternative approaches were considered and rejected when designing the v2 annotation schema. List all three and explain why each was rejected.</p>
+    <p style="margin:0.5rem 0;font-size:0.9rem;background:#fef3c7;padding:0.5rem 0.75rem;border-radius:4px;">This question targets knowledge that exists <strong>only in Chronicle annotations</strong> and the features/ design doc &mdash; not in source code structure, comments, or git commit messages.</p>
+    <div class="claim-grid">
+      <div>
+        <h3><span class="tag tag-control">Control</span></h3>
+        <div class="claim-card miss-bg"><span class="miss">MISS</span> <span class="pts">(1.0 pts)</span> Names approach: enrich/extend v1<div class="ev">"source code does not explicitly document three specific alternative approaches"</div></div>
+        <div class="claim-card miss-bg"><span class="miss">MISS</span> <span class="pts">(1.5 pts)</span> Explains why enriching v1 rejected<div class="ev">No explanation provided</div></div>
+        <div class="claim-card miss-bg"><span class="miss">MISS</span> <span class="pts">(1.0 pts)</span> Names approach: bulk-migrate v1 to v2<div class="ev">Not identified</div></div>
+        <div class="claim-card miss-bg"><span class="miss">MISS</span> <span class="pts">(1.5 pts)</span> Explains why bulk migration rejected<div class="ev">No explanation provided</div></div>
+        <div class="claim-card miss-bg"><span class="miss">MISS</span> <span class="pts">(1.0 pts)</span> Names approach: MCP server<div class="ev">Not identified</div></div>
+        <div class="claim-card miss-bg"><span class="miss">MISS</span> <span class="pts">(1.5 pts)</span> Explains why MCP server rejected<div class="ev">No explanation provided</div></div>
+        <div class="claim-card miss-bg"><span class="miss">MISS</span> <span class="pts">(2.5 pts)</span> Completeness bonus<div class="ev">"design process alternatives were not formally documented in source code"</div></div>
+      </div>
+      <div>
+        <h3><span class="tag tag-experiment">Experiment</span></h3>
+        <div class="claim-card hit-bg"><span class="hit">HIT</span> <span class="pts">(1.0 pts)</span> Names approach: enrich/extend v1<div class="ev">"Enrich v1 with optional commit-level fields"</div></div>
+        <div class="claim-card hit-bg"><span class="hit">HIT</span> <span class="pts">(1.5 pts)</span> Explains why enriching v1 rejected<div class="ev">"Per-region structure still dominates and creates noise. Would be a half-measure"</div></div>
+        <div class="claim-card hit-bg"><span class="hit">HIT</span> <span class="pts">(1.0 pts)</span> Names approach: bulk-migrate v1 to v2<div class="ev">"Bulk-migrate existing v1 notes to v2 on disk"</div></div>
+        <div class="claim-card hit-bg"><span class="hit">HIT</span> <span class="pts">(1.5 pts)</span> Explains why bulk migration rejected<div class="ev">"Risky rewrite of git notes history"</div></div>
+        <div class="claim-card hit-bg"><span class="hit">HIT</span> <span class="pts">(1.0 pts)</span> Names approach: MCP server<div class="ev">"Use MCP server as the integration surface"</div></div>
+        <div class="claim-card hit-bg"><span class="hit">HIT</span> <span class="pts">(1.5 pts)</span> Explains why MCP server rejected<div class="ev">"MCP server was never fully built. Skills + CLI provide better workflow"</div></div>
+        <div class="claim-card hit-bg"><span class="hit">HIT</span> <span class="pts">(2.5 pts)</span> Completeness bonus<div class="ev">All three alternatives present with detailed context</div></div>
+      </div>
+    </div>
+  </div>
+</details>
+
+<details>
+  <summary>Q5 &mdash; Architecture Comprehension (Control: 10, Experiment: 10)</summary>
+  <div class="content">
+    <p><strong>Question:</strong> Explain the versioning architecture and how a future v3 schema would be added.</p>
+    <div class="claim-grid">
+      <div>
+        <h3><span class="tag tag-control">Control</span></h3>
+        <div class="claim-card hit-bg"><span class="hit">HIT</span> <span class="pts">(1.0 pts)</span> Lists module structure<div class="ev">"v1.rs, v2.rs, common.rs, correction.rs, migrate.rs"</div></div>
+        <div class="claim-card hit-bg"><span class="hit">HIT</span> <span class="pts">(1.5 pts)</span> Canonical type alias pattern<div class="ev">"pub use v2::Annotation; ... Type alias pattern: All internal code uses schema::Annotation"</div></div>
+        <div class="claim-card hit-bg"><span class="hit">HIT</span> <span class="pts">(1.5 pts)</span> Deserialization chokepoint<div class="ev">"Single deserialization chokepoint via parse_annotation()"</div></div>
+        <div class="claim-card hit-bg"><span class="hit">HIT</span> <span class="pts">(2.0 pts)</span> v3: add v3.rs and v2_to_v3()<div class="ev">"Create /src/schema/v3.rs...Add v2_to_v3() function"</div></div>
+        <div class="claim-card hit-bg"><span class="hit">HIT</span> <span class="pts">(2.0 pts)</span> v3: update type alias and parse_annotation()<div class="ev">"Move canonical re-export from v2 to v3...Update parse_annotation() to handle v3"</div></div>
+        <div class="claim-card hit-bg"><span class="hit">HIT</span> <span class="pts">(2.0 pts)</span> v3: v1_to_v2() does NOT change<div class="ev">"v1.rs - Remains unchanged (frozen schema)... v1 JSON -> v1_to_v2 -> v2_to_v3"</div></div>
+      </div>
+      <div>
+        <h3><span class="tag tag-experiment">Experiment</span></h3>
+        <div class="claim-card hit-bg"><span class="hit">HIT</span> <span class="pts">(1.0 pts)</span> Lists module structure<div class="ev">"mod.rs, common.rs, correction.rs, v1.rs, v2.rs, migrate.rs"</div></div>
+        <div class="claim-card hit-bg"><span class="hit">HIT</span> <span class="pts">(1.5 pts)</span> Canonical type alias pattern<div class="ev">"pub use v2::Annotation; pub use v2::*;"</div></div>
+        <div class="claim-card hit-bg"><span class="hit">HIT</span> <span class="pts">(1.5 pts)</span> Deserialization chokepoint<div class="ev">"parse_annotation()...is the single deserialization chokepoint"</div></div>
+        <div class="claim-card hit-bg"><span class="hit">HIT</span> <span class="pts">(2.0 pts)</span> v3: add v3.rs and v2_to_v3()<div class="ev">"Create src/schema/v3.rs...Add function pub fn v2_to_v3()"</div></div>
+        <div class="claim-card hit-bg"><span class="hit">HIT</span> <span class="pts">(2.0 pts)</span> v3: update type alias and parse_annotation()<div class="ev">"Update canonical re-exports...Extend parse_annotation() match statement"</div></div>
+        <div class="claim-card hit-bg"><span class="hit">HIT</span> <span class="pts">(2.0 pts)</span> v3: v1_to_v2() does NOT change<div class="ev">"All code outside src/schema/: CLI commands, agent loops, storage layers...continue working"</div></div>
+      </div>
+    </div>
+  </div>
+</details>
+
+<!-- Methodology -->
+<h2>Methodology</h2>
+<div class="card">
+  <h3>Setup</h3>
+  <ul style="margin:0.5rem 0 0.5rem 1.5rem">
+    <li><strong>Model:</strong> Claude Haiku (claude-haiku-4-5-20251001)</li>
+    <li><strong>Max turns per agent:</strong> 8 (investigator), 2 (scorer)</li>
+    <li><strong>Questions:</strong> 5, each with a 5-claim rubric worth 10 points</li>
+    <li><strong>Groups:</strong> Control (source code + git only) vs Experiment (+ Chronicle CLI tools)</li>
+    <li><strong>Sample size:</strong> n=1 per group per question</li>
+  </ul>
+
+  <h3>Control Group</h3>
+  <p>Agents received the question, file path hints (e.g., "look at <code>src/schema/mod.rs</code>"), and instructions to answer using only source code and git history. <code>CLAUDE.md</code> was temporarily renamed to prevent leaking answers.</p>
+
+  <h3>Experiment Group</h3>
+  <p>Agents received the same question and file hints, plus access to Chronicle CLI tools (<code>git chronicle contracts</code>, <code>decisions</code>, <code>read</code>, <code>summary</code>, <code>deps</code>) with specific tool invocation hints. <code>CLAUDE.md</code> was restored.</p>
+
+  <h3>Scoring</h3>
+  <p>Each response was evaluated by a separate Haiku scorer agent against the rubric. Scorers received only the question, rubric, and response &mdash; no access to the codebase.</p>
+</div>
+
+<!-- Confounds -->
+<h2>Confounds &amp; Limitations</h2>
+<div class="confound">
+  <strong>CLAUDE.md leakage (mitigated):</strong> CLAUDE.md contains direct answers to Q1, Q2, and Q5. It was renamed during control runs and restored for experiment runs. However, the experiment group benefits from both Chronicle annotations AND CLAUDE.md.
+</div>
+<div class="confound">
+  <strong>features/ documents:</strong> <code>features/20-schema-v2.md</code> contains Q4 answers (rejected alternatives). A control agent could find this file through exploration. In practice, the control agent did not find it within 8 turns.
+</div>
+<div class="confound">
+  <strong>Sample size (n=1):</strong> Each question was answered once per group. Results are directional but not statistically significant. Variance in agent behavior could account for differences.
+</div>
+<div class="confound">
+  <strong>Ceiling effect:</strong> 8 of 10 scores are perfect 10/10, suggesting the questions (except Q4) may be too easy for agents with file-path hints and access to well-commented source code.
+</div>
+<div class="confound">
+  <strong>Scorer bias:</strong> Haiku scorers may be lenient. The same model was used for both groups, so any bias should be symmetric.
+</div>
+
+<!-- Raw Responses -->
+<h2>Raw Responses</h2>
+
+<details>
+  <summary>Control Q1 &mdash; Contract Awareness</summary>
+  <div class="content"><pre class="raw-response" id="raw-control-q1"></pre></div>
+</details>
+<details>
+  <summary>Control Q2 &mdash; Decision Understanding</summary>
+  <div class="content"><pre class="raw-response" id="raw-control-q2"></pre></div>
+</details>
+<details>
+  <summary>Control Q3 &mdash; Hazard Identification</summary>
+  <div class="content"><pre class="raw-response" id="raw-control-q3"></pre></div>
+</details>
+<details>
+  <summary>Control Q4 &mdash; Rejected Alternatives</summary>
+  <div class="content"><pre class="raw-response" id="raw-control-q4"></pre></div>
+</details>
+<details>
+  <summary>Control Q5 &mdash; Architecture Comprehension</summary>
+  <div class="content"><pre class="raw-response" id="raw-control-q5"></pre></div>
+</details>
+<details>
+  <summary>Experiment Q1 &mdash; Contract Awareness</summary>
+  <div class="content"><pre class="raw-response" id="raw-experiment-q1"></pre></div>
+</details>
+<details>
+  <summary>Experiment Q2 &mdash; Decision Understanding</summary>
+  <div class="content"><pre class="raw-response" id="raw-experiment-q2"></pre></div>
+</details>
+<details>
+  <summary>Experiment Q3 &mdash; Hazard Identification</summary>
+  <div class="content"><pre class="raw-response" id="raw-experiment-q3"></pre></div>
+</details>
+<details>
+  <summary>Experiment Q4 &mdash; Rejected Alternatives</summary>
+  <div class="content"><pre class="raw-response" id="raw-experiment-q4"></pre></div>
+</details>
+<details>
+  <summary>Experiment Q5 &mdash; Architecture Comprehension</summary>
+  <div class="content"><pre class="raw-response" id="raw-experiment-q5"></pre></div>
+</details>
+
+<footer>
+  Chronicle A/B Evaluation &mdash; Generated 2026-02-07 &mdash; git-chronicle
+</footer>
+
+<script>
+// Embed raw responses as JS strings to avoid HTML escaping issues in pre tags
+const rawResponses = {
+  "control-q1": `# Q1 - Contract Awareness: Annotation JSON Deserialization Rule
+
+## The Mandatory Function
+
+**Function that MUST be used:** \`schema::parse_annotation(json: &str) -> Result<Annotation, ParseAnnotationError>\`
+
+Located in: \`/Users/aaron/src/git-chronicle/src/schema/mod.rs\` (lines 17-44)
+
+## What Must NOT Be Done Instead
+
+**FORBIDDEN:** Direct deserialization using \`serde_json::from_str\`
+
+Code comment explicitly states (lines 20-22):
+  This is the single deserialization chokepoint. All code that reads
+  annotations from git notes should call this instead of using
+  \`serde_json::from_str\` directly.
+
+## Why This Constraint Exists
+
+The constraint exists for **schema version detection and automatic migration**. The \`parse_annotation()\` function implements a critical multi-step process:
+
+1. **Version Detection (lines 25-28):** It first "peeks" at the JSON to extract the \`schema\` field, examining only the version identifier without full deserialization.
+
+2. **Version-Specific Handling (lines 30-43):**
+   - If schema is "chronicle/v2": Deserializes directly as v2::Annotation
+   - If schema is "chronicle/v1": Deserializes as v1::Annotation, then calls migrate::v1_to_v2() to automatically convert to canonical v2 format
+   - If schema is unknown: Returns UnknownVersion error
+
+3. **Single Canonical Type (line 14):** The codebase maintains a single canonical annotation type through type aliasing:
+   pub use v2::Annotation;
+
+This ensures that regardless of the stored schema version, all internal code consistently operates on schema::Annotation (v2), with old v1 annotations transparently migrated on read. Bypassing this function would break backward compatibility and create inconsistencies where some code sees v1 types and other code sees v2 types.`,
+
+  "control-q2": `# V1 to V2 Annotation Schema Migration Strategy
+
+## The Strategy: Lazy Migration on Read
+
+The codebase uses a **lazy migration strategy** for handling old v1 notes. Rather than performing a bulk rewrite of existing git notes when the v2 schema was introduced, all v1 annotations remain as-is in git, and the system transparently migrates them to v2 format only when they are read.
+
+## Key Approach
+
+**Single Deserialization Chokepoint**: \`parse_annotation()\`
+
+The function \`parse_annotation(json: &str) -> Result<v2::Annotation, ParseAnnotationError>\` is the sole entry point for deserializing annotations from JSON. This function:
+
+1. **Peeks at the schema version** by first parsing the JSON into a minimal SchemaVersion struct
+2. **Routes to the appropriate deserializer** based on the detected version
+3. **Always returns the canonical type** (v2::Annotation)
+
+## Role of parse_annotation() in the Architecture
+
+1. Version Detection and Routing
+2. Transparent Migration - For v1 notes, it automatically calls the migration function
+3. Canonical Type Contract - By always returning v2::Annotation
+
+## Why This Strategy Was Chosen
+
+The feature document explicitly states the migration philosophy:
+> Migration strategy: Lazy
+> - All writes produce the latest version (v2)
+> - All reads parse any version and migrate to canonical on the fly
+> - No bulk rewrite needed. Old v1 notes stay as v1 in git.
+
+This approach offers:
+1. Non-disruptive: Existing git notes don't need to be rewritten
+2. Backwards compatible
+3. Forward-compatible
+4. Chainable migrations (v1\u2192v2\u2192v3)
+5. Minimal runtime cost`,
+
+  "control-q3": `# Q3: Hazard Identification - Manual CodeMarker Construction vs Serde
+
+## The Core Issue: Serde Tagged Enum Representation Mismatch
+
+The MarkerKind enum in src/schema/v2.rs uses Rust's externally-tagged serde format:
+
+#[serde(rename_all = "snake_case", tag = "type")]
+pub enum MarkerKind {
+    Contract { description: String, source: ContractSource },
+    Hazard { description: String },
+    Dependency { target_file: String, target_anchor: String, assumption: String },
+    Unstable { description: String, revisit_when: String },
+}
+
+The tag = "type" attribute produces JSON like:
+{"type": "contract", "description": "...", "source": "author"}
+
+However, the agent's emit_marker tool schema defines the input as a flat object with \`kind\` as a string discriminator (not \`type\`), with kind-specific fields at the top level.
+
+This is fundamentally incompatible with serde's tag = "type" deserialization.
+
+## The Maintenance Hazard: Silent Field Loss and Dual Code Paths
+
+The manual construction creates a critical maintenance hazard: any future changes to MarkerKind enum variants or their fields must be manually reflected in dispatch_emit_marker's match statement.
+
+1. No exhaustiveness checking on variants
+2. Field drift via unwrap_or defaults
+3. ContractSource expansion could cause silent data loss
+4. Dual deserialization code paths violates the single-deserialization-chokepoint principle`,
+
+  "control-q4": `# Q4: Rejected Alternatives in v2 Schema Design
+
+## Answer
+
+Based on a thorough examination of src/schema/v2.rs, the git commit history, and the feature documentation in features/20-schema-v2.md, **the source code does not explicitly document three specific alternative approaches that were considered and rejected during the v2 annotation schema design**.
+
+## What the Code Does Show
+
+1. What was replaced: The RejectedAlternative struct was added to the schema with fields approach and reason.
+2. Design rationale: The feature document describes the v2 redesign moving from per-function regions to commit-level narrative, but does not enumerate three rejected alternative design approaches.
+3. What was removed from v1: The document lists v1 structures that were eliminated in favor of v2 types, but this describes evolutionary changes, not rejected alternatives.
+
+## Conclusion
+
+The three rejected alternative approaches to the v2 schema design are **not documented in the source code, git commit messages, or feature specifications** available in this repository.`,
+
+  "control-q5": `# Q5: Schema Versioning Architecture
+
+## How are schema versions organized in the module structure?
+
+Directory structure:
+src/schema/
+\u251C\u2500\u2500 mod.rs          # Entry point & canonical type alias
+\u251C\u2500\u2500 v1.rs           # Version 1 types (old format)
+\u251C\u2500\u2500 v2.rs           # Version 2 types (current canonical)
+\u251C\u2500\u2500 common.rs       # Shared types across all versions
+\u251C\u2500\u2500 correction.rs   # Version-independent correction types
+\u2514\u2500\u2500 migrate.rs      # Migration functions (v1 -> v2)
+
+Module organization principle:
+- Each major schema version gets its own file (v1.rs, v2.rs, etc.)
+- Shared types in common.rs
+- Migrations centralized in migrate.rs
+- Entry point mod.rs orchestrates version detection and re-exports
+
+## How is the 'canonical type' pattern implemented?
+
+Strategic re-exports in mod.rs:
+pub use v2::Annotation;
+pub use v2::*;
+
+Type alias pattern: All internal code uses schema::Annotation, aliased to v2::Annotation.
+Single deserialization chokepoint via parse_annotation().
+Automatic migration on read.
+
+## How would a future v3 schema be added?
+
+4 files WOULD change:
+1. Create /src/schema/v3.rs (NEW FILE)
+2. Update /src/schema/mod.rs - new module, update re-exports and parse_annotation()
+3. Update /src/schema/migrate.rs - add v2_to_v3() function
+4. Update migrate.rs tests
+
+Files that do NOT change:
+- common.rs, correction.rs (shared types)
+- v1.rs (frozen schema)
+- v2.rs (now a legacy version)
+- All non-schema code (uses schema::Annotation canonical re-export)
+
+Migration chain: v1 JSON \u2192 v1_to_v2 \u2192 v2::Annotation \u2192 v2_to_v3 \u2192 v3::Annotation`,
+
+  "experiment-q1": `# Annotation JSON Deserialization Rule
+
+## Mandatory Rule
+
+All annotation JSON deserialization must use the single function:
+schema::parse_annotation(json: &str) -> Result<v2::Annotation, ParseAnnotationError>
+
+## What Must NOT Be Done
+
+Never deserialize annotations directly using serde_json::from_str, regardless of whether deserializing to a specific type or a generic value.
+
+Incorrect examples:
+// Wrong - direct serde_json deserialization
+let annotation: Annotation = serde_json::from_str(&note)?;
+// Wrong - even for Value types
+let value: serde_json::Value = serde_json::from_str(&note_content)?;
+
+## Why This Constraint Exists
+
+The parse_annotation() function is the single deserialization chokepoint that:
+
+1. Detects schema version: Peeks at the schema field to determine v1 or v2
+2. Handles migration: Automatically converts v1 to v2 via migrate::v1_to_v2()
+3. Enforces consistency: Single validated path
+4. Preserves backward compatibility
+
+Without using this function, code risks:
+- Deserializing v1 annotations that would fail when typed as v2
+- Bypassing version detection logic
+- Creating inconsistent annotation state
+- Breaking when schema migrations are needed`,
+
+  "experiment-q2": `# V1 to V2 Annotation Format Migration Strategy
+
+## Strategy: Lazy On-Read Migration
+
+The git-chronicle codebase uses a lazy migration strategy:
+- No bulk rewrite: Old v1 notes remain stored as v1 in git notes
+- On-read translation: When a v1 annotation is read, it is automatically migrated to v2 in memory
+- Forward-writing only: All new annotations are written in v2 format
+
+### Single Deserialization Chokepoint: parse_annotation()
+
+The core mechanism is parse_annotation() in src/schema/mod.rs, which:
+1. Peeks at the schema field to determine the version
+2. Routes to the appropriate deserializer (v1 or v2)
+3. Migrates v1 to v2 using migrate::v1_to_v2() before returning
+4. Always returns the canonical v2::Annotation type
+
+## Why This Strategy Was Chosen
+
+The feature document explicitly states:
+"Migration strategy: Lazy
+- All writes produce the latest version (v2)
+- All reads parse any version and migrate to canonical on the fly
+- No bulk rewrite needed. Old v1 notes stay as v1 in git."
+
+Benefits:
+1. Backwards Compatibility
+2. No Repository Disruption: No need to run a bulk migration step or rewrite git history
+3. Seamless Coexistence
+
+## Role of parse_annotation()
+
+The single enforced chokepoint for all annotation deserialization. Used in:
+- Import validation, Contracts query, Summary query, Decisions query, Export/Import`,
+
+  "experiment-q3": `# Q3 - Hazard Identification: Manual JSON Construction in dispatch_emit_marker
+
+## Technical Reason: Serde Tag Discriminator Format Mismatch
+
+The MarkerKind enum in src/schema/v2.rs uses serde's internally tagged discriminator:
+
+#[serde(rename_all = "snake_case", tag = "type")]
+pub enum MarkerKind {
+    Contract { description: String, source: ContractSource },
+    Hazard { description: String },
+    Dependency { target_file: String, target_anchor: String, assumption: String },
+    Unstable { description: String, revisit_when: String },
+}
+
+The agent uses "kind" as the field name (not "type") and places kind-specific fields at the top level. This format cannot be directly deserialized by serde.
+
+## Manual Construction Approach (Lines 329-447)
+
+dispatch_emit_marker manually parses the JSON:
+1. Extracts kind_str from input
+2. Uses a match statement to branch by kind
+3. For each branch, manually constructs the appropriate MarkerKind variant
+
+## Maintenance Hazard
+
+1. Schema Drift: If MarkerKind enum variants change, manual construction must be updated
+2. Two Sources of Truth: fields defined in two places
+3. Silent Failures: .unwrap_or("") means missing fields silently become empty strings
+4. Inconsistency with Other Emit Functions
+5. Type Conversion Fragility`,
+
+  "experiment-q4": `# Three Rejected Approaches in v2 Annotation Schema Design
+
+When designing the v2 annotation schema, three alternative approaches were considered and rejected:
+
+## 1. Use MCP server as the integration surface
+
+Rejection reason: MCP server was never fully built. Skills + CLI provide better workflow with self-documenting schema via git chronicle schema.
+
+Context: The original plan included building a full Model Context Protocol (MCP) server. However, this proved unnecessary and overly complex. Instead, skills + CLI achieved better integration with AI agent workflows.
+
+## 2. Bulk-migrate existing v1 notes to v2 on disk
+
+Rejection reason: Risky rewrite of git notes history. Lazy migration on read is safer.
+
+Context: Any bug in the migration script would corrupt the git notes history. No way to atomically update all notes across all branches and worktrees. Instead, lazy migration was adopted.
+
+## 3. Enrich v1 with optional commit-level fields
+
+Rejection reason: Per-region structure still dominates and creates noise. Would be a half-measure that keeps the wrong primary unit.
+
+Context: Would not address the fundamental design flaw in v1: the per-function region structure forced granularity that created overhead. Adding commit-level fields on top of per-region annotations would have been a half-measure with conflicting primary units. The v2 design inverted this: the commit becomes the primary unit.`,
+
+  "experiment-q5": `# Q5: Architecture Comprehension - Schema Versioning
+
+## 1. Schema Version Organization in Module Structure
+
+src/schema/
+\u251C\u2500\u2500 mod.rs       # Entry point: canonical type pattern, parse_annotation() chokepoint
+\u251C\u2500\u2500 common.rs    # Shared types across ALL versions (AstAnchor, LineRange)
+\u251C\u2500\u2500 correction.rs
+\u251C\u2500\u2500 v1.rs        # Legacy schema (chronicle/v1)
+\u251C\u2500\u2500 v2.rs        # Current canonical schema (chronicle/v2)
+\u2514\u2500\u2500 migrate.rs   # Migration logic: v1 \u2192 v2 conversion
+
+## 2. The Canonical Type Pattern
+
+Implemented via re-exports in mod.rs:
+pub use v2::Annotation;
+pub use v2::*;
+
+1. Single exported type: schema::Annotation always gets the latest version
+2. parse_annotation() is the single deserialization chokepoint
+3. Transparent migration at deserialization boundary
+
+## 3. How to Add a Future v3 Schema
+
+FILES THAT CHANGE:
+1. Create src/schema/v3.rs - new types
+2. Update src/schema/mod.rs - pub mod v3; update re-exports and parse_annotation()
+3. Update src/schema/migrate.rs - add pub fn v2_to_v3()
+
+FILES THAT DO NOT CHANGE:
+- All code outside src/schema/: CLI, agent loops, storage, export/import
+- Test fixtures
+- Git notes storage (v1/v2 notes stay as-is; migration on read)`
+};
+
+// Populate all raw response elements
+Object.entries(rawResponses).forEach(([key, text]) => {
+  const el = document.getElementById('raw-' + key);
+  if (el) el.textContent = text;
+});
+</script>
+
+</body>
+</html>

@@ -1,0 +1,134 @@
+{
+  "experiment": "Chronicle A/B Evaluation: Does Chronicle Context Help AI Agents?",
+  "version": "1.0",
+  "date": "2026-02-07",
+  "model": "haiku",
+  "max_turns_per_question": 20,
+  "questions": [
+    {
+      "id": "Q1",
+      "dimension": "Contract Awareness",
+      "question": "What is the mandatory rule for how annotation JSON is deserialized in this codebase? Which single function must be used, what must NOT be done instead, and why does this constraint exist?",
+      "gold_standard": {
+        "key_facts": [
+          "parse_annotation() is the single deserialization chokepoint",
+          "Must NOT use serde_json::from_str directly on annotation JSON",
+          "parse_annotation() detects the schema version from the JSON",
+          "It migrates v1 annotations to v2 on the fly",
+          "Bypassing it is dangerous because you'd skip version detection and migration, potentially getting wrong types or missing fields"
+        ]
+      },
+      "rubric": {
+        "total": 10,
+        "claims": [
+          {"points": 2, "claim": "Identifies parse_annotation() as the required function"},
+          {"points": 2, "claim": "States must not use serde_json::from_str directly"},
+          {"points": 2, "claim": "Explains it detects schema version"},
+          {"points": 2, "claim": "Explains it migrates v1 to v2"},
+          {"points": 2, "claim": "Explains why bypassing is dangerous"}
+        ]
+      }
+    },
+    {
+      "id": "Q2",
+      "dimension": "Decision Understanding",
+      "question": "The codebase supports both `chronicle/v1` and `chronicle/v2` annotation formats. What strategy does it use to handle old v1 notes? Describe the specific approach chosen, why it was chosen, and what role `parse_annotation()` plays.",
+      "gold_standard": {
+        "key_facts": [
+          "Lazy migration on read (not bulk rewrite)",
+          "v1 notes are never rewritten in-place in git notes",
+          "Migration happens on-the-fly when parse_annotation() reads a v1 note",
+          "Bulk migration was rejected because it's risky (rewrites git history/notes, could corrupt data)",
+          "parse_annotation() is the single function that implements version detection and migration"
+        ]
+      },
+      "rubric": {
+        "total": 10,
+        "claims": [
+          {"points": 2, "claim": "Names the strategy as lazy migration on read"},
+          {"points": 2, "claim": "States v1 notes are never rewritten in git notes store"},
+          {"points": 2, "claim": "Describes on-the-fly migration via parse_annotation()"},
+          {"points": 2, "claim": "Explains why bulk migration was rejected (risky/destructive)"},
+          {"points": 2, "claim": "Identifies parse_annotation() as implementing this"}
+        ]
+      }
+    },
+    {
+      "id": "Q3",
+      "dimension": "Hazard Identification",
+      "question": "In `src/agent/tools.rs`, the function `dispatch_emit_marker` manually constructs `CodeMarker` structs from JSON input rather than using serde deserialization. What is the specific technical reason it cannot use serde, and what maintenance hazard does this create?",
+      "gold_standard": {
+        "key_facts": [
+          "MarkerKind uses #[serde(tag = \"type\")] (internally tagged enum)",
+          "The LLM emits flat JSON with a 'type' field, which doesn't match the nested tagged enum format serde expects",
+          "Manual construction extracts fields from flat JSON and builds CodeMarker structs",
+          "Hazard: the manual construction must stay in sync with MarkerKind variants",
+          "If new variants are added to MarkerKind, dispatch_emit_marker must be updated too"
+        ]
+      },
+      "rubric": {
+        "total": 10,
+        "claims": [
+          {"points": 2, "claim": "Identifies MarkerKind uses #[serde(tag = \"type\")] internally tagged enum"},
+          {"points": 2, "claim": "Explains format mismatch: flat JSON vs tagged enum expectation"},
+          {"points": 2, "claim": "Describes manual construction from flat JSON fields"},
+          {"points": 2, "claim": "Identifies hazard: must stay in sync with MarkerKind variants"},
+          {"points": 2, "claim": "Names 3+ MarkerKind variants (e.g., Contract, Decision, Dependency, Complexity, Hazard)"}
+        ]
+      }
+    },
+    {
+      "id": "Q4",
+      "dimension": "Rejected Alternatives",
+      "question": "Three alternative approaches were considered and rejected when designing the v2 annotation schema. List all three approaches and explain why each was rejected.",
+      "gold_standard": {
+        "key_facts": [
+          "Alternative 1: Enrich v1 - add fields to existing v1 schema",
+          "Rejected because v1's per-function structure couldn't express commit-level narrative",
+          "Alternative 2: Bulk-migrate all existing v1 notes to v2",
+          "Rejected because rewriting git notes is risky and could corrupt annotation history",
+          "Alternative 3: MCP server instead of CLI",
+          "Rejected because it adds deployment complexity and CLI is more universal"
+        ]
+      },
+      "rubric": {
+        "total": 10,
+        "claims": [
+          {"points": 1.0, "claim": "Names approach 1: enrich/extend v1 schema"},
+          {"points": 1.5, "claim": "Explains why enriching v1 was rejected"},
+          {"points": 1.0, "claim": "Names approach 2: bulk-migrate v1 notes to v2"},
+          {"points": 1.5, "claim": "Explains why bulk migration was rejected"},
+          {"points": 1.0, "claim": "Names approach 3: MCP server approach"},
+          {"points": 1.5, "claim": "Explains why MCP server was rejected"},
+          {"points": 2.5, "claim": "Completeness bonus: all three alternatives present"}
+        ]
+      }
+    },
+    {
+      "id": "Q5",
+      "dimension": "Architecture Comprehension",
+      "question": "Explain the versioning architecture: How are schema versions organized in the module structure? How is the 'canonical type' pattern implemented? How would a future v3 schema be added — what specific files change and what does NOT change?",
+      "gold_standard": {
+        "key_facts": [
+          "Module structure: v1.rs, v2.rs, common.rs, migrate.rs in src/schema/",
+          "Canonical type: schema::Annotation is a type alias to v2::Annotation",
+          "Single deserialization chokepoint: parse_annotation() in mod.rs",
+          "Adding v3: create v3.rs with new types, add v2_to_v3() in migrate.rs",
+          "Adding v3: update the type alias to point to v3::Annotation, update parse_annotation()",
+          "Adding v3: v1_to_v2() does NOT change (migration chain is additive)"
+        ]
+      },
+      "rubric": {
+        "total": 10,
+        "claims": [
+          {"points": 1.0, "claim": "Lists module structure: v1.rs, v2.rs, common.rs, migrate.rs"},
+          {"points": 1.5, "claim": "Explains canonical type alias pattern"},
+          {"points": 1.5, "claim": "Identifies deserialization chokepoint in parse_annotation()"},
+          {"points": 2.0, "claim": "For v3: add v3.rs and v2_to_v3() migration"},
+          {"points": 2.0, "claim": "For v3: update type alias and parse_annotation()"},
+          {"points": 2.0, "claim": "For v3: v1_to_v2() does NOT change (additive chain)"}
+        ]
+      }
+    }
+  ]
+}

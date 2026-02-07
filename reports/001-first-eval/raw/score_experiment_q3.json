@@ -1,0 +1,38 @@
+{
+  "question": "Q3",
+  "group": "experiment",
+  "claims": [
+    {
+      "claim": "Identifies MarkerKind uses #[serde(tag = \"type\")] internally tagged enum",
+      "points": 2.0,
+      "hit": true,
+      "evidence": "Response states 'The MarkerKind enum in src/schema/v2.rs (lines 147-168) uses serde's **internally tagged** discriminator' and shows the code: '#[serde(rename_all = \"snake_case\", tag = \"type\")]'"
+    },
+    {
+      "claim": "Explains format mismatch: flat JSON vs tagged enum expectation",
+      "points": 2.0,
+      "hit": true,
+      "evidence": "Response explains: 'the agent emits a flat JSON object with kind as a string discriminator (not type), and kind-specific fields at the top level... This format cannot be directly deserialized by serde because: 1. The agent uses \"kind\" as the field name, not \"type\" 2. The agent places kind-specific fields at the top level alongside kind'"
+    },
+    {
+      "claim": "Describes manual construction from flat JSON fields",
+      "points": 2.0,
+      "hit": true,
+      "evidence": "Response describes: 'dispatch_emit_marker manually parses the JSON: 1. Extracts kind_str from input 2. Uses a match statement to branch by kind 3. For each branch, manually constructs the appropriate MarkerKind variant by extracting its specific fields'"
+    },
+    {
+      "claim": "Identifies hazard: must stay in sync with MarkerKind variants",
+      "points": 2.0,
+      "hit": true,
+      "evidence": "Response identifies: 'Schema Drift: If MarkerKind enum variants change, the manual construction logic must be manually updated in parallel' and 'Two Sources of Truth: The contract of what fields each marker kind requires is defined in two places.'"
+    },
+    {
+      "claim": "Names 3+ MarkerKind variants (e.g., Contract, Decision, Dependency, Complexity, Hazard)",
+      "points": 2.0,
+      "hit": true,
+      "evidence": "Response lists all 4 variants in the code block: Contract, Hazard, Dependency, Unstable."
+    }
+  ],
+  "total_possible": 10.0,
+  "total_scored": 10.0
+}

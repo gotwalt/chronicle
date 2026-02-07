@@ -1,0 +1,44 @@
+{
+  "question": "Q5",
+  "group": "control",
+  "claims": [
+    {
+      "claim": "Lists module structure: v1.rs, v2.rs, common.rs, migrate.rs",
+      "points": 1.0,
+      "hit": true,
+      "evidence": "Response lists 'Directory structure' with all modules: v1.rs, v2.rs, common.rs, correction.rs, migrate.rs. Also mentions 'Shared types used by multiple versions live in common.rs' and 'Migrations are centralized in migrate.rs'"
+    },
+    {
+      "claim": "Explains canonical type alias pattern",
+      "points": 1.5,
+      "hit": true,
+      "evidence": "Response shows 'pub use v2::Annotation;' and explicitly states 'Type alias pattern: All internal code uses schema::Annotation, which is aliased to v2::Annotation via the re-export. This ensures all code operates on the canonical v2 type without explicit versioning.'"
+    },
+    {
+      "claim": "Identifies deserialization chokepoint in parse_annotation()",
+      "points": 1.5,
+      "hit": true,
+      "evidence": "Response explicitly titles section 'Single deserialization chokepoint via parse_annotation()' and details: 'Peeks at the schema field to detect version. For v2: deserializes directly to v2::Annotation. For v1: deserializes to v1::Annotation, then migrates via migrate::v1_to_v2()'"
+    },
+    {
+      "claim": "For v3: add v3.rs and v2_to_v3() migration",
+      "points": 2.0,
+      "hit": true,
+      "evidence": "Response explicitly states 'Create /src/schema/v3.rs (NEW FILE)' with v3 types, and 'Add v2_to_v3() function following the same pattern as v1_to_v2()' with example code showing the function signature and migration transformation"
+    },
+    {
+      "claim": "For v3: update type alias and parse_annotation()",
+      "points": 2.0,
+      "hit": true,
+      "evidence": "Response shows 'Move canonical re-export from v2 to v3: pub use v3::Annotation; pub use v3::*;' and 'Update parse_annotation() to handle v3' with match statement handling chronicle/v3, chronicle/v2, and chronicle/v1 cases with chaining"
+    },
+    {
+      "claim": "For v3: v1_to_v2() does NOT change (additive chain)",
+      "points": 2.0,
+      "hit": true,
+      "evidence": "Response lists files that don't change: 'v1.rs - Remains unchanged (frozen schema)' and 'v2.rs - Remains unchanged (now a legacy version)'. Migration section shows: 'v1 JSON → (deserialize as v1::Annotation) → (migrate::v1_to_v2) → v2::Annotation → (migrate::v2_to_v3) → v3::Annotation' demonstrating additive chain pattern"
+    }
+  ],
+  "total_possible": 10.0,
+  "total_scored": 10.0
+}

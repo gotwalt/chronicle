@@ -1,0 +1,38 @@
+{
+  "question": "Q2",
+  "group": "experiment",
+  "claims": [
+    {
+      "claim": "Names the strategy as lazy migration on read",
+      "points": 2.0,
+      "hit": true,
+      "evidence": "Response opens with 'Strategy: Lazy On-Read Migration' and states 'The git-chronicle codebase uses a **lazy migration strategy** for handling the coexistence of chronicle/v1 and chronicle/v2 annotation formats.'"
+    },
+    {
+      "claim": "States v1 notes are never rewritten in git notes store",
+      "points": 2.0,
+      "hit": true,
+      "evidence": "Response explicitly states 'No bulk rewrite: Old v1 notes remain stored as v1 in git notes' and quotes the feature doc: 'No bulk rewrite needed. Old v1 notes stay as v1 in git.'"
+    },
+    {
+      "claim": "Describes on-the-fly migration via parse_annotation()",
+      "points": 2.0,
+      "hit": true,
+      "evidence": "Response provides the full parse_annotation() code and explains: 'Peeks at the schema field to determine the version without full deserialization... Routes to the appropriate deserializer (v1 or v2)... Migrates v1 to v2 using migrate::v1_to_v2() before returning... Always returns the canonical v2::Annotation type regardless of input format'"
+    },
+    {
+      "claim": "Explains why bulk migration was rejected (risky/destructive)",
+      "points": 2.0,
+      "hit": true,
+      "evidence": "Response states 'No Repository Disruption: No need to run a bulk migration step or rewrite git history' and the feature doc quote emphasizes the lazy approach avoids bulk rewrites."
+    },
+    {
+      "claim": "Identifies parse_annotation() as implementing this",
+      "points": 2.0,
+      "hit": true,
+      "evidence": "Response identifies 'parse_annotation() is the **single enforced chokepoint** for all annotation deserialization' and lists all codebase usage points (import.rs, contracts.rs, summary.rs, decisions.rs, export.rs)."
+    }
+  ],
+  "total_possible": 10.0,
+  "total_scored": 10.0
+}
