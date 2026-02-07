@@ -249,6 +249,21 @@ fn convert_to_region_refs(annotations: Vec<MatchedAnnotation>, file_path: &str) 
                     v2::MarkerKind::Unstable { description, .. } => {
                         risk_notes.push(format!("[unstable] {}", description));
                     }
+                    v2::MarkerKind::Security { description } => {
+                        risk_notes.push(format!("[security] {}", description));
+                    }
+                    v2::MarkerKind::Performance { description } => {
+                        risk_notes.push(format!("[performance] {}", description));
+                    }
+                    v2::MarkerKind::Deprecated { description, .. } => {
+                        risk_notes.push(format!("[deprecated] {}", description));
+                    }
+                    v2::MarkerKind::TechDebt { description } => {
+                        risk_notes.push(format!("[tech_debt] {}", description));
+                    }
+                    v2::MarkerKind::TestCoverage { description } => {
+                        risk_notes.push(format!("[test_coverage] {}", description));
+                    }
                 }
             }
 

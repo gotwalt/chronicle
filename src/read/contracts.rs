@@ -140,6 +140,22 @@ pub fn query_contracts(
                         timestamp: annotation.timestamp.clone(),
                     });
                 }
+                v2::MarkerKind::Security { description } => {
+                    let key = format!(
+                        "security:{}:{}:{}",
+                        marker.file,
+                        anchor_name.as_deref().unwrap_or(""),
+                        description
+                    );
+                    best_contracts.entry(key).or_insert_with(|| ContractEntry {
+                        file: marker.file.clone(),
+                        anchor: anchor_name.clone(),
+                        description: format!("[security] {}", description),
+                        source: "author".to_string(),
+                        commit: annotation.commit.clone(),
+                        timestamp: annotation.timestamp.clone(),
+                    });
+                }
                 _ => {}
             }
         }

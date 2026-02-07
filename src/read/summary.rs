@@ -181,6 +181,41 @@ pub fn build_summary(git: &dyn GitOps, query: &SummaryQuery) -> Result<SummaryOu
                         None => unstable_note,
                     });
                 }
+                v2::MarkerKind::Security { description } => {
+                    let note = format!("SECURITY: {description}");
+                    acc.risk_notes = Some(match acc.risk_notes.take() {
+                        Some(existing) => format!("{existing}; {note}"),
+                        None => note,
+                    });
+                }
+                v2::MarkerKind::Performance { description } => {
+                    let note = format!("PERF: {description}");
+                    acc.risk_notes = Some(match acc.risk_notes.take() {
+                        Some(existing) => format!("{existing}; {note}"),
+                        None => note,
+                    });
+                }
+                v2::MarkerKind::Deprecated { description, .. } => {
+                    let note = format!("DEPRECATED: {description}");
+                    acc.risk_notes = Some(match acc.risk_notes.take() {
+                        Some(existing) => format!("{existing}; {note}"),
+                        None => note,
+                    });
+                }
+                v2::MarkerKind::TechDebt { description } => {
+                    let note = format!("TECH_DEBT: {description}");
+                    acc.risk_notes = Some(match acc.risk_notes.take() {
+                        Some(existing) => format!("{existing}; {note}"),
+                        None => note,
+                    });
+                }
+                v2::MarkerKind::TestCoverage { description } => {
+                    let note = format!("TEST_COVERAGE: {description}");
+                    acc.risk_notes = Some(match acc.risk_notes.take() {
+                        Some(existing) => format!("{existing}; {note}"),
+                        None => note,
+                    });
+                }
             }
         }
 

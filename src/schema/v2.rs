@@ -165,6 +165,20 @@ pub enum MarkerKind {
         description: String,
         revisit_when: String,
     },
+    /// Security-sensitive code: auth, crypto, input validation, etc.
+    Security { description: String },
+    /// Performance-sensitive code: hot paths, allocations, latency.
+    Performance { description: String },
+    /// Deprecated code with optional replacement pointer.
+    Deprecated {
+        description: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        replacement: Option<String>,
+    },
+    /// Known technical debt to address later.
+    TechDebt { description: String },
+    /// Test coverage note: what's tested, what's missing.
+    TestCoverage { description: String },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]

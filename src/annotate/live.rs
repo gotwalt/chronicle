@@ -125,6 +125,22 @@ pub enum MarkerKindInput {
         description: String,
         revisit_when: String,
     },
+    Security {
+        description: String,
+    },
+    Performance {
+        description: String,
+    },
+    Deprecated {
+        description: String,
+        replacement: Option<String>,
+    },
+    TechDebt {
+        description: String,
+    },
+    TestCoverage {
+        description: String,
+    },
 }
 
 /// Effort link from the caller.
@@ -530,6 +546,25 @@ fn convert_marker_kind(input: &MarkerKindInput) -> v2::MarkerKind {
         } => v2::MarkerKind::Unstable {
             description: description.clone(),
             revisit_when: revisit_when.clone(),
+        },
+        MarkerKindInput::Security { description } => v2::MarkerKind::Security {
+            description: description.clone(),
+        },
+        MarkerKindInput::Performance { description } => v2::MarkerKind::Performance {
+            description: description.clone(),
+        },
+        MarkerKindInput::Deprecated {
+            description,
+            replacement,
+        } => v2::MarkerKind::Deprecated {
+            description: description.clone(),
+            replacement: replacement.clone(),
+        },
+        MarkerKindInput::TechDebt { description } => v2::MarkerKind::TechDebt {
+            description: description.clone(),
+        },
+        MarkerKindInput::TestCoverage { description } => v2::MarkerKind::TestCoverage {
+            description: description.clone(),
         },
     }
 }
@@ -1035,5 +1070,85 @@ impl Config {
         assert!(result.success);
         assert_eq!(result.markers_written, 1);
         assert!(result.anchor_resolutions.is_empty());
+    }
+
+    #[test]
+    fn test_new_marker_kinds_roundtrip() {
+        let json = r#"{
+            "commit": "HEAD",
+            "summary": "Test all new marker kinds for round-trip serialization",
+            "markers": [
+                {"file": "src/auth.rs", "kind": {"type": "security", "description": "Validates JWT tokens"}},
+                {"file": "src/hot.rs", "kind": {"type": "performance", "description": "Hot loop, avoid allocations"}},
+                {"file": "src/old.rs", "kind": {"type": "deprecated", "description": "Use new_api instead", "replacement": "src/new_api.rs"}},
+                {"file": "src/hack.rs", "kind": {"type": "tech_debt", "description": "Needs refactor after v2 ships"}},
+                {"file": "src/lib.rs", "kind": {"type": "test_coverage", "description": "Missing edge case tests for empty input"}}
+            ]
+        }"#;
+
+        let input: LiveInput = serde_json::from_str(json).unwrap();
+        assert_eq!(input.markers.len(), 5);
+
+        let mock = MockGitOps::new("abc123").with_diffs(vec![
+            test_diff("src/auth.rs"),
+            test_diff("src/hot.rs"),
+            test_diff("src/old.rs"),
+            test_diff("src/hack.rs"),
+            test_diff("src/lib.rs"),
+        ]);
+
+        let result = handle_annotate_v2(&mock, input).unwrap();
+        assert!(result.success);
+        assert_eq!(result.markers_written, 5);
+
+        let notes = mock.written_notes();
+        let annotation: v2::Annotation = serde_json::from_str(&notes[0].1).unwrap();
+        assert_eq!(annotation.markers.len(), 5);
+
+        assert!(matches!(
+            &annotation.markers[0].kind,
+            v2::MarkerKind::Security { description } if description == "Validates JWT tokens"
+        ));
+        assert!(matches!(
+            &annotation.markers[1].kind,
+            v2::MarkerKind::Performance { description } if description == "Hot loop, avoid allocations"
+        ));
+        assert!(matches!(
+            &annotation.markers[2].kind,
+            v2::MarkerKind::Deprecated { description, replacement }
+                if description == "Use new_api instead" && replacement.as_deref() == Some("src/new_api.rs")
+        ));
+        assert!(matches!(
+            &annotation.markers[3].kind,
+            v2::MarkerKind::TechDebt { description } if description == "Needs refactor after v2 ships"
+        ));
+        assert!(matches!(
+            &annotation.markers[4].kind,
+            v2::MarkerKind::TestCoverage { description } if description == "Missing edge case tests for empty input"
+        ));
+    }
+
+    #[test]
+    fn test_deprecated_marker_without_replacement() {
+        let json = r#"{
+            "commit": "HEAD",
+            "summary": "Test deprecated marker without replacement field",
+            "markers": [
+                {"file": "src/old.rs", "kind": {"type": "deprecated", "description": "Will be removed in v3"}}
+            ]
+        }"#;
+
+        let input: LiveInput = serde_json::from_str(json).unwrap();
+        let mock = MockGitOps::new("abc123").with_diffs(vec![test_diff("src/old.rs")]);
+
+        let result = handle_annotate_v2(&mock, input).unwrap();
+        assert!(result.success);
+
+        let notes = mock.written_notes();
+        let annotation: v2::Annotation = serde_json::from_str(&notes[0].1).unwrap();
+        assert!(matches!(
+            &annotation.markers[0].kind,
+            v2::MarkerKind::Deprecated { replacement, .. } if replacement.is_none()
+        ));
     }
 }
