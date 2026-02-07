@@ -40,8 +40,8 @@ jobs:
 
       - name: Configure git for tests
         run: |
-          git config --global user.email "ci@chronicle.dev"
-          git config --global user.name "Chronicle CI"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config --global user.name "github-actions[bot]"
 
       - name: Run tests
         run: cargo test --all-features
