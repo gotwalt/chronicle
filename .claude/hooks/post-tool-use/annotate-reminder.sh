@@ -3,7 +3,7 @@
 #
 # This hook is invoked by Claude Code after the Bash tool is used.
 # It checks if the command was a git commit and reminds the agent
-# to annotate using the chronicle_annotate MCP tool.
+# to annotate using the chronicle annotate CLI.
 
 # Read the tool use input from stdin
 input=$(cat)
@@ -19,5 +19,5 @@ fi
 
 # Check if the command was a git commit
 if echo "$command" | grep -qE '(^|\s|&&|\|)git\s+commit(\s|$)'; then
-    echo "REMINDER: You just created a git commit. Annotate it using the chronicle_annotate MCP tool with commit: \"HEAD\", summary, and per-region annotations (intent, reasoning, constraints). See the annotate skill for details."
+    echo "REMINDER: You just created a git commit. Annotate it by piping AnnotateInput JSON to: ./target/debug/git-chronicle annotate --live. Include commit: \"HEAD\", summary, and narrative context. See the annotate skill for details."
 fi

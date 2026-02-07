@@ -57,23 +57,32 @@ This project uses Chronicle (`git-chronicle`) to store structured metadata
 alongside commits as git notes. Before modifying existing code, query the
 annotations to understand intent, constraints, and dependencies.
 
+**Important:** In this repo, always use the local dev binary instead of a
+system-installed `git chronicle`:
+
+```bash
+./target/debug/git-chronicle <command>    # NOT: git chronicle <command>
+```
+
+Run `cargo build` first if the binary is missing or stale.
+
 ### Reading annotations (before modifying code)
 
 ```bash
 # Check contracts — "What must I not break?"
-git chronicle contracts src/foo.rs --anchor bar_function
+./target/debug/git-chronicle contracts src/foo.rs --anchor bar_function
 
 # Check decisions — "What was decided and why?"
-git chronicle decisions --path src/foo.rs
+./target/debug/git-chronicle decisions --path src/foo.rs
 
 # Read raw annotations for a file/anchor
-git chronicle read src/foo.rs --anchor bar_function
+./target/debug/git-chronicle read src/foo.rs --anchor bar_function
 
 # Quick orientation for a file
-git chronicle summary src/foo.rs
+./target/debug/git-chronicle summary src/foo.rs
 
 # What depends on this code?
-git chronicle deps src/foo.rs bar_function
+./target/debug/git-chronicle deps src/foo.rs bar_function
 ```
 
 **Respect contracts.** Annotations may include contracts like "must not
@@ -92,7 +101,7 @@ cat > /tmp/chronicle-annotate.json << 'EOF'
   "summary": "What this commit does and WHY this approach."
 }
 EOF
-git chronicle annotate --live < /tmp/chronicle-annotate.json
+./target/debug/git-chronicle annotate --live < /tmp/chronicle-annotate.json
 ```
 
 See `.claude/skills/annotate/SKILL.md` for the full annotation workflow.
@@ -102,6 +111,27 @@ See `.claude/skills/annotate/SKILL.md` for the full annotation workflow.
 To annotate historical commits that lack annotations, see
 `.claude/skills/backfill/SKILL.md`.
 
+
+## Keeping `.claude/` and `embedded/` in sync
+
+The `embedded/` directory contains skills, hooks, and the CLAUDE.md snippet
+that ship to users via `git chronicle setup`. The `.claude/` directory is the
+live copy used when developing this repo. They must stay in sync:
+
+| `embedded/` (shipped to users) | `.claude/` (this repo's dev copy) |
+|--------------------------------|-----------------------------------|
+| `skills/annotate/SKILL.md` | `.claude/skills/annotate/SKILL.md` |
+| `skills/backfill/SKILL.md` | `.claude/skills/backfill/SKILL.md` |
+| `skills/context/SKILL.md` | `.claude/skills/context/SKILL.md` |
+| `hooks/chronicle-annotate-reminder.sh` | `.claude/hooks/post-tool-use/annotate-reminder.sh` |
+| `hooks/chronicle-read-context-hint.sh` | `.claude/hooks/pre-tool-use/read-context-hint.sh` |
+| `claude-md-snippet.md` | "Working with Chronicle annotations" section above |
+
+**Rules:**
+- Skills files must be identical between `embedded/` and `.claude/`.
+- Hook scripts have the same logic but `.claude/` hooks use `./target/debug/git-chronicle` while `embedded/` hooks use `git chronicle`.
+- When you modify a skill or hook in either location, update the other to match.
+- The `claude-md-snippet.md` and the "Working with Chronicle annotations" section above cover the same content; keep them aligned (the CLAUDE.md version uses the local binary path).
 
 ## Errors
 Use `snafu` to manage errors. 

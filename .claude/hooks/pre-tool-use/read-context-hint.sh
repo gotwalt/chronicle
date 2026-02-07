@@ -19,6 +19,6 @@ file_path=$(echo "$input" | jq -r '.tool_input.file_path // empty' 2>/dev/null)
 # Only for source code files
 case "$file_path" in
     *.rs|*.ts|*.tsx|*.js|*.jsx|*.py|*.go|*.java|*.cpp|*.c|*.h)
-        echo "TIP: Consider reading Chronicle annotations for $(basename "$file_path") before modifying it. Use chronicle_read or: git chronicle read \"$file_path\""
+        echo "TIP: Consider reading Chronicle annotations for $(basename "$file_path") before modifying it: ./target/debug/git-chronicle read \"$file_path\""
         ;;
 esac

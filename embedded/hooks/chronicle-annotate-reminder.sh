@@ -19,5 +19,5 @@ fi
 
 # Check if the command was a git commit
 if echo "$command" | grep -qE '(^|\s|&&|\|)git\s+commit(\s|$)'; then
-    echo "REMINDER: You just created a git commit. Annotate it by piping AnnotateInput JSON to: git chronicle annotate --live. Include commit: \"HEAD\", summary, and per-region annotations (intent, reasoning, constraints). See the annotate skill for details."
+    echo "REMINDER: You just created a git commit. Annotate it by piping AnnotateInput JSON to: git chronicle annotate --live. Include commit: \"HEAD\", summary, and narrative context. See the annotate skill for details."
 fi

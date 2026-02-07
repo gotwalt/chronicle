@@ -7,37 +7,46 @@ annotations to understand intent, constraints, and dependencies.
 
 ### Reading annotations (before modifying code)
 
-Use the CLI to check annotations on code you're about to modify:
+```bash
+# Check contracts — "What must I not break?"
+git chronicle contracts src/foo.rs --anchor bar_function
 
-- `git chronicle read src/foo.rs --anchor bar_function` — get intent,
-  reasoning, constraints for a specific function
-- `git chronicle deps src/foo.rs bar_function` — find code that depends
-  on this function's behavior
-- `git chronicle summary src/foo.rs` — overview of all annotated regions
+# Check decisions — "What was decided and why?"
+git chronicle decisions --path src/foo.rs
 
-**Respect constraints.** Annotations may include constraints like "must not
-allocate" or "assumes sorted input." Violating these without updating the
-annotation is a bug.
+# Read raw annotations for a file/anchor
+git chronicle read src/foo.rs --anchor bar_function
+
+# Quick orientation for a file
+git chronicle summary src/foo.rs
+
+# What depends on this code?
+git chronicle deps src/foo.rs bar_function
+```
+
+**Respect contracts.** Annotations may include contracts like "must not
+block the async runtime" or "assumes sorted input." Violating these without
+updating the annotation is a bug. See the context skill for details.
 
 ### Writing annotations (after committing)
 
-After committing, annotate using the live path:
+After committing, annotate using the live path (v2 format). Use a temp file
+with a quoted heredoc to avoid shell escaping issues:
 
 ```bash
-echo '<AnnotateInput JSON>' | git chronicle annotate --live
+cat > /tmp/chronicle-annotate.json << 'EOF'
+{
+  "commit": "HEAD",
+  "summary": "What this commit does and WHY this approach."
+}
+EOF
+git chronicle annotate --live < /tmp/chronicle-annotate.json
 ```
 
-See the annotate skill (`~/.claude/skills/chronicle/annotate/SKILL.md`) for
-the full annotation workflow.
+See the annotate skill for the full annotation workflow.
 
 ### Backfilling annotations
 
-To annotate historical commits that lack annotations:
-
-```bash
-git chronicle backfill --limit 20
-```
-
-See the backfill skill (`~/.claude/skills/chronicle/backfill/SKILL.md`) for
-the full backfill workflow.
+To annotate historical commits that lack annotations, see
+the backfill skill.
 <!-- chronicle-setup-end -->
