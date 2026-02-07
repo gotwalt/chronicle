@@ -1,23 +1,27 @@
-pub mod outline;
 pub mod anchor;
+pub mod outline;
 
-#[cfg(feature = "lang-typescript")]
-mod outline_typescript;
-#[cfg(feature = "lang-python")]
-mod outline_python;
-#[cfg(feature = "lang-go")]
-mod outline_go;
-#[cfg(feature = "lang-java")]
-mod outline_java;
 #[cfg(feature = "lang-c")]
 mod outline_c;
 #[cfg(feature = "lang-cpp")]
 mod outline_cpp;
+#[cfg(feature = "lang-go")]
+mod outline_go;
+#[cfg(feature = "lang-java")]
+mod outline_java;
+#[cfg(feature = "lang-objc")]
+mod outline_objc;
+#[cfg(feature = "lang-python")]
+mod outline_python;
 #[cfg(feature = "lang-ruby")]
 mod outline_ruby;
+#[cfg(feature = "lang-swift")]
+mod outline_swift;
+#[cfg(feature = "lang-typescript")]
+mod outline_typescript;
 
-pub use outline::{OutlineEntry, SemanticKind};
 pub use anchor::AnchorMatch;
+pub use outline::{OutlineEntry, SemanticKind};
 
 use crate::error::AstError;
 
@@ -35,6 +39,8 @@ pub enum Language {
     C,
     Cpp,
     Ruby,
+    ObjC,
+    Swift,
     Unsupported,
 }
 
@@ -53,6 +59,8 @@ impl Language {
             "c" | "h" => Language::C,
             "cc" | "cpp" | "cxx" | "hpp" | "hxx" | "hh" => Language::Cpp,
             "rb" | "rake" | "gemspec" => Language::Ruby,
+            "m" | "mm" => Language::ObjC,
+            "swift" => Language::Swift,
             _ => Language::Unsupported,
         }
     }
@@ -73,11 +81,13 @@ pub fn extract_outline(source: &str, language: Language) -> Result<Vec<OutlineEn
         Language::Rust => outline::extract_rust_outline(source),
 
         #[cfg(feature = "lang-typescript")]
-        Language::TypeScript | Language::JavaScript =>
-            outline_typescript::extract_typescript_outline(source, false),
+        Language::TypeScript | Language::JavaScript => {
+            outline_typescript::extract_typescript_outline(source, false)
+        }
         #[cfg(feature = "lang-typescript")]
-        Language::Tsx | Language::Jsx =>
-            outline_typescript::extract_typescript_outline(source, true),
+        Language::Tsx | Language::Jsx => {
+            outline_typescript::extract_typescript_outline(source, true)
+        }
 
         #[cfg(feature = "lang-python")]
         Language::Python => outline_python::extract_python_outline(source),
@@ -97,21 +107,23 @@ pub fn extract_outline(source: &str, language: Language) -> Result<Vec<OutlineEn
         #[cfg(feature = "lang-ruby")]
         Language::Ruby => outline_ruby::extract_ruby_outline(source),
 
-        Language::Unsupported => {
-            Err(AstError::UnsupportedLanguage {
-                extension: "unknown".to_string(),
-                location: snafu::Location::new(file!(), line!(), 0),
-            })
-        }
+        #[cfg(feature = "lang-objc")]
+        Language::ObjC => outline_objc::extract_objc_outline(source),
+
+        #[cfg(feature = "lang-swift")]
+        Language::Swift => outline_swift::extract_swift_outline(source),
+
+        Language::Unsupported => Err(AstError::UnsupportedLanguage {
+            extension: "unknown".to_string(),
+            location: snafu::Location::new(file!(), line!(), 0),
+        }),
 
         // Feature-disabled arms: language recognized but grammar not compiled in
         #[allow(unreachable_patterns)]
-        _ => {
-            Err(AstError::UnsupportedLanguage {
-                extension: format!("{:?} (feature not enabled)", language),
-                location: snafu::Location::new(file!(), line!(), 0),
-            })
-        }
+        _ => Err(AstError::UnsupportedLanguage {
+            extension: format!("{:?} (feature not enabled)", language),
+            location: snafu::Location::new(file!(), line!(), 0),
+        }),
     }
 }
 

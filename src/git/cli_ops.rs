@@ -163,12 +163,8 @@ impl GitOps for CliOps {
     fn commit_info(&self, commit: &str) -> Result<CommitInfo, GitError> {
         // Use a custom format to get all info in one call
         // %H = sha, %s = subject, %an = author name, %ae = author email, %aI = author date ISO, %P = parent hashes
-        let (success, stdout, stderr) = self.run_git_raw(&[
-            "log",
-            "-1",
-            "--format=%H%n%s%n%an%n%ae%n%aI%n%P",
-            commit,
-        ])?;
+        let (success, stdout, stderr) =
+            self.run_git_raw(&["log", "-1", "--format=%H%n%s%n%an%n%ae%n%aI%n%P", commit])?;
 
         if !success {
             if stderr.contains("unknown revision") || stderr.contains("bad object") {

@@ -1,4 +1,4 @@
-use crate::error::{Result, chronicle_error};
+use crate::error::{chronicle_error, Result};
 use crate::git::{FileDiff, GitOps};
 use snafu::ResultExt;
 use std::path::PathBuf;
@@ -25,12 +25,11 @@ pub struct AnnotationContext {
 }
 
 /// Build the annotation context for a commit.
-pub fn build_context(
-    git_ops: &dyn GitOps,
-    commit: &str,
-) -> Result<AnnotationContext> {
+pub fn build_context(git_ops: &dyn GitOps, commit: &str) -> Result<AnnotationContext> {
     // Get commit metadata
-    let info = git_ops.commit_info(commit).context(chronicle_error::GitSnafu)?;
+    let info = git_ops
+        .commit_info(commit)
+        .context(chronicle_error::GitSnafu)?;
 
     // Get file diffs
     let diffs = git_ops.diff(commit).context(chronicle_error::GitSnafu)?;
@@ -55,9 +54,15 @@ fn gather_author_context() -> Option<AuthorContext> {
     let pending = read_pending_context_from_git_dir();
 
     // Also check environment variables
-    let env_task = std::env::var("CHRONICLE_TASK").ok().filter(|s| !s.is_empty());
-    let env_reasoning = std::env::var("CHRONICLE_REASONING").ok().filter(|s| !s.is_empty());
-    let env_dependencies = std::env::var("CHRONICLE_DEPENDENCIES").ok().filter(|s| !s.is_empty());
+    let env_task = std::env::var("CHRONICLE_TASK")
+        .ok()
+        .filter(|s| !s.is_empty());
+    let env_reasoning = std::env::var("CHRONICLE_REASONING")
+        .ok()
+        .filter(|s| !s.is_empty());
+    let env_dependencies = std::env::var("CHRONICLE_DEPENDENCIES")
+        .ok()
+        .filter(|s| !s.is_empty());
     let env_tags: Vec<String> = std::env::var("CHRONICLE_TAGS")
         .ok()
         .filter(|s| !s.is_empty())
@@ -65,9 +70,7 @@ fn gather_author_context() -> Option<AuthorContext> {
         .unwrap_or_default();
 
     // Merge: pending context provides base, env vars override
-    let mut ctx = pending
-        .map(|p| p.to_author_context())
-        .unwrap_or_default();
+    let mut ctx = pending.map(|p| p.to_author_context()).unwrap_or_default();
 
     if env_task.is_some() {
         ctx.task = env_task;

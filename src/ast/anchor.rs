@@ -32,18 +32,12 @@ impl AnchorMatch {
 /// 1. Exact: kind matches unit_type AND name matches exactly
 /// 2. Qualified: name is a suffix of a qualified entry name (e.g. "method" matches "Type::method")
 /// 3. Fuzzy: Levenshtein distance <= 3
-pub fn resolve(
-    outline: &[OutlineEntry],
-    unit_type: &str,
-    name: &str,
-) -> Option<AnchorMatch> {
+pub fn resolve(outline: &[OutlineEntry], unit_type: &str, name: &str) -> Option<AnchorMatch> {
     let target_kind = SemanticKind::from_str_loose(unit_type);
 
     // 1. Exact match: kind matches AND name matches exactly
     for entry in outline {
-        let kind_matches = target_kind
-            .as_ref()
-            .is_some_and(|k| *k == entry.kind);
+        let kind_matches = target_kind.as_ref().is_some_and(|k| *k == entry.kind);
         if kind_matches && entry.name == name {
             return Some(AnchorMatch::Exact(entry.clone()));
         }
@@ -51,9 +45,7 @@ pub fn resolve(
 
     // 2. Qualified suffix match: name is a suffix after "::" in the entry name
     for entry in outline {
-        let kind_matches = target_kind
-            .as_ref()
-            .is_none_or(|k| *k == entry.kind);
+        let kind_matches = target_kind.as_ref().is_none_or(|k| *k == entry.kind);
         if kind_matches {
             if let Some(suffix) = entry.name.rsplit("::").next() {
                 if suffix == name && entry.name != name {
@@ -66,9 +58,7 @@ pub fn resolve(
     // 3. Fuzzy match: Levenshtein distance <= 3
     let mut best_match: Option<(OutlineEntry, u32)> = None;
     for entry in outline {
-        let kind_matches = target_kind
-            .as_ref()
-            .is_none_or(|k| *k == entry.kind);
+        let kind_matches = target_kind.as_ref().is_none_or(|k| *k == entry.kind);
         if !kind_matches {
             continue;
         }
@@ -85,10 +75,9 @@ pub fn resolve(
         ];
         let dist = distances.into_iter().min().unwrap_or(u32::MAX);
 
-        if dist <= 3
-            && best_match.as_ref().is_none_or(|(_, d)| dist < *d) {
-                best_match = Some((entry.clone(), dist));
-            }
+        if dist <= 3 && best_match.as_ref().is_none_or(|(_, d)| dist < *d) {
+            best_match = Some((entry.clone(), dist));
+        }
     }
 
     best_match.map(|(entry, dist)| AnchorMatch::Fuzzy(entry, dist))
@@ -112,8 +101,8 @@ fn levenshtein(a: &str, b: &str) -> u32 {
     let mut prev = vec![0u32; n + 1];
     let mut curr = vec![0u32; n + 1];
 
-    for j in 0..=n {
-        prev[j] = j as u32;
+    for (j, item) in prev.iter_mut().enumerate().take(n + 1) {
+        *item = j as u32;
     }
 
     for i in 1..=m {
@@ -124,9 +113,7 @@ fn levenshtein(a: &str, b: &str) -> u32 {
             } else {
                 1
             };
-            curr[j] = (prev[j] + 1)
-                .min(curr[j - 1] + 1)
-                .min(prev[j - 1] + cost);
+            curr[j] = (prev[j] + 1).min(curr[j - 1] + 1).min(prev[j - 1] + cost);
         }
         std::mem::swap(&mut prev, &mut curr);
     }

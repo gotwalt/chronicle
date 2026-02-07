@@ -56,16 +56,15 @@ pub enum SemanticKind {
     Method,
     Struct,
     Enum,
-    Trait,
-    Impl,
+    Extension,   // Rust impl blocks, Swift extensions, ObjC categories
     Class,
-    Interface,
+    Interface,   // Traits (Rust), interfaces (TS/Go/Java), protocols (ObjC/Swift)
     TypeAlias,
     Constant,
     Static,
     Module,
-    /// Python: decorated function/class
-    Decorator,
+    Namespace,
+    Constructor,
 }
 
 /// Result of anchor resolution.

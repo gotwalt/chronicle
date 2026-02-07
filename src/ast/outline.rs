@@ -8,8 +8,7 @@ pub enum SemanticKind {
     Method,
     Struct,
     Enum,
-    Trait,
-    Impl,
+    Extension,
     Const,
     Static,
     TypeAlias,
@@ -27,8 +26,7 @@ impl SemanticKind {
             SemanticKind::Method => "method",
             SemanticKind::Struct => "struct",
             SemanticKind::Enum => "enum",
-            SemanticKind::Trait => "trait",
-            SemanticKind::Impl => "impl",
+            SemanticKind::Extension => "extension",
             SemanticKind::Const => "const",
             SemanticKind::Static => "static",
             SemanticKind::TypeAlias => "type_alias",
@@ -47,8 +45,8 @@ impl SemanticKind {
             "method" => Some(SemanticKind::Method),
             "struct" => Some(SemanticKind::Struct),
             "enum" => Some(SemanticKind::Enum),
-            "trait" => Some(SemanticKind::Trait),
-            "impl" => Some(SemanticKind::Impl),
+            "trait" | "protocol" => Some(SemanticKind::Interface),
+            "impl" | "extension" | "category" => Some(SemanticKind::Extension),
             "const" => Some(SemanticKind::Const),
             "static" => Some(SemanticKind::Static),
             "type_alias" | "type" => Some(SemanticKind::TypeAlias),
@@ -114,13 +112,11 @@ pub fn extract_rust_outline(source: &str) -> Result<Vec<OutlineEntry>, AstError>
             location: snafu::Location::new(file!(), line!(), 0),
         })?;
 
-    let tree = parser
-        .parse(source, None)
-        .ok_or(AstError::ParseFailed {
-            path: "<input>".to_string(),
-            message: "tree-sitter returned None".to_string(),
-            location: snafu::Location::new(file!(), line!(), 0),
-        })?;
+    let tree = parser.parse(source, None).ok_or(AstError::ParseFailed {
+        path: "<input>".to_string(),
+        message: "tree-sitter returned None".to_string(),
+        location: snafu::Location::new(file!(), line!(), 0),
+    })?;
 
     let mut entries = Vec::new();
     let root = tree.root_node();
@@ -157,7 +153,7 @@ fn walk_rust_node(
                 }
             }
             "trait_item" => {
-                if let Some(entry) = extract_named_item(child, source, SemanticKind::Trait) {
+                if let Some(entry) = extract_named_item(child, source, SemanticKind::Interface) {
                     entries.push(entry);
                 }
             }
@@ -226,11 +222,7 @@ fn extract_named_item(
 }
 
 #[cfg(feature = "lang-rust")]
-fn extract_impl(
-    node: tree_sitter::Node,
-    source: &[u8],
-    entries: &mut Vec<OutlineEntry>,
-) {
+fn extract_impl(node: tree_sitter::Node, source: &[u8], entries: &mut Vec<OutlineEntry>) {
     // Find the type name for the impl block.
     // impl blocks have a "type" field for the type being implemented.
     let type_node = node.child_by_field_name("type");
@@ -241,7 +233,7 @@ fn extract_impl(
     let signature = extract_signature(node, source);
 
     entries.push(OutlineEntry {
-        kind: SemanticKind::Impl,
+        kind: SemanticKind::Extension,
         name: type_name.to_string(),
         signature: Some(signature),
         lines: LineRange {

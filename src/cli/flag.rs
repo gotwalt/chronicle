@@ -1,7 +1,7 @@
 use crate::error::Result;
 use crate::git::{CliOps, GitOps};
 use crate::schema::annotation::Annotation;
-use crate::schema::correction::{Correction, CorrectionType, resolve_author};
+use crate::schema::correction::{resolve_author, Correction, CorrectionType};
 
 /// Run the `git chronicle flag` command.
 ///
@@ -27,15 +27,16 @@ pub fn run(path: String, anchor: Option<String>, reason: String) -> Result<()> {
 
     // Search for the first commit with a matching annotation/region
     for sha in &shas {
-        let note_content = match git_ops
-            .note_read(sha)
-            .map_err(|e| crate::error::ChronicleError::Git {
-                source: e,
-                location: snafu::Location::default(),
-            })? {
-            Some(n) => n,
-            None => continue,
-        };
+        let note_content =
+            match git_ops
+                .note_read(sha)
+                .map_err(|e| crate::error::ChronicleError::Git {
+                    source: e,
+                    location: snafu::Location::default(),
+                })? {
+                Some(n) => n,
+                None => continue,
+            };
 
         let mut annotation: Annotation = serde_json::from_str(&note_content).map_err(|e| {
             crate::error::ChronicleError::Json {
@@ -68,13 +69,12 @@ pub fn run(path: String, anchor: Option<String>, reason: String) -> Result<()> {
 
         annotation.regions[region_idx].corrections.push(correction);
 
-        let updated_json =
-            serde_json::to_string_pretty(&annotation).map_err(|e| {
-                crate::error::ChronicleError::Json {
-                    source: e,
-                    location: snafu::Location::default(),
-                }
-            })?;
+        let updated_json = serde_json::to_string_pretty(&annotation).map_err(|e| {
+            crate::error::ChronicleError::Json {
+                source: e,
+                location: snafu::Location::default(),
+            }
+        })?;
 
         git_ops
             .note_write(sha, &updated_json)
@@ -171,10 +171,7 @@ mod tests {
                         name: "helper".to_string(),
                         signature: None,
                     },
-                    lines: LineRange {
-                        start: 12,
-                        end: 20,
-                    },
+                    lines: LineRange { start: 12, end: 20 },
                     intent: "helper fn".to_string(),
                     reasoning: None,
                     constraints: vec![],
@@ -249,10 +246,7 @@ mod tests {
             Some(0)
         );
         // Wrong file
-        assert_eq!(
-            find_matching_region(&annotation, "src/main.rs", None),
-            None
-        );
+        assert_eq!(find_matching_region(&annotation, "src/main.rs", None), None);
     }
 
     #[test]

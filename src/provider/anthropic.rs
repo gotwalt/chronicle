@@ -173,10 +173,7 @@ fn from_api_stop_reason(reason: &str) -> StopReason {
 }
 
 impl LlmProvider for AnthropicProvider {
-    fn complete(
-        &self,
-        request: &CompletionRequest,
-    ) -> Result<CompletionResponse, ProviderError> {
+    fn complete(&self, request: &CompletionRequest) -> Result<CompletionResponse, ProviderError> {
         let api_request = ApiRequest {
             model: self.model.clone(),
             max_tokens: request.max_tokens,
@@ -185,10 +182,11 @@ impl LlmProvider for AnthropicProvider {
             tools: to_api_tools(&request.tools),
         };
 
-        let body = serde_json::to_value(&api_request).map_err(|e| ProviderError::ParseResponse {
-            message: e.to_string(),
-            location: snafu::Location::default(),
-        })?;
+        let body =
+            serde_json::to_value(&api_request).map_err(|e| ProviderError::ParseResponse {
+                message: e.to_string(),
+                location: snafu::Location::default(),
+            })?;
 
         for attempt in 0..MAX_RETRIES {
             match self

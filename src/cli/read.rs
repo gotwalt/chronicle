@@ -1,6 +1,6 @@
 use crate::error::Result;
 use crate::git::CliOps;
-use crate::read::{ReadQuery, execute};
+use crate::read::{execute, ReadQuery};
 use crate::schema::annotation::LineRange;
 
 pub fn run(path: String, anchor: Option<String>, lines: Option<String>) -> Result<()> {
@@ -23,12 +23,11 @@ pub fn run(path: String, anchor: Option<String>, lines: Option<String>) -> Resul
 
     let result = execute(&git_ops, &query)?;
 
-    let json = serde_json::to_string_pretty(&result).map_err(|e| {
-        crate::error::ChronicleError::Json {
+    let json =
+        serde_json::to_string_pretty(&result).map_err(|e| crate::error::ChronicleError::Json {
             source: e,
             location: snafu::Location::default(),
-        }
-    })?;
+        })?;
     println!("{json}");
 
     Ok(())
@@ -43,13 +42,17 @@ fn parse_line_range(s: &str) -> Result<LineRange> {
             location: snafu::Location::default(),
         });
     }
-    let start: u32 = parts[0].parse().map_err(|_| crate::error::ChronicleError::Config {
-        message: format!("invalid start line number '{}'", parts[0]),
-        location: snafu::Location::default(),
-    })?;
-    let end: u32 = parts[1].parse().map_err(|_| crate::error::ChronicleError::Config {
-        message: format!("invalid end line number '{}'", parts[1]),
-        location: snafu::Location::default(),
-    })?;
+    let start: u32 = parts[0]
+        .parse()
+        .map_err(|_| crate::error::ChronicleError::Config {
+            message: format!("invalid start line number '{}'", parts[0]),
+            location: snafu::Location::default(),
+        })?;
+    let end: u32 = parts[1]
+        .parse()
+        .map_err(|_| crate::error::ChronicleError::Config {
+            message: format!("invalid end line number '{}'", parts[1]),
+            location: snafu::Location::default(),
+        })?;
     Ok(LineRange { start, end })
 }

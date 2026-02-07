@@ -2,11 +2,11 @@ use std::path::Path;
 
 use snafu::ResultExt;
 
+use crate::annotate::gather::AnnotationContext;
 use crate::error::agent_error::{GitSnafu, JsonSnafu};
 use crate::error::AgentError;
 use crate::git::{GitOps, HunkLine};
 use crate::provider::ToolDefinition;
-use crate::annotate::gather::AnnotationContext;
 use crate::schema::{CrossCuttingConcern, RegionAnnotation};
 
 /// Return the tool definitions the agent has access to.
@@ -168,15 +168,31 @@ pub fn dispatch_tool(
 fn dispatch_get_diff(context: &AnnotationContext) -> Result<String, AgentError> {
     let mut out = String::new();
     for diff in &context.diffs {
-        out.push_str(&format!("--- a/{}\n+++ b/{}\n", diff.old_path.as_deref().unwrap_or(&diff.path), &diff.path));
+        out.push_str(&format!(
+            "--- a/{}\n+++ b/{}\n",
+            diff.old_path.as_deref().unwrap_or(&diff.path),
+            &diff.path
+        ));
         for hunk in &diff.hunks {
             out.push_str(&hunk.header);
             out.push('\n');
             for line in &hunk.lines {
                 match line {
-                    HunkLine::Context(s) => { out.push(' '); out.push_str(s); out.push('\n'); }
-                    HunkLine::Added(s) => { out.push('+'); out.push_str(s); out.push('\n'); }
-                    HunkLine::Removed(s) => { out.push('-'); out.push_str(s); out.push('\n'); }
+                    HunkLine::Context(s) => {
+                        out.push(' ');
+                        out.push_str(s);
+                        out.push('\n');
+                    }
+                    HunkLine::Added(s) => {
+                        out.push('+');
+                        out.push_str(s);
+                        out.push('\n');
+                    }
+                    HunkLine::Removed(s) => {
+                        out.push('-');
+                        out.push_str(s);
+                        out.push('\n');
+                    }
                 }
             }
         }
@@ -189,13 +205,12 @@ fn dispatch_get_file_content(
     git_ops: &dyn GitOps,
     context: &AnnotationContext,
 ) -> Result<String, AgentError> {
-    let path = input
-        .get("path")
-        .and_then(|v| v.as_str())
-        .ok_or_else(|| AgentError::InvalidAnnotation {
+    let path = input.get("path").and_then(|v| v.as_str()).ok_or_else(|| {
+        AgentError::InvalidAnnotation {
             message: "get_file_content requires 'path' parameter".to_string(),
             location: snafu::Location::default(),
-        })?;
+        }
+    })?;
     let content = git_ops
         .file_at_commit(Path::new(path), &context.commit_sha)
         .context(GitSnafu)?;
@@ -207,13 +222,12 @@ fn dispatch_get_ast_outline(
     git_ops: &dyn GitOps,
     context: &AnnotationContext,
 ) -> Result<String, AgentError> {
-    let path = input
-        .get("path")
-        .and_then(|v| v.as_str())
-        .ok_or_else(|| AgentError::InvalidAnnotation {
+    let path = input.get("path").and_then(|v| v.as_str()).ok_or_else(|| {
+        AgentError::InvalidAnnotation {
             message: "get_ast_outline requires 'path' parameter".to_string(),
             location: snafu::Location::default(),
-        })?;
+        }
+    })?;
 
     let source = git_ops
         .file_at_commit(Path::new(path), &context.commit_sha)
@@ -257,8 +271,7 @@ fn dispatch_emit_annotation(
     input: &serde_json::Value,
     collected_regions: &mut Vec<RegionAnnotation>,
 ) -> Result<String, AgentError> {
-    let annotation: RegionAnnotation =
-        serde_json::from_value(input.clone()).context(JsonSnafu)?;
+    let annotation: RegionAnnotation = serde_json::from_value(input.clone()).context(JsonSnafu)?;
     collected_regions.push(annotation);
     Ok(format!(
         "Annotation emitted. Total annotations: {}",
@@ -270,8 +283,7 @@ fn dispatch_emit_cross_cutting(
     input: &serde_json::Value,
     collected_cross_cutting: &mut Vec<CrossCuttingConcern>,
 ) -> Result<String, AgentError> {
-    let concern: CrossCuttingConcern =
-        serde_json::from_value(input.clone()).context(JsonSnafu)?;
+    let concern: CrossCuttingConcern = serde_json::from_value(input.clone()).context(JsonSnafu)?;
     collected_cross_cutting.push(concern);
     Ok(format!(
         "Cross-cutting concern emitted. Total: {}",

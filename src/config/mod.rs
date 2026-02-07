@@ -1,7 +1,7 @@
 pub mod user_config;
 
-use crate::error::Result;
 use crate::error::chronicle_error::GitSnafu;
+use crate::error::Result;
 use crate::git::GitOps;
 use snafu::ResultExt;
 
@@ -57,17 +57,26 @@ pub fn load_config(git_ops: &dyn GitOps) -> Result<ChronicleConfig> {
         config.notes_ref = val;
     }
 
-    if let Some(val) = git_ops.config_get("chronicle.maxdifflines").context(GitSnafu)? {
+    if let Some(val) = git_ops
+        .config_get("chronicle.maxdifflines")
+        .context(GitSnafu)?
+    {
         if let Ok(n) = val.parse::<u32>() {
             config.max_diff_lines = n;
         }
     }
 
-    if let Some(val) = git_ops.config_get("chronicle.skiptrivial").context(GitSnafu)? {
+    if let Some(val) = git_ops
+        .config_get("chronicle.skiptrivial")
+        .context(GitSnafu)?
+    {
         config.skip_trivial = val == "true" || val == "1";
     }
 
-    if let Some(val) = git_ops.config_get("chronicle.trivialthreshold").context(GitSnafu)? {
+    if let Some(val) = git_ops
+        .config_get("chronicle.trivialthreshold")
+        .context(GitSnafu)?
+    {
         if let Ok(n) = val.parse::<u32>() {
             config.trivial_threshold = n;
         }

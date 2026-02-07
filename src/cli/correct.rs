@@ -1,7 +1,7 @@
 use crate::error::Result;
 use crate::git::{CliOps, GitOps};
 use crate::schema::annotation::Annotation;
-use crate::schema::correction::{Correction, CorrectionType, resolve_author};
+use crate::schema::correction::{resolve_author, Correction, CorrectionType};
 
 /// Run the `git chronicle correct` command.
 ///
@@ -46,9 +46,7 @@ pub fn run(
         Some(n) => n,
         None => {
             return Err(crate::error::ChronicleError::Config {
-                message: format!(
-                    "No annotation found for commit {sha}. Cannot apply correction."
-                ),
+                message: format!("No annotation found for commit {sha}. Cannot apply correction."),
                 location: snafu::Location::default(),
             });
         }
@@ -123,23 +121,22 @@ pub fn run(
 
     annotation.regions[region_idx].corrections.push(correction);
 
-    let updated_json =
-        serde_json::to_string_pretty(&annotation).map_err(|e| crate::error::ChronicleError::Json {
+    let updated_json = serde_json::to_string_pretty(&annotation).map_err(|e| {
+        crate::error::ChronicleError::Json {
             source: e,
             location: snafu::Location::default(),
-        })?;
+        }
+    })?;
 
-    git_ops
-        .note_write(&full_sha, &updated_json)
-        .map_err(|e| crate::error::ChronicleError::Git {
+    git_ops.note_write(&full_sha, &updated_json).map_err(|e| {
+        crate::error::ChronicleError::Git {
             source: e,
             location: snafu::Location::default(),
-        })?;
+        }
+    })?;
 
     let short_sha = &full_sha[..7.min(full_sha.len())];
-    eprintln!(
-        "Corrected annotation on commit {short_sha}, region {region_anchor}"
-    );
+    eprintln!("Corrected annotation on commit {short_sha}, region {region_anchor}");
     eprintln!("  Field: {field}");
     if let Some(ref val) = remove {
         eprintln!("  Removed: \"{val}\"");
@@ -153,15 +150,12 @@ pub fn run(
 }
 
 /// Validate that the given field name corresponds to a non-empty field on the region.
-fn validate_field(
-    region: &crate::schema::annotation::RegionAnnotation,
-    field: &str,
-) -> Result<()> {
+fn validate_field(region: &crate::schema::annotation::RegionAnnotation, field: &str) -> Result<()> {
     let is_empty = match field {
         "intent" => region.intent.is_empty(),
-        "reasoning" => region.reasoning.as_ref().map_or(true, |s| s.is_empty()),
+        "reasoning" => region.reasoning.as_ref().is_none_or(|s| s.is_empty()),
         "constraints" => region.constraints.is_empty(),
-        "risk_notes" => region.risk_notes.as_ref().map_or(true, |s| s.is_empty()),
+        "risk_notes" => region.risk_notes.as_ref().is_none_or(|s| s.is_empty()),
         "semantic_dependencies" => region.semantic_dependencies.is_empty(),
         "tags" => region.tags.is_empty(),
         other => {
@@ -179,8 +173,7 @@ fn validate_field(
         return Err(crate::error::ChronicleError::Config {
             message: format!(
                 "Field '{}' is empty in region '{}'. Nothing to correct.",
-                field,
-                region.ast_anchor.name
+                field, region.ast_anchor.name
             ),
             location: snafu::Location::default(),
         });
@@ -287,7 +280,10 @@ mod tests {
         region.corrections.push(c2);
 
         assert_eq!(region.corrections.len(), 2);
-        assert_eq!(region.corrections[0].correction_type, CorrectionType::Remove);
+        assert_eq!(
+            region.corrections[0].correction_type,
+            CorrectionType::Remove
+        );
         assert_eq!(region.corrections[1].correction_type, CorrectionType::Amend);
     }
 

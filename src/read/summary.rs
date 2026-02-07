@@ -110,7 +110,8 @@ pub fn build_summary(git: &dyn GitOps, query: &SummaryQuery) -> Result<SummaryOu
 
             // Keep the entry with the most recent (lexicographically largest) timestamp.
             // Since git log returns newest first, the first match per anchor wins.
-            best.entry(key).or_insert((annotation.timestamp.clone(), unit));
+            best.entry(key)
+                .or_insert((annotation.timestamp.clone(), unit));
         }
     }
 
@@ -173,7 +174,11 @@ mod tests {
         fn note_exists(&self, commit: &str) -> Result<bool, GitError> {
             Ok(self.notes.contains_key(commit))
         }
-        fn file_at_commit(&self, _path: &std::path::Path, _commit: &str) -> Result<String, GitError> {
+        fn file_at_commit(
+            &self,
+            _path: &std::path::Path,
+            _commit: &str,
+        ) -> Result<String, GitError> {
             Ok(String::new())
         }
         fn commit_info(&self, _commit: &str) -> Result<crate::git::CommitInfo, GitError> {
@@ -203,7 +208,11 @@ mod tests {
         }
     }
 
-    fn make_annotation(commit: &str, timestamp: &str, regions: Vec<RegionAnnotation>) -> Annotation {
+    fn make_annotation(
+        commit: &str,
+        timestamp: &str,
+        regions: Vec<RegionAnnotation>,
+    ) -> Annotation {
         Annotation {
             schema: "chronicle/v1".to_string(),
             commit: commit.to_string(),

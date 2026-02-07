@@ -4,7 +4,12 @@ use super::data::ShowData;
 
 /// Render annotated file as plain text. Used when stdout is not a TTY or --no-tui.
 pub fn run_plain(data: &ShowData, w: &mut dyn Write) -> std::io::Result<()> {
-    writeln!(w, "{} @ {}", data.file_path, &data.commit[..7.min(data.commit.len())])?;
+    writeln!(
+        w,
+        "{} @ {}",
+        data.file_path,
+        &data.commit[..7.min(data.commit.len())]
+    )?;
     writeln!(w)?;
 
     if data.regions.is_empty() {
@@ -115,9 +120,7 @@ mod tests {
                     synthesis_notes: None,
                 },
             }],
-            annotation_map: crate::show::data::LineAnnotationMap::build_from_regions(
-                &[], 1,
-            ),
+            annotation_map: crate::show::data::LineAnnotationMap::build_from_regions(&[], 1),
         }
     }
 
@@ -165,9 +168,7 @@ mod tests {
             source_lines: vec![],
             outline: vec![],
             regions: vec![],
-            annotation_map: crate::show::data::LineAnnotationMap::build_from_regions(
-                &[], 0,
-            ),
+            annotation_map: crate::show::data::LineAnnotationMap::build_from_regions(&[], 0),
         };
         let mut buf = Vec::new();
         run_plain(&data, &mut buf).unwrap();

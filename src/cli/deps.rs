@@ -1,6 +1,6 @@
 use crate::error::Result;
 use crate::git::CliOps;
-use crate::read::deps::{DepsQuery, find_dependents};
+use crate::read::deps::{find_dependents, DepsQuery};
 
 pub fn run(
     path: String,
@@ -22,10 +22,11 @@ pub fn run(
         scan_limit,
     };
 
-    let result = find_dependents(&git_ops, &query).map_err(|e| crate::error::ChronicleError::Git {
-        source: e,
-        location: snafu::Location::default(),
-    })?;
+    let result =
+        find_dependents(&git_ops, &query).map_err(|e| crate::error::ChronicleError::Git {
+            source: e,
+            location: snafu::Location::default(),
+        })?;
 
     let json = if format == "pretty" {
         serde_json::to_string_pretty(&result)

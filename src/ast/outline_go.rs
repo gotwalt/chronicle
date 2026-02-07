@@ -25,11 +25,7 @@ pub fn extract_go_outline(source: &str) -> Result<Vec<OutlineEntry>, AstError> {
     Ok(entries)
 }
 
-fn walk_go_node(
-    node: tree_sitter::Node,
-    source: &[u8],
-    entries: &mut Vec<OutlineEntry>,
-) {
+fn walk_go_node(node: tree_sitter::Node, source: &[u8], entries: &mut Vec<OutlineEntry>) {
     let mut cursor = node.walk();
     for child in node.children(&mut cursor) {
         if should_skip_node(&child) {
@@ -57,10 +53,7 @@ fn walk_go_node(
     }
 }
 
-fn extract_go_function(
-    node: tree_sitter::Node,
-    source: &[u8],
-) -> Option<OutlineEntry> {
+fn extract_go_function(node: tree_sitter::Node, source: &[u8]) -> Option<OutlineEntry> {
     let name_node = node.child_by_field_name("name")?;
     let name = name_node.utf8_text(source).ok()?;
     let signature = extract_signature_with_delimiter(node, source, '{');
@@ -73,10 +66,7 @@ fn extract_go_function(
     })
 }
 
-fn extract_go_method(
-    node: tree_sitter::Node,
-    source: &[u8],
-) -> Option<OutlineEntry> {
+fn extract_go_method(node: tree_sitter::Node, source: &[u8]) -> Option<OutlineEntry> {
     let name_node = node.child_by_field_name("name")?;
     let method_name = name_node.utf8_text(source).ok()?;
 
@@ -129,10 +119,7 @@ fn extract_go_type_declaration(
     }
 }
 
-fn extract_go_type_spec(
-    node: tree_sitter::Node,
-    source: &[u8],
-) -> Option<OutlineEntry> {
+fn extract_go_type_spec(node: tree_sitter::Node, source: &[u8]) -> Option<OutlineEntry> {
     let name_node = node.child_by_field_name("name")?;
     let name = name_node.utf8_text(source).ok()?;
 
@@ -175,10 +162,7 @@ fn extract_go_const_declaration(
     }
 }
 
-fn extract_go_const_spec(
-    node: tree_sitter::Node,
-    source: &[u8],
-) -> Option<OutlineEntry> {
+fn extract_go_const_spec(node: tree_sitter::Node, source: &[u8]) -> Option<OutlineEntry> {
     let name_node = node.child_by_field_name("name")?;
     let name = name_node.utf8_text(source).ok()?;
     let signature = node.utf8_text(source).unwrap_or("").trim().to_string();

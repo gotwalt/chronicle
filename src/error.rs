@@ -306,7 +306,9 @@ pub enum SetupError {
         location: snafu::Location,
     },
 
-    #[snafu(display("Claude CLI not found — install Claude Code or select a different provider, at {location}"))]
+    #[snafu(display(
+        "Claude CLI not found — install Claude Code or select a different provider, at {location}"
+    ))]
     ClaudeCliNotFound {
         #[snafu(implicit)]
         location: snafu::Location,
@@ -326,6 +328,5 @@ pub enum SetupError {
         location: snafu::Location,
     },
 }
-
 
 pub type Result<T, E = ChronicleError> = std::result::Result<T, E>;

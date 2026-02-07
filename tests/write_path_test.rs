@@ -3,8 +3,7 @@ use std::process::Command;
 
 use chronicle::git::{CliOps, GitOps};
 use chronicle::mcp::annotate_handler::{
-    AnchorInput, AnchorResolutionKind, AnnotateInput, ConstraintInput, RegionInput,
-    handle_annotate,
+    handle_annotate, AnchorInput, AnchorResolutionKind, AnnotateInput, ConstraintInput, RegionInput,
 };
 use chronicle::schema::{
     Annotation, ConstraintSource, ContextLevel, CrossCuttingConcern, CrossCuttingRegionRef,
@@ -82,7 +81,9 @@ fn make_basic_input(commit: &str) -> AnnotateInput {
                 }),
                 lines: LineRange { start: 1, end: 3 },
                 intent: "Add a standalone greet function for simple greeting use cases".to_string(),
-                reasoning: Some("Needed a simple entry point before the full Greeter struct".to_string()),
+                reasoning: Some(
+                    "Needed a simple entry point before the full Greeter struct".to_string(),
+                ),
                 constraints: vec![ConstraintInput {
                     text: "Must return an owned String, not a reference".to_string(),
                 }],
@@ -110,7 +111,9 @@ fn make_basic_input(commit: &str) -> AnnotateInput {
             },
         ],
         cross_cutting: vec![CrossCuttingConcern {
-            description: "Greeting formatting is consistent across standalone function and struct method".to_string(),
+            description:
+                "Greeting formatting is consistent across standalone function and struct method"
+                    .to_string(),
             regions: vec![
                 CrossCuttingRegionRef {
                     file: "src/lib.rs".to_string(),
@@ -129,7 +132,12 @@ fn make_basic_input(commit: &str) -> AnnotateInput {
 #[test]
 fn full_roundtrip_annotate_and_read_note() {
     let (dir, ops) = create_temp_repo();
-    add_and_commit(dir.path(), "src/lib.rs", SAMPLE_RUST_FILE, "Add greeting module");
+    add_and_commit(
+        dir.path(),
+        "src/lib.rs",
+        SAMPLE_RUST_FILE,
+        "Add greeting module",
+    );
 
     let input = make_basic_input("HEAD");
     let result = handle_annotate(&ops, input).unwrap();
@@ -164,13 +172,21 @@ fn full_roundtrip_annotate_and_read_note() {
     assert_eq!(region0.constraints[0].source, ConstraintSource::Author);
 
     assert_eq!(annotation.cross_cutting.len(), 1);
-    assert_eq!(annotation.provenance.operation, ProvenanceOperation::Initial);
+    assert_eq!(
+        annotation.provenance.operation,
+        ProvenanceOperation::Initial
+    );
 }
 
 #[test]
 fn anchor_resolution_corrects_line_ranges() {
     let (dir, ops) = create_temp_repo();
-    add_and_commit(dir.path(), "src/lib.rs", SAMPLE_RUST_FILE, "Add greeting module");
+    add_and_commit(
+        dir.path(),
+        "src/lib.rs",
+        SAMPLE_RUST_FILE,
+        "Add greeting module",
+    );
 
     let input = AnnotateInput {
         commit: "HEAD".to_string(),
@@ -182,7 +198,10 @@ fn anchor_resolution_corrects_line_ranges() {
                 unit_type: "function".to_string(),
                 name: "greet".to_string(),
             }),
-            lines: LineRange { start: 99, end: 100 },
+            lines: LineRange {
+                start: 99,
+                end: 100,
+            },
             intent: "The AST should correct these line numbers".to_string(),
             reasoning: None,
             constraints: vec![],
@@ -194,7 +213,10 @@ fn anchor_resolution_corrects_line_ranges() {
     };
 
     let result = handle_annotate(&ops, input).unwrap();
-    assert!(matches!(result.anchor_resolutions[0].resolution, AnchorResolutionKind::Exact));
+    assert!(matches!(
+        result.anchor_resolutions[0].resolution,
+        AnchorResolutionKind::Exact
+    ));
 
     let note_json = ops.note_read(&result.commit).unwrap().unwrap();
     let annotation: Annotation = serde_json::from_str(&note_json).unwrap();
@@ -230,7 +252,12 @@ fn validation_rejects_empty_summary() {
 fn multiple_commits_have_independent_notes() {
     let (dir, ops) = create_temp_repo();
 
-    add_and_commit(dir.path(), "src/lib.rs", SAMPLE_RUST_FILE, "Add greeting module");
+    add_and_commit(
+        dir.path(),
+        "src/lib.rs",
+        SAMPLE_RUST_FILE,
+        "Add greeting module",
+    );
     let sha1 = ops.resolve_ref("HEAD").unwrap();
 
     let input1 = AnnotateInput {
@@ -239,16 +266,24 @@ fn multiple_commits_have_independent_notes() {
         task: None,
         regions: vec![RegionInput {
             file: "src/lib.rs".to_string(),
-            anchor: Some(AnchorInput { unit_type: "function".to_string(), name: "greet".to_string() }),
+            anchor: Some(AnchorInput {
+                unit_type: "function".to_string(),
+                name: "greet".to_string(),
+            }),
             lines: LineRange { start: 1, end: 3 },
             intent: "Add standalone greet function".to_string(),
-            reasoning: None, constraints: vec![], semantic_dependencies: vec![], tags: vec![], risk_notes: None,
+            reasoning: None,
+            constraints: vec![],
+            semantic_dependencies: vec![],
+            tags: vec![],
+            risk_notes: None,
         }],
         cross_cutting: vec![],
     };
     handle_annotate(&ops, input1).unwrap();
 
-    let updated = SAMPLE_RUST_FILE.to_string() + "\npub fn farewell() -> String {\n    \"Goodbye!\".to_string()\n}\n";
+    let updated = SAMPLE_RUST_FILE.to_string()
+        + "\npub fn farewell() -> String {\n    \"Goodbye!\".to_string()\n}\n";
     add_and_commit(dir.path(), "src/lib.rs", &updated, "Add farewell function");
     let sha2 = ops.resolve_ref("HEAD").unwrap();
 
@@ -258,10 +293,17 @@ fn multiple_commits_have_independent_notes() {
         task: None,
         regions: vec![RegionInput {
             file: "src/lib.rs".to_string(),
-            anchor: Some(AnchorInput { unit_type: "function".to_string(), name: "farewell".to_string() }),
+            anchor: Some(AnchorInput {
+                unit_type: "function".to_string(),
+                name: "farewell".to_string(),
+            }),
             lines: LineRange { start: 19, end: 21 },
             intent: "Add farewell function as counterpart to greet".to_string(),
-            reasoning: None, constraints: vec![], semantic_dependencies: vec![], tags: vec![], risk_notes: None,
+            reasoning: None,
+            constraints: vec![],
+            semantic_dependencies: vec![],
+            tags: vec![],
+            risk_notes: None,
         }],
         cross_cutting: vec![],
     };
@@ -290,10 +332,17 @@ fn quality_warnings_do_not_block_write() {
         task: None,
         regions: vec![RegionInput {
             file: "src/lib.rs".to_string(),
-            anchor: Some(AnchorInput { unit_type: "function".to_string(), name: "greet".to_string() }),
+            anchor: Some(AnchorInput {
+                unit_type: "function".to_string(),
+                name: "greet".to_string(),
+            }),
             lines: LineRange { start: 1, end: 3 },
             intent: "short".to_string(),
-            reasoning: None, constraints: vec![], semantic_dependencies: vec![], tags: vec![], risk_notes: None,
+            reasoning: None,
+            constraints: vec![],
+            semantic_dependencies: vec![],
+            tags: vec![],
+            risk_notes: None,
         }],
         cross_cutting: vec![],
     };

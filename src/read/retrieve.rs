@@ -11,7 +11,10 @@ use super::{MatchedRegion, ReadQuery};
 /// 3. Parse the note as an Annotation
 /// 4. Filter regions matching the query (file path, anchor, line range)
 /// 5. Return results sorted newest-first (preserving git log order)
-pub fn retrieve_regions(git: &dyn GitOps, query: &ReadQuery) -> Result<Vec<MatchedRegion>, GitError> {
+pub fn retrieve_regions(
+    git: &dyn GitOps,
+    query: &ReadQuery,
+) -> Result<Vec<MatchedRegion>, GitError> {
     let shas = git.log_for_file(&query.file)?;
     let mut matched = Vec::new();
 
@@ -36,7 +39,12 @@ pub fn retrieve_regions(git: &dyn GitOps, query: &ReadQuery) -> Result<Vec<Match
                 }
             }
             if let Some(ref line_range) = query.lines {
-                if !ranges_overlap(region.lines.start, region.lines.end, line_range.start, line_range.end) {
+                if !ranges_overlap(
+                    region.lines.start,
+                    region.lines.end,
+                    line_range.start,
+                    line_range.end,
+                ) {
                     continue;
                 }
             }
@@ -106,49 +114,60 @@ mod tests {
 
         let git = MockGitOps {
             shas: vec!["abc123".to_string()],
-            note: Some(serde_json::to_string(&Annotation {
-                schema: "chronicle/v1".to_string(),
-                commit: "abc123".to_string(),
-                timestamp: "2025-01-01T00:00:00Z".to_string(),
-                task: None,
-                summary: "test commit".to_string(),
-                context_level: ContextLevel::Enhanced,
-                regions: vec![
-                    RegionAnnotation {
-                        file: "src/main.rs".to_string(),
-                        ast_anchor: AstAnchor { unit_type: "fn".to_string(), name: "main".to_string(), signature: None },
-                        lines: LineRange { start: 1, end: 10 },
-                        intent: "entry point".to_string(),
-                        reasoning: None,
-                        constraints: vec![],
-                        semantic_dependencies: vec![],
-                        related_annotations: vec![],
-                        tags: vec![],
-                        risk_notes: None,
-                        corrections: vec![],
+            note: Some(
+                serde_json::to_string(&Annotation {
+                    schema: "chronicle/v1".to_string(),
+                    commit: "abc123".to_string(),
+                    timestamp: "2025-01-01T00:00:00Z".to_string(),
+                    task: None,
+                    summary: "test commit".to_string(),
+                    context_level: ContextLevel::Enhanced,
+                    regions: vec![
+                        RegionAnnotation {
+                            file: "src/main.rs".to_string(),
+                            ast_anchor: AstAnchor {
+                                unit_type: "fn".to_string(),
+                                name: "main".to_string(),
+                                signature: None,
+                            },
+                            lines: LineRange { start: 1, end: 10 },
+                            intent: "entry point".to_string(),
+                            reasoning: None,
+                            constraints: vec![],
+                            semantic_dependencies: vec![],
+                            related_annotations: vec![],
+                            tags: vec![],
+                            risk_notes: None,
+                            corrections: vec![],
+                        },
+                        RegionAnnotation {
+                            file: "src/lib.rs".to_string(),
+                            ast_anchor: AstAnchor {
+                                unit_type: "mod".to_string(),
+                                name: "lib".to_string(),
+                                signature: None,
+                            },
+                            lines: LineRange { start: 1, end: 5 },
+                            intent: "module decl".to_string(),
+                            reasoning: None,
+                            constraints: vec![],
+                            semantic_dependencies: vec![],
+                            related_annotations: vec![],
+                            tags: vec![],
+                            risk_notes: None,
+                            corrections: vec![],
+                        },
+                    ],
+                    cross_cutting: vec![],
+                    provenance: Provenance {
+                        operation: ProvenanceOperation::Initial,
+                        derived_from: vec![],
+                        original_annotations_preserved: false,
+                        synthesis_notes: None,
                     },
-                    RegionAnnotation {
-                        file: "src/lib.rs".to_string(),
-                        ast_anchor: AstAnchor { unit_type: "mod".to_string(), name: "lib".to_string(), signature: None },
-                        lines: LineRange { start: 1, end: 5 },
-                        intent: "module decl".to_string(),
-                        reasoning: None,
-                        constraints: vec![],
-                        semantic_dependencies: vec![],
-                        related_annotations: vec![],
-                        tags: vec![],
-                        risk_notes: None,
-                        corrections: vec![],
-                    },
-                ],
-                cross_cutting: vec![],
-                provenance: Provenance {
-                    operation: ProvenanceOperation::Initial,
-                    derived_from: vec![],
-                    original_annotations_preserved: false,
-                    synthesis_notes: None,
-                },
-            }).unwrap()),
+                })
+                .unwrap(),
+            ),
         };
 
         let query = ReadQuery {
@@ -169,49 +188,60 @@ mod tests {
 
         let git = MockGitOps {
             shas: vec!["abc123".to_string()],
-            note: Some(serde_json::to_string(&Annotation {
-                schema: "chronicle/v1".to_string(),
-                commit: "abc123".to_string(),
-                timestamp: "2025-01-01T00:00:00Z".to_string(),
-                task: None,
-                summary: "test commit".to_string(),
-                context_level: ContextLevel::Enhanced,
-                regions: vec![
-                    RegionAnnotation {
-                        file: "src/main.rs".to_string(),
-                        ast_anchor: AstAnchor { unit_type: "fn".to_string(), name: "main".to_string(), signature: None },
-                        lines: LineRange { start: 1, end: 10 },
-                        intent: "entry point".to_string(),
-                        reasoning: None,
-                        constraints: vec![],
-                        semantic_dependencies: vec![],
-                        related_annotations: vec![],
-                        tags: vec![],
-                        risk_notes: None,
-                        corrections: vec![],
+            note: Some(
+                serde_json::to_string(&Annotation {
+                    schema: "chronicle/v1".to_string(),
+                    commit: "abc123".to_string(),
+                    timestamp: "2025-01-01T00:00:00Z".to_string(),
+                    task: None,
+                    summary: "test commit".to_string(),
+                    context_level: ContextLevel::Enhanced,
+                    regions: vec![
+                        RegionAnnotation {
+                            file: "src/main.rs".to_string(),
+                            ast_anchor: AstAnchor {
+                                unit_type: "fn".to_string(),
+                                name: "main".to_string(),
+                                signature: None,
+                            },
+                            lines: LineRange { start: 1, end: 10 },
+                            intent: "entry point".to_string(),
+                            reasoning: None,
+                            constraints: vec![],
+                            semantic_dependencies: vec![],
+                            related_annotations: vec![],
+                            tags: vec![],
+                            risk_notes: None,
+                            corrections: vec![],
+                        },
+                        RegionAnnotation {
+                            file: "src/main.rs".to_string(),
+                            ast_anchor: AstAnchor {
+                                unit_type: "fn".to_string(),
+                                name: "helper".to_string(),
+                                signature: None,
+                            },
+                            lines: LineRange { start: 12, end: 20 },
+                            intent: "helper fn".to_string(),
+                            reasoning: None,
+                            constraints: vec![],
+                            semantic_dependencies: vec![],
+                            related_annotations: vec![],
+                            tags: vec![],
+                            risk_notes: None,
+                            corrections: vec![],
+                        },
+                    ],
+                    cross_cutting: vec![],
+                    provenance: Provenance {
+                        operation: ProvenanceOperation::Initial,
+                        derived_from: vec![],
+                        original_annotations_preserved: false,
+                        synthesis_notes: None,
                     },
-                    RegionAnnotation {
-                        file: "src/main.rs".to_string(),
-                        ast_anchor: AstAnchor { unit_type: "fn".to_string(), name: "helper".to_string(), signature: None },
-                        lines: LineRange { start: 12, end: 20 },
-                        intent: "helper fn".to_string(),
-                        reasoning: None,
-                        constraints: vec![],
-                        semantic_dependencies: vec![],
-                        related_annotations: vec![],
-                        tags: vec![],
-                        risk_notes: None,
-                        corrections: vec![],
-                    },
-                ],
-                cross_cutting: vec![],
-                provenance: Provenance {
-                    operation: ProvenanceOperation::Initial,
-                    derived_from: vec![],
-                    original_annotations_preserved: false,
-                    synthesis_notes: None,
-                },
-            }).unwrap()),
+                })
+                .unwrap(),
+            ),
         };
 
         let query = ReadQuery {
@@ -231,49 +261,60 @@ mod tests {
 
         let git = MockGitOps {
             shas: vec!["abc123".to_string()],
-            note: Some(serde_json::to_string(&Annotation {
-                schema: "chronicle/v1".to_string(),
-                commit: "abc123".to_string(),
-                timestamp: "2025-01-01T00:00:00Z".to_string(),
-                task: None,
-                summary: "test commit".to_string(),
-                context_level: ContextLevel::Enhanced,
-                regions: vec![
-                    RegionAnnotation {
-                        file: "src/main.rs".to_string(),
-                        ast_anchor: AstAnchor { unit_type: "fn".to_string(), name: "main".to_string(), signature: None },
-                        lines: LineRange { start: 1, end: 10 },
-                        intent: "entry point".to_string(),
-                        reasoning: None,
-                        constraints: vec![],
-                        semantic_dependencies: vec![],
-                        related_annotations: vec![],
-                        tags: vec![],
-                        risk_notes: None,
-                        corrections: vec![],
+            note: Some(
+                serde_json::to_string(&Annotation {
+                    schema: "chronicle/v1".to_string(),
+                    commit: "abc123".to_string(),
+                    timestamp: "2025-01-01T00:00:00Z".to_string(),
+                    task: None,
+                    summary: "test commit".to_string(),
+                    context_level: ContextLevel::Enhanced,
+                    regions: vec![
+                        RegionAnnotation {
+                            file: "src/main.rs".to_string(),
+                            ast_anchor: AstAnchor {
+                                unit_type: "fn".to_string(),
+                                name: "main".to_string(),
+                                signature: None,
+                            },
+                            lines: LineRange { start: 1, end: 10 },
+                            intent: "entry point".to_string(),
+                            reasoning: None,
+                            constraints: vec![],
+                            semantic_dependencies: vec![],
+                            related_annotations: vec![],
+                            tags: vec![],
+                            risk_notes: None,
+                            corrections: vec![],
+                        },
+                        RegionAnnotation {
+                            file: "src/main.rs".to_string(),
+                            ast_anchor: AstAnchor {
+                                unit_type: "fn".to_string(),
+                                name: "helper".to_string(),
+                                signature: None,
+                            },
+                            lines: LineRange { start: 50, end: 60 },
+                            intent: "helper fn".to_string(),
+                            reasoning: None,
+                            constraints: vec![],
+                            semantic_dependencies: vec![],
+                            related_annotations: vec![],
+                            tags: vec![],
+                            risk_notes: None,
+                            corrections: vec![],
+                        },
+                    ],
+                    cross_cutting: vec![],
+                    provenance: Provenance {
+                        operation: ProvenanceOperation::Initial,
+                        derived_from: vec![],
+                        original_annotations_preserved: false,
+                        synthesis_notes: None,
                     },
-                    RegionAnnotation {
-                        file: "src/main.rs".to_string(),
-                        ast_anchor: AstAnchor { unit_type: "fn".to_string(), name: "helper".to_string(), signature: None },
-                        lines: LineRange { start: 50, end: 60 },
-                        intent: "helper fn".to_string(),
-                        reasoning: None,
-                        constraints: vec![],
-                        semantic_dependencies: vec![],
-                        related_annotations: vec![],
-                        tags: vec![],
-                        risk_notes: None,
-                        corrections: vec![],
-                    },
-                ],
-                cross_cutting: vec![],
-                provenance: Provenance {
-                    operation: ProvenanceOperation::Initial,
-                    derived_from: vec![],
-                    original_annotations_preserved: false,
-                    synthesis_notes: None,
-                },
-            }).unwrap()),
+                })
+                .unwrap(),
+            ),
         };
 
         let query = ReadQuery {
@@ -323,10 +364,17 @@ mod tests {
         fn note_exists(&self, _commit: &str) -> Result<bool, crate::error::GitError> {
             Ok(self.note.is_some())
         }
-        fn file_at_commit(&self, _path: &std::path::Path, _commit: &str) -> Result<String, crate::error::GitError> {
+        fn file_at_commit(
+            &self,
+            _path: &std::path::Path,
+            _commit: &str,
+        ) -> Result<String, crate::error::GitError> {
             Ok(String::new())
         }
-        fn commit_info(&self, _commit: &str) -> Result<crate::git::CommitInfo, crate::error::GitError> {
+        fn commit_info(
+            &self,
+            _commit: &str,
+        ) -> Result<crate::git::CommitInfo, crate::error::GitError> {
             Ok(crate::git::CommitInfo {
                 sha: "abc123".to_string(),
                 message: "test".to_string(),
@@ -348,7 +396,10 @@ mod tests {
         fn log_for_file(&self, _path: &str) -> Result<Vec<String>, crate::error::GitError> {
             Ok(self.shas.clone())
         }
-        fn list_annotated_commits(&self, _limit: u32) -> Result<Vec<String>, crate::error::GitError> {
+        fn list_annotated_commits(
+            &self,
+            _limit: u32,
+        ) -> Result<Vec<String>, crate::error::GitError> {
             Ok(self.shas.clone())
         }
     }

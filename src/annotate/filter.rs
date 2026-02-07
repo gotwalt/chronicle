@@ -23,8 +23,8 @@ const LOCKFILE_PATTERNS: &[&str] = &[
 
 /// Binary file extensions that indicate non-code content.
 const BINARY_EXTENSIONS: &[&str] = &[
-    "png", "jpg", "jpeg", "gif", "bmp", "ico", "svg", "woff", "woff2", "ttf", "eot", "pdf",
-    "zip", "tar", "gz", "bz2", "exe", "dll", "so", "dylib", "pyc", "class", "o", "obj",
+    "png", "jpg", "jpeg", "gif", "bmp", "ico", "svg", "woff", "woff2", "ttf", "eot", "pdf", "zip",
+    "tar", "gz", "bz2", "exe", "dll", "so", "dylib", "pyc", "class", "o", "obj",
 ];
 
 /// Generated/vendored file patterns that aren't worth annotating.
@@ -80,9 +80,9 @@ pub fn pre_llm_filter(context: &AnnotationContext) -> FilterDecision {
     // Skip: all files are lockfiles
     if !context.diffs.is_empty()
         && context.diffs.iter().all(|d| {
-            LOCKFILE_PATTERNS.iter().any(|pattern| {
-                d.path.ends_with(pattern)
-            })
+            LOCKFILE_PATTERNS
+                .iter()
+                .any(|pattern| d.path.ends_with(pattern))
         })
     {
         return FilterDecision::Skip("lockfile-only changes".to_string());
@@ -99,11 +99,7 @@ pub fn pre_llm_filter(context: &AnnotationContext) -> FilterDecision {
     }
 
     // Trivial: total changed lines <= threshold
-    let total_changed: usize = context
-        .diffs
-        .iter()
-        .map(|d| d.changed_line_count())
-        .sum();
+    let total_changed: usize = context.diffs.iter().map(|d| d.changed_line_count()).sum();
 
     if total_changed <= TRIVIAL_THRESHOLD {
         return FilterDecision::Trivial(format!(
@@ -118,7 +114,7 @@ pub fn pre_llm_filter(context: &AnnotationContext) -> FilterDecision {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::git::{FileDiff, DiffStatus, Hunk, HunkLine};
+    use crate::git::{DiffStatus, FileDiff, Hunk, HunkLine};
 
     fn make_context(message: &str, diffs: Vec<FileDiff>) -> AnnotationContext {
         AnnotationContext {
@@ -169,38 +165,28 @@ mod tests {
 
     #[test]
     fn test_skip_lockfile_only() {
-        let ctx = make_context(
-            "Update deps",
-            vec![make_diff("Cargo.lock", 10, 5)],
-        );
+        let ctx = make_context("Update deps", vec![make_diff("Cargo.lock", 10, 5)]);
         assert!(matches!(pre_llm_filter(&ctx), FilterDecision::Skip(_)));
     }
 
     #[test]
     fn test_trivial() {
-        let ctx = make_context(
-            "Fix typo",
-            vec![make_diff("src/main.rs", 1, 1)],
-        );
+        let ctx = make_context("Fix typo", vec![make_diff("src/main.rs", 1, 1)]);
         assert!(matches!(pre_llm_filter(&ctx), FilterDecision::Trivial(_)));
     }
 
     #[test]
     fn test_annotate() {
-        let ctx = make_context(
-            "Add new feature",
-            vec![make_diff("src/main.rs", 20, 5)],
-        );
+        let ctx = make_context("Add new feature", vec![make_diff("src/main.rs", 20, 5)]);
         assert_eq!(pre_llm_filter(&ctx), FilterDecision::Annotate);
     }
 
     #[test]
     fn test_skip_binary_only() {
-        let ctx = make_context(
-            "Add logo",
-            vec![make_diff("assets/logo.png", 10, 0)],
+        let ctx = make_context("Add logo", vec![make_diff("assets/logo.png", 10, 0)]);
+        assert!(
+            matches!(pre_llm_filter(&ctx), FilterDecision::Skip(ref s) if s.contains("binary"))
         );
-        assert!(matches!(pre_llm_filter(&ctx), FilterDecision::Skip(ref s) if s.contains("binary")));
     }
 
     #[test]
@@ -209,7 +195,9 @@ mod tests {
             "Update vendored deps",
             vec![make_diff("vendor/lib.js", 100, 50)],
         );
-        assert!(matches!(pre_llm_filter(&ctx), FilterDecision::Skip(ref s) if s.contains("generated")));
+        assert!(
+            matches!(pre_llm_filter(&ctx), FilterDecision::Skip(ref s) if s.contains("generated"))
+        );
     }
 
     #[test]
@@ -230,7 +218,9 @@ mod tests {
             "Rebuild minified assets",
             vec![make_diff("dist/app.min.js", 500, 400)],
         );
-        assert!(matches!(pre_llm_filter(&ctx), FilterDecision::Skip(ref s) if s.contains("generated")));
+        assert!(
+            matches!(pre_llm_filter(&ctx), FilterDecision::Skip(ref s) if s.contains("generated"))
+        );
     }
 
     #[test]

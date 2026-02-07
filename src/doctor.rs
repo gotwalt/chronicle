@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
@@ -39,14 +39,14 @@ impl DoctorReport {
 }
 
 /// Run all doctor checks and produce a report.
-pub fn run_doctor(git_ops: &dyn GitOps, git_dir: &PathBuf) -> Result<DoctorReport> {
-    let mut checks = Vec::new();
-
-    checks.push(check_version());
-    checks.push(check_notes_ref(git_ops));
-    checks.push(check_hooks(git_dir));
-    checks.push(check_credentials());
-    checks.push(check_config(git_ops));
+pub fn run_doctor(git_ops: &dyn GitOps, git_dir: &Path) -> Result<DoctorReport> {
+    let mut checks = vec![
+        check_version(),
+        check_notes_ref(git_ops),
+        check_hooks(git_dir),
+        check_credentials(),
+        check_config(git_ops),
+    ];
     checks.extend(check_global_setup());
 
     let overall = if checks.iter().any(|c| c.status == DoctorStatus::Fail) {
@@ -87,13 +87,16 @@ fn check_notes_ref(git_ops: &dyn GitOps) -> DoctorCheck {
             name: "notes_ref".to_string(),
             status: DoctorStatus::Warn,
             message: "refs/notes/chronicle not found (no annotations yet)".to_string(),
-            fix_hint: Some("Run `git chronicle annotate --commit HEAD` to create the first annotation.".to_string()),
+            fix_hint: Some(
+                "Run `git chronicle annotate --commit HEAD` to create the first annotation."
+                    .to_string(),
+            ),
         },
     }
 }
 
 /// Check: hooks installed.
-fn check_hooks(git_dir: &PathBuf) -> DoctorCheck {
+fn check_hooks(git_dir: &Path) -> DoctorCheck {
     let hooks_dir = git_dir.join("hooks");
     let post_commit = hooks_dir.join("post-commit");
 
@@ -152,7 +155,9 @@ fn check_credentials() -> DoctorCheck {
                         name: "credentials".to_string(),
                         status: DoctorStatus::Fail,
                         message: "provider: anthropic, but ANTHROPIC_API_KEY not set".to_string(),
-                        fix_hint: Some("Set the ANTHROPIC_API_KEY environment variable.".to_string()),
+                        fix_hint: Some(
+                            "Set the ANTHROPIC_API_KEY environment variable.".to_string(),
+                        ),
                     };
                 }
             }
@@ -237,9 +242,7 @@ fn check_global_setup() -> Vec<DoctorCheck> {
                 name: "global_skills".to_string(),
                 status: DoctorStatus::Warn,
                 message: "Claude Code skills not installed".to_string(),
-                fix_hint: Some(
-                    "Run `git chronicle setup` to install skills.".to_string(),
-                ),
+                fix_hint: Some("Run `git chronicle setup` to install skills.".to_string()),
             });
         }
     }

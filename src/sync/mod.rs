@@ -1,6 +1,8 @@
 pub mod push_fetch;
 
-pub use push_fetch::{SyncConfig, SyncStatus, enable_sync, get_sync_config, get_sync_status, pull_notes};
+pub use push_fetch::{
+    enable_sync, get_sync_config, get_sync_status, pull_notes, SyncConfig, SyncStatus,
+};
 
 /// Merge strategy for conflicting notes on the same commit.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

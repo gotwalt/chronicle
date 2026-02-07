@@ -2,12 +2,11 @@ pub mod embedded;
 
 use std::path::{Path, PathBuf};
 
-use crate::error::SetupError;
-use crate::error::setup_error::{
-    BinaryNotFoundSnafu, InteractiveInputSnafu, NoHomeDirectorySnafu,
-    WriteFileSnafu, ReadFileSnafu,
-};
 use crate::config::user_config::{ProviderConfig, ProviderType, UserConfig};
+use crate::error::setup_error::{
+    BinaryNotFoundSnafu, InteractiveInputSnafu, NoHomeDirectorySnafu, ReadFileSnafu, WriteFileSnafu,
+};
+use crate::error::SetupError;
 use snafu::ResultExt;
 
 const CLAUDE_MD_BEGIN: &str = "<!-- chronicle-setup-begin -->";
@@ -342,7 +341,10 @@ mod tests {
 
     #[test]
     fn test_apply_marker_empty_file() {
-        let result = apply_marker_content("", "<!-- chronicle-setup-begin -->\nHello\n<!-- chronicle-setup-end -->");
+        let result = apply_marker_content(
+            "",
+            "<!-- chronicle-setup-begin -->\nHello\n<!-- chronicle-setup-end -->",
+        );
         assert!(result.contains("<!-- chronicle-setup-begin -->"));
         assert!(result.contains("Hello"));
         assert!(result.contains("<!-- chronicle-setup-end -->"));
@@ -351,7 +353,8 @@ mod tests {
     #[test]
     fn test_apply_marker_no_markers() {
         let existing = "# My Project\n\nSome content.\n";
-        let snippet = "<!-- chronicle-setup-begin -->\nChronicle section\n<!-- chronicle-setup-end -->";
+        let snippet =
+            "<!-- chronicle-setup-begin -->\nChronicle section\n<!-- chronicle-setup-end -->";
         let result = apply_marker_content(existing, snippet);
         assert!(result.starts_with("# My Project"));
         assert!(result.contains("Chronicle section"));
@@ -370,7 +373,8 @@ mod tests {
 
     #[test]
     fn test_apply_marker_idempotent() {
-        let snippet = "<!-- chronicle-setup-begin -->\nChronicle section\n<!-- chronicle-setup-end -->";
+        let snippet =
+            "<!-- chronicle-setup-begin -->\nChronicle section\n<!-- chronicle-setup-end -->";
         let first = apply_marker_content("", snippet);
         let second = apply_marker_content(&first, snippet);
         assert_eq!(first, second);

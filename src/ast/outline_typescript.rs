@@ -17,10 +17,12 @@ pub fn extract_typescript_outline(
     } else {
         tree_sitter_typescript::LANGUAGE_TYPESCRIPT.into()
     };
-    parser.set_language(&ts_lang).map_err(|e| AstError::TreeSitter {
-        message: e.to_string(),
-        location: snafu::Location::new(file!(), line!(), 0),
-    })?;
+    parser
+        .set_language(&ts_lang)
+        .map_err(|e| AstError::TreeSitter {
+            message: e.to_string(),
+            location: snafu::Location::new(file!(), line!(), 0),
+        })?;
 
     let tree = parser.parse(source, None).ok_or(AstError::ParseFailed {
         path: "<input>".to_string(),
@@ -95,10 +97,7 @@ fn walk_ts_node(
     }
 }
 
-fn extract_ts_function(
-    node: tree_sitter::Node,
-    source: &[u8],
-) -> Option<OutlineEntry> {
+fn extract_ts_function(node: tree_sitter::Node, source: &[u8]) -> Option<OutlineEntry> {
     let name_node = node.child_by_field_name("name")?;
     let name = name_node.utf8_text(source).ok()?;
     let signature = extract_signature_with_delimiter(node, source, '{');
@@ -128,11 +127,7 @@ fn extract_ts_named(
     })
 }
 
-fn extract_ts_class(
-    node: tree_sitter::Node,
-    source: &[u8],
-    entries: &mut Vec<OutlineEntry>,
-) {
+fn extract_ts_class(node: tree_sitter::Node, source: &[u8], entries: &mut Vec<OutlineEntry>) {
     let name_node = node.child_by_field_name("name");
     let class_name = name_node
         .and_then(|n| n.utf8_text(source).ok())

@@ -14,10 +14,7 @@ use snafu::ResultExt;
 /// 1. `commit_source` argument is "squash"
 /// 2. `.git/SQUASH_MSG` file exists
 /// 3. `CHRONICLE_SQUASH_SOURCES` environment variable is set
-pub fn handle_prepare_commit_msg(
-    git_dir: &Path,
-    commit_source: Option<&str>,
-) -> Result<()> {
+pub fn handle_prepare_commit_msg(git_dir: &Path, commit_source: Option<&str>) -> Result<()> {
     let source_commits = match detect_squash(commit_source, git_dir)? {
         Some(commits) => commits,
         None => return Ok(()), // Not a squash
@@ -44,10 +41,7 @@ pub fn handle_prepare_commit_msg(
 }
 
 /// Detect whether this commit is a squash operation and resolve source commit SHAs.
-fn detect_squash(
-    commit_source: Option<&str>,
-    git_dir: &Path,
-) -> Result<Option<Vec<String>>> {
+fn detect_squash(commit_source: Option<&str>, git_dir: &Path) -> Result<Option<Vec<String>>> {
     // Check 1: hook argument
     if commit_source == Some("squash") {
         return resolve_squash_sources_from_squash_msg(git_dir);
@@ -83,9 +77,7 @@ fn detect_squash(
 /// commit def5678...
 /// ...
 /// ```
-fn resolve_squash_sources_from_squash_msg(
-    git_dir: &Path,
-) -> Result<Option<Vec<String>>> {
+fn resolve_squash_sources_from_squash_msg(git_dir: &Path) -> Result<Option<Vec<String>>> {
     let squash_msg_path = git_dir.join("SQUASH_MSG");
     if !squash_msg_path.exists() {
         return Ok(None);
@@ -219,7 +211,8 @@ Date:   Mon Dec 15 10:35:00 2025 +0000
     fn test_detect_squash_squash_msg_file() {
         let dir = tempfile::tempdir().unwrap();
         let git_dir = dir.path();
-        let squash_msg = "Squashed commit of the following:\n\ncommit abcdef1234567\nAuthor: Test\n\n    msg\n";
+        let squash_msg =
+            "Squashed commit of the following:\n\ncommit abcdef1234567\nAuthor: Test\n\n    msg\n";
         std::fs::write(git_dir.join("SQUASH_MSG"), squash_msg).unwrap();
 
         // No hook argument, but SQUASH_MSG exists
@@ -231,7 +224,8 @@ Date:   Mon Dec 15 10:35:00 2025 +0000
     fn test_handle_prepare_commit_msg_writes_pending() {
         let dir = tempfile::tempdir().unwrap();
         let git_dir = dir.path();
-        let squash_msg = "Squashed commit of the following:\n\ncommit abcdef1234567\nAuthor: Test\n\n    msg\n";
+        let squash_msg =
+            "Squashed commit of the following:\n\ncommit abcdef1234567\nAuthor: Test\n\n    msg\n";
         std::fs::write(git_dir.join("SQUASH_MSG"), squash_msg).unwrap();
 
         handle_prepare_commit_msg(git_dir, Some("squash")).unwrap();

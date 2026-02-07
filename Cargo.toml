@@ -9,7 +9,7 @@ homepage = "https://github.com/gotwalt/git-chronicle"
 readme = "README.md"
 keywords = ["git", "annotation", "ai", "commit", "developer-tools"]
 categories = ["command-line-utilities", "development-tools"]
-rust-version = "1.70"
+rust-version = "1.82"
 exclude = [".github/", ".claude/", "features/", "HISTORY.md", "CLAUDE.md"]
 
 [lib]
@@ -20,15 +20,17 @@ clap = { version = "4", features = ["derive"] }
 ureq = { version = "2", features = ["json", "tls"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-tree-sitter = "0.24"
-tree-sitter-rust = { version = "0.23", optional = true }
+tree-sitter = "0.25"
+tree-sitter-rust = { version = "0.24", optional = true }
 tree-sitter-typescript = { version = "0.23", optional = true }
-tree-sitter-python = { version = "0.23", optional = true }
-tree-sitter-go = { version = "0.23", optional = true }
+tree-sitter-python = { version = "0.25", optional = true }
+tree-sitter-go = { version = "0.25", optional = true }
 tree-sitter-java = { version = "0.23", optional = true }
-tree-sitter-c = { version = "0.23", optional = true }
+tree-sitter-c = { version = "0.24", optional = true }
 tree-sitter-cpp = { version = "0.23", optional = true }
 tree-sitter-ruby = { version = "0.23", optional = true }
+tree-sitter-objc = { version = "3", optional = true }
+tree-sitter-swift = { version = "0.7", optional = true }
 chrono = { version = "0.4", features = ["serde"] }
 snafu = "0.8"
 tracing = "0.1"
@@ -39,7 +41,7 @@ ratatui = { version = "0.29", optional = true, default-features = false, feature
 crossterm = { version = "0.28", optional = true }
 
 [features]
-default = ["tui", "lang-rust", "lang-typescript", "lang-python", "lang-go", "lang-java", "lang-c", "lang-cpp", "lang-ruby"]
+default = ["tui", "lang-rust", "lang-typescript", "lang-python", "lang-go", "lang-java", "lang-c", "lang-cpp", "lang-ruby", "lang-objc", "lang-swift"]
 tui = ["ratatui", "crossterm"]
 lang-rust = ["dep:tree-sitter-rust"]
 lang-typescript = ["dep:tree-sitter-typescript"]
@@ -49,6 +51,8 @@ lang-java = ["dep:tree-sitter-java"]
 lang-c = ["dep:tree-sitter-c"]
 lang-cpp = ["dep:tree-sitter-cpp"]
 lang-ruby = ["dep:tree-sitter-ruby"]
+lang-objc = ["dep:tree-sitter-objc"]
+lang-swift = ["dep:tree-sitter-swift"]
 
 [dev-dependencies]
 tempfile = "3"

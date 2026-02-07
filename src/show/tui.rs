@@ -123,7 +123,7 @@ mod views {
         let chunks = Layout::default()
             .direction(Direction::Vertical)
             .constraints([
-                Constraint::Length(1),  // header
+                Constraint::Length(1), // header
                 Constraint::Min(1),    // main
                 Constraint::Length(1), // status
             ])
@@ -147,7 +147,8 @@ mod views {
             commit_short,
             if region_count == 1 { "" } else { "s" },
         );
-        let header = Paragraph::new(text).style(Style::default().bg(Color::DarkGray).fg(Color::White));
+        let header =
+            Paragraph::new(text).style(Style::default().bg(Color::DarkGray).fg(Color::White));
         f.render_widget(header, area);
     }
 
@@ -233,7 +234,9 @@ mod views {
             ),
             Span::styled(
                 r.region.ast_anchor.name.clone(),
-                Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD),
+                Style::default()
+                    .fg(Color::Cyan)
+                    .add_modifier(Modifier::BOLD),
             ),
         ]));
         text_lines.push(Line::from(format!(
@@ -243,7 +246,10 @@ mod views {
         text_lines.push(Line::raw(""));
 
         // Intent
-        text_lines.push(Line::styled("Intent", Style::default().add_modifier(Modifier::BOLD)));
+        text_lines.push(Line::styled(
+            "Intent",
+            Style::default().add_modifier(Modifier::BOLD),
+        ));
         for wrapped in wrap_text(&r.region.intent, area.width.saturating_sub(2) as usize) {
             text_lines.push(Line::raw(format!("  {wrapped}")));
         }
@@ -251,7 +257,10 @@ mod views {
 
         // Reasoning
         if let Some(ref reasoning) = r.region.reasoning {
-            text_lines.push(Line::styled("Reasoning", Style::default().add_modifier(Modifier::BOLD)));
+            text_lines.push(Line::styled(
+                "Reasoning",
+                Style::default().add_modifier(Modifier::BOLD),
+            ));
             for wrapped in wrap_text(reasoning, area.width.saturating_sub(2) as usize) {
                 text_lines.push(Line::raw(format!("  {wrapped}")));
             }
@@ -260,7 +269,10 @@ mod views {
 
         // Constraints
         if !r.region.constraints.is_empty() {
-            text_lines.push(Line::styled("Constraints", Style::default().add_modifier(Modifier::BOLD)));
+            text_lines.push(Line::styled(
+                "Constraints",
+                Style::default().add_modifier(Modifier::BOLD),
+            ));
             for c in &r.region.constraints {
                 let source = match c.source {
                     crate::schema::annotation::ConstraintSource::Author => "author",
@@ -273,7 +285,10 @@ mod views {
 
         // Dependencies
         if !r.region.semantic_dependencies.is_empty() {
-            text_lines.push(Line::styled("Dependencies", Style::default().add_modifier(Modifier::BOLD)));
+            text_lines.push(Line::styled(
+                "Dependencies",
+                Style::default().add_modifier(Modifier::BOLD),
+            ));
             for d in &r.region.semantic_dependencies {
                 text_lines.push(Line::raw(format!("  -> {} :: {}", d.file, d.anchor)));
             }
@@ -296,27 +311,35 @@ mod views {
         if !r.region.corrections.is_empty() {
             text_lines.push(Line::styled(
                 format!("Corrections ({})", r.region.corrections.len()),
-                Style::default().add_modifier(Modifier::BOLD).fg(Color::Yellow),
+                Style::default()
+                    .add_modifier(Modifier::BOLD)
+                    .fg(Color::Yellow),
             ));
             text_lines.push(Line::raw(""));
         }
 
         // Metadata
-        text_lines.push(Line::styled("Metadata", Style::default().fg(Color::DarkGray)));
-        text_lines.push(Line::raw(format!("  commit: {}", &r.commit[..7.min(r.commit.len())])));
+        text_lines.push(Line::styled(
+            "Metadata",
+            Style::default().fg(Color::DarkGray),
+        ));
+        text_lines.push(Line::raw(format!(
+            "  commit: {}",
+            &r.commit[..7.min(r.commit.len())]
+        )));
         text_lines.push(Line::raw(format!("  time: {}", r.timestamp)));
         if !r.region.tags.is_empty() {
             text_lines.push(Line::raw(format!("  tags: {}", r.region.tags.join(", "))));
         }
 
         // Apply scroll offset
-        let scrolled: Vec<Line> = text_lines
-            .into_iter()
-            .skip(app.panel_scroll)
-            .collect();
+        let scrolled: Vec<Line> = text_lines.into_iter().skip(app.panel_scroll).collect();
 
-        let panel = Paragraph::new(scrolled)
-            .block(Block::default().borders(Borders::LEFT).border_style(Style::default().fg(Color::DarkGray)));
+        let panel = Paragraph::new(scrolled).block(
+            Block::default()
+                .borders(Borders::LEFT)
+                .border_style(Style::default().fg(Color::DarkGray)),
+        );
 
         f.render_widget(panel, area);
     }
@@ -349,7 +372,10 @@ mod views {
 
     fn render_help(f: &mut Frame, area: Rect) {
         let help_text = vec![
-            Line::styled("Keyboard Shortcuts", Style::default().add_modifier(Modifier::BOLD)),
+            Line::styled(
+                "Keyboard Shortcuts",
+                Style::default().add_modifier(Modifier::BOLD),
+            ),
             Line::raw(""),
             Line::raw("  j/↓         Scroll down"),
             Line::raw("  k/↑         Scroll up"),

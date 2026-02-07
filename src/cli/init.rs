@@ -8,7 +8,13 @@ use crate::hooks::install_hooks;
 use crate::sync::enable_sync;
 use snafu::ResultExt;
 
-pub fn run(no_sync: bool, no_hooks: bool, provider: Option<String>, model: Option<String>, backfill: bool) -> Result<()> {
+pub fn run(
+    no_sync: bool,
+    no_hooks: bool,
+    provider: Option<String>,
+    model: Option<String>,
+    backfill: bool,
+) -> Result<()> {
     // Find the git directory
     let git_dir = find_git_dir()?;
 
@@ -20,7 +26,8 @@ pub fn run(no_sync: bool, no_hooks: bool, provider: Option<String>, model: Optio
     let repo_dir = git_dir.parent().unwrap_or(&git_dir).to_path_buf();
     let ops = CliOps::new(repo_dir.clone());
 
-    ops.config_set("chronicle.enabled", "true").context(GitSnafu)?;
+    ops.config_set("chronicle.enabled", "true")
+        .context(GitSnafu)?;
 
     if let Some(ref p) = provider {
         ops.config_set("chronicle.provider", p).context(GitSnafu)?;

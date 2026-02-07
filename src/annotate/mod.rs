@@ -1,8 +1,8 @@
-pub mod gather;
 pub mod filter;
+pub mod gather;
 pub mod squash;
 
-use crate::error::{Result, chronicle_error};
+use crate::error::{chronicle_error, Result};
 use crate::git::GitOps;
 use crate::provider::LlmProvider;
 use crate::schema::{Annotation, ContextLevel};
@@ -58,11 +58,8 @@ pub fn run(
                 ContextLevel::Inferred
             };
 
-            let mut ann = Annotation::new_initial(
-                context.commit_sha.clone(),
-                summary,
-                context_level,
-            );
+            let mut ann =
+                Annotation::new_initial(context.commit_sha.clone(), summary, context_level);
             ann.regions = regions;
             ann.cross_cutting = cross_cutting;
             // Carry over task from author context if present
@@ -74,8 +71,7 @@ pub fn run(
     };
 
     // 3. Serialize and write as git note
-    let json = serde_json::to_string_pretty(&annotation)
-        .context(chronicle_error::JsonSnafu)?;
+    let json = serde_json::to_string_pretty(&annotation).context(chronicle_error::JsonSnafu)?;
     git_ops
         .note_write(commit, &json)
         .context(chronicle_error::GitSnafu)?;

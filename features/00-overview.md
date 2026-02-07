@@ -50,7 +50,7 @@ chronicle (Rust binary)
 | 13 | Claude Code Integration | `13-claude-code-integration.md` | Low-Medium | MCP annotate tool, Claude Code skill, post-commit hook |
 | 14 | Interactive Show (TUI) | `14-interactive-show.md` | High | `git chronicle show` TUI explorer, annotation panel, deps/history drill-down, plain-text fallback |
 | 15 | Claude Code Skills | `15-claude-code-skills.md` | Low | Context/annotate/backfill skills, pre-edit hook, CLAUDE.md integration, MCP config |
-| 16 | Multi-Language AST | `16-multi-language-ast.md` | Medium | TypeScript, JavaScript, Python, Go, Java, C, C++, Ruby outline extraction and anchor resolution |
+| 16 | Multi-Language AST | `16-multi-language-ast.md` | Medium | TypeScript, JavaScript, Python, Go, Java, C, C++, Ruby, Objective-C, Swift outline extraction and anchor resolution |
 | 17 | Rapid Onboarding | `17-onboarding.md` | Medium | `setup` command, user config, `backfill` CLI, enhanced `init`, Claude Code provider, embedded content distribution |
 | 18 | Release Pipeline | `18-release-pipeline.md` | Medium | Package rename to `git-chronicle`, CI workflow, automated release, crates.io publishing, self-annotation |
 

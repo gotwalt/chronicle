@@ -34,7 +34,10 @@ pub fn run_status(remote: &str) -> Result<()> {
 
     println!("  Local notes:   {} annotated commits", status.local_count);
     if let Some(rc) = status.remote_count {
-        println!("  Remote notes:  {} annotated commits ({} not yet pushed)", rc, status.unpushed_count);
+        println!(
+            "  Remote notes:  {} annotated commits ({} not yet pushed)",
+            rc, status.unpushed_count
+        );
     } else {
         println!("  Remote notes:  unknown (remote unreachable)");
     }

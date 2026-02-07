@@ -7,7 +7,7 @@ pub fn build_system_prompt(context: &AnnotationContext) -> String {
     prompt.push_str(
         "You are an expert code annotator for the chronicle system. Your role is to analyze \
          code changes in a git commit and produce structured annotations that capture the intent, \
-         reasoning, and constraints behind each change.\n\n"
+         reasoning, and constraints behind each change.\n\n",
     );
 
     prompt.push_str(
@@ -21,12 +21,12 @@ pub fn build_system_prompt(context: &AnnotationContext) -> String {
          - `constraints`: (optional) invariants or requirements this change must satisfy\n\
          - `semantic_dependencies`: (optional) other code this change depends on\n\
          - `tags`: (optional) categorical labels like \"refactor\", \"bugfix\", \"feature\"\n\
-         - `risk_notes`: (optional) potential risks or concerns\n\n"
+         - `risk_notes`: (optional) potential risks or concerns\n\n",
     );
 
     prompt.push_str(
         "Cross-cutting concerns span multiple regions and describe patterns like \
-         \"error handling changes across all API endpoints\".\n\n"
+         \"error handling changes across all API endpoints\".\n\n",
     );
 
     // Include author context instructions based on whether it's present
@@ -34,7 +34,7 @@ pub fn build_system_prompt(context: &AnnotationContext) -> String {
         prompt.push_str(
             "## Context Level: Enhanced\n\n\
              The commit author provided context about this change. Weight this information \
-             heavily in your annotations:\n\n"
+             heavily in your annotations:\n\n",
         );
         if let Some(task) = &author_ctx.task {
             prompt.push_str(&format!("- **Task**: {task}\n"));
@@ -51,7 +51,7 @@ pub fn build_system_prompt(context: &AnnotationContext) -> String {
         prompt.push('\n');
         prompt.push_str(
             "Use the author's reasoning and constraints as the primary basis for annotation. \
-             Add inferred information only to supplement what the author provided.\n\n"
+             Add inferred information only to supplement what the author provided.\n\n",
         );
     } else {
         prompt.push_str(
@@ -59,7 +59,7 @@ pub fn build_system_prompt(context: &AnnotationContext) -> String {
              No author context was provided. Be conservative in your annotations:\n\
              - Focus on what is clearly evident from the code\n\
              - Mark constraints as `inferred` rather than `author`\n\
-             - Avoid speculating about intent when it is not clear from the diff\n\n"
+             - Avoid speculating about intent when it is not clear from the diff\n\n",
         );
     }
 

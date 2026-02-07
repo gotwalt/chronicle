@@ -44,12 +44,16 @@ fn walk_java_node(
                 extract_java_interface(child, source, class_name, entries);
             }
             "enum_declaration" => {
-                if let Some(entry) = extract_java_named(child, source, SemanticKind::Enum, class_name) {
+                if let Some(entry) =
+                    extract_java_named(child, source, SemanticKind::Enum, class_name)
+                {
                     entries.push(entry);
                 }
             }
             "record_declaration" => {
-                if let Some(entry) = extract_java_named(child, source, SemanticKind::Struct, class_name) {
+                if let Some(entry) =
+                    extract_java_named(child, source, SemanticKind::Struct, class_name)
+                {
                     entries.push(entry);
                 }
             }

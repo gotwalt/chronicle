@@ -2,7 +2,7 @@ pub mod cli_ops;
 pub mod diff;
 
 pub use cli_ops::CliOps;
-pub use diff::{FileDiff, Hunk, HunkLine, DiffStatus};
+pub use diff::{DiffStatus, FileDiff, Hunk, HunkLine};
 
 use crate::error::GitError;
 use std::path::Path;

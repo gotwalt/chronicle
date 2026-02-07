@@ -1,5 +1,5 @@
-pub mod prepare_commit_msg;
 pub mod post_rewrite;
+pub mod prepare_commit_msg;
 
 use serde::{Deserialize, Serialize};
 use std::path::Path;

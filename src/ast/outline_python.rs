@@ -1,6 +1,4 @@
-use crate::ast::outline::{
-    node_line_range, should_skip_node, OutlineEntry, SemanticKind,
-};
+use crate::ast::outline::{node_line_range, should_skip_node, OutlineEntry, SemanticKind};
 use crate::error::AstError;
 
 /// Extract an outline from Python source code.
@@ -84,11 +82,7 @@ fn extract_python_function(
     })
 }
 
-fn extract_python_class(
-    node: tree_sitter::Node,
-    source: &[u8],
-    entries: &mut Vec<OutlineEntry>,
-) {
+fn extract_python_class(node: tree_sitter::Node, source: &[u8], entries: &mut Vec<OutlineEntry>) {
     let name_node = node.child_by_field_name("name");
     let class_name = name_node
         .and_then(|n| n.utf8_text(source).ok())
@@ -120,9 +114,7 @@ fn extract_decorated(
     if let Some(definition) = node.child_by_field_name("definition") {
         match definition.kind() {
             "function_definition" => {
-                if let Some(mut entry) =
-                    extract_python_function(definition, source, class_name)
-                {
+                if let Some(mut entry) = extract_python_function(definition, source, class_name) {
                     // Use the outer (decorated) line range
                     entry.lines = outer_lines;
                     entries.push(entry);

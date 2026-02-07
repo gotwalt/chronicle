@@ -1,6 +1,4 @@
-use crate::ast::outline::{
-    node_line_range, should_skip_node, OutlineEntry, SemanticKind,
-};
+use crate::ast::outline::{node_line_range, should_skip_node, OutlineEntry, SemanticKind};
 use crate::error::AstError;
 
 /// Extract an outline from Ruby source code.
@@ -73,7 +71,11 @@ fn extract_ruby_method(
             } else {
                 SemanticKind::Method
             };
-            (k, format!("{}::{}", enc, method_name), Some(enc.to_string()))
+            (
+                k,
+                format!("{}::{}", enc, method_name),
+                Some(enc.to_string()),
+            )
         }
         None => (SemanticKind::Function, method_name.to_string(), None),
     };

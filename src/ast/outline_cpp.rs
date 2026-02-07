@@ -50,21 +50,27 @@ fn walk_cpp_node(
             }
             "struct_specifier" => {
                 if has_body(&child) {
-                    if let Some(entry) = extract_cpp_tagged(child, source, SemanticKind::Struct, enclosing) {
+                    if let Some(entry) =
+                        extract_cpp_tagged(child, source, SemanticKind::Struct, enclosing)
+                    {
                         entries.push(entry);
                     }
                 }
             }
             "enum_specifier" => {
                 if has_body(&child) {
-                    if let Some(entry) = extract_cpp_tagged(child, source, SemanticKind::Enum, enclosing) {
+                    if let Some(entry) =
+                        extract_cpp_tagged(child, source, SemanticKind::Enum, enclosing)
+                    {
                         entries.push(entry);
                     }
                 }
             }
             "union_specifier" => {
                 if has_body(&child) {
-                    if let Some(entry) = extract_cpp_tagged(child, source, SemanticKind::Struct, enclosing) {
+                    if let Some(entry) =
+                        extract_cpp_tagged(child, source, SemanticKind::Struct, enclosing)
+                    {
                         entries.push(entry);
                     }
                 }
@@ -209,10 +215,7 @@ fn extract_cpp_namespace(
     }
 }
 
-fn extract_cpp_typedef(
-    node: tree_sitter::Node,
-    source: &[u8],
-) -> Option<OutlineEntry> {
+fn extract_cpp_typedef(node: tree_sitter::Node, source: &[u8]) -> Option<OutlineEntry> {
     let declarator = node.child_by_field_name("declarator")?;
     let name = outline_c::extract_declarator_name(declarator, source)?;
     let full_text = node.utf8_text(source).unwrap_or("").trim().to_string();
@@ -225,10 +228,7 @@ fn extract_cpp_typedef(
     })
 }
 
-fn extract_cpp_alias(
-    node: tree_sitter::Node,
-    source: &[u8],
-) -> Option<OutlineEntry> {
+fn extract_cpp_alias(node: tree_sitter::Node, source: &[u8]) -> Option<OutlineEntry> {
     let name_node = node.child_by_field_name("name")?;
     let name = name_node.utf8_text(source).ok()?;
     let full_text = node.utf8_text(source).unwrap_or("").trim().to_string();

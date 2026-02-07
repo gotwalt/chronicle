@@ -1,9 +1,9 @@
-pub mod retrieve;
 pub mod deps;
 pub mod history;
+pub mod retrieve;
 pub mod summary;
 
-use crate::error::{Result, ChronicleError};
+use crate::error::{ChronicleError, Result};
 use crate::git::GitOps;
 use crate::schema::annotation::{LineRange, RegionAnnotation};
 

@@ -1,16 +1,14 @@
-pub mod tools;
 pub mod prompt;
+pub mod tools;
 
 use snafu::ResultExt;
 
+use crate::annotate::gather::AnnotationContext;
 use crate::error::agent_error::{MaxTurnsExceededSnafu, NoAnnotationsSnafu, ProviderSnafu};
 use crate::error::AgentError;
 use crate::git::GitOps;
-use crate::provider::{
-    CompletionRequest, ContentBlock, LlmProvider, Message, Role, StopReason,
-};
+use crate::provider::{CompletionRequest, ContentBlock, LlmProvider, Message, Role, StopReason};
 use crate::schema::{CrossCuttingConcern, RegionAnnotation};
-use crate::annotate::gather::AnnotationContext;
 
 const MAX_TURNS: u32 = 20;
 

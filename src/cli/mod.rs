@@ -1,25 +1,29 @@
-pub mod init;
-pub mod context;
 pub mod annotate;
-pub mod read;
-pub mod flag;
-pub mod correct;
-pub mod sync;
-pub mod export;
-pub mod import;
-pub mod doctor;
-pub mod deps;
-pub mod history;
-pub mod summary;
-pub mod show;
-pub mod setup;
-pub mod reconfigure;
 pub mod backfill;
+pub mod context;
+pub mod correct;
+pub mod deps;
+pub mod doctor;
+pub mod export;
+pub mod flag;
+pub mod history;
+pub mod import;
+pub mod init;
+pub mod read;
+pub mod reconfigure;
+pub mod setup;
+pub mod show;
+pub mod summary;
+pub mod sync;
 
 use clap::{Parser, Subcommand};
 
 #[derive(Parser)]
-#[command(name = "git-chronicle", version, about = "AI-powered commit annotation")]
+#[command(
+    name = "git-chronicle",
+    version,
+    about = "AI-powered commit annotation"
+)]
 pub struct Cli {
     #[command(subcommand)]
     pub command: Commands,

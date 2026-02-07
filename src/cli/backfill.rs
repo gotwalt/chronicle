@@ -52,24 +52,45 @@ pub fn run(limit: usize, dry_run: bool) -> Result<()> {
         let context = match gather::build_context(&ops, sha) {
             Ok(ctx) => ctx,
             Err(e) => {
-                eprintln!("  SKIP      {}  (error gathering context: {})", &sha[..7], e);
+                eprintln!(
+                    "  SKIP      {}  (error gathering context: {})",
+                    &sha[..7],
+                    e
+                );
                 skip_count += 1;
                 continue;
             }
         };
 
         let short_sha = &sha[..7.min(sha.len())];
-        let short_msg: String = context.commit_message.lines().next().unwrap_or("").chars().take(60).collect();
+        let short_msg: String = context
+            .commit_message
+            .lines()
+            .next()
+            .unwrap_or("")
+            .chars()
+            .take(60)
+            .collect();
 
         let decision = filter::pre_llm_filter(&context);
         match decision {
             FilterDecision::Annotate => {
                 if dry_run {
                     let file_count = context.diffs.len();
-                    let line_count: usize = context.diffs.iter().map(|d| d.changed_line_count()).sum();
-                    eprintln!("  ANNOTATE  {}  {} ({} files, {} lines)", short_sha, short_msg, file_count, line_count);
+                    let line_count: usize =
+                        context.diffs.iter().map(|d| d.changed_line_count()).sum();
+                    eprintln!(
+                        "  ANNOTATE  {}  {} ({} files, {} lines)",
+                        short_sha, short_msg, file_count, line_count
+                    );
                 } else {
-                    eprint!("  [{}/{}] {}  {}...", annotate_count + 1, shas.len() - already_annotated, short_sha, short_msg);
+                    eprint!(
+                        "  [{}/{}] {}  {}...",
+                        annotate_count + 1,
+                        shas.len() - already_annotated,
+                        short_sha,
+                        short_msg
+                    );
                     let provider = match crate::provider::discover_provider() {
                         Ok(p) => p,
                         Err(e) => {

@@ -210,13 +210,21 @@ mod tests {
         fn note_exists(&self, commit: &str) -> Result<bool, GitError> {
             Ok(self.notes.contains_key(commit))
         }
-        fn file_at_commit(&self, _path: &std::path::Path, _commit: &str) -> Result<String, GitError> {
+        fn file_at_commit(
+            &self,
+            _path: &std::path::Path,
+            _commit: &str,
+        ) -> Result<String, GitError> {
             Ok(String::new())
         }
         fn commit_info(&self, commit: &str) -> Result<crate::git::CommitInfo, GitError> {
             Ok(crate::git::CommitInfo {
                 sha: commit.to_string(),
-                message: self.commit_messages.get(commit).cloned().unwrap_or_default(),
+                message: self
+                    .commit_messages
+                    .get(commit)
+                    .cloned()
+                    .unwrap_or_default(),
                 author_name: "test".to_string(),
                 author_email: "test@test.com".to_string(),
                 timestamp: "2025-01-01T00:00:00Z".to_string(),
@@ -240,7 +248,11 @@ mod tests {
         }
     }
 
-    fn make_annotation(commit: &str, timestamp: &str, regions: Vec<RegionAnnotation>) -> Annotation {
+    fn make_annotation(
+        commit: &str,
+        timestamp: &str,
+        regions: Vec<RegionAnnotation>,
+    ) -> Annotation {
         Annotation {
             schema: "chronicle/v1".to_string(),
             commit: commit.to_string(),
@@ -442,7 +454,10 @@ mod tests {
         );
 
         let mut notes = std::collections::HashMap::new();
-        notes.insert("commit1".to_string(), serde_json::to_string(&main_ann).unwrap());
+        notes.insert(
+            "commit1".to_string(),
+            serde_json::to_string(&main_ann).unwrap(),
+        );
         notes.insert(
             "related_commit".to_string(),
             serde_json::to_string(&related_ann).unwrap(),
@@ -464,7 +479,10 @@ mod tests {
         let result = build_timeline(&git, &query).unwrap();
         assert_eq!(result.timeline.len(), 1);
         assert_eq!(result.timeline[0].related_context.len(), 1);
-        assert_eq!(result.timeline[0].related_context[0].anchor, "TlsSessionCache::new");
+        assert_eq!(
+            result.timeline[0].related_context[0].anchor,
+            "TlsSessionCache::new"
+        );
         assert_eq!(
             result.timeline[0].related_context[0].intent,
             Some("session cache init".to_string())
@@ -490,7 +508,10 @@ mod tests {
         );
 
         let mut notes = std::collections::HashMap::new();
-        notes.insert("commit1".to_string(), serde_json::to_string(&main_ann).unwrap());
+        notes.insert(
+            "commit1".to_string(),
+            serde_json::to_string(&main_ann).unwrap(),
+        );
 
         let git = MockGitOps {
             file_log: vec!["commit1".to_string()],

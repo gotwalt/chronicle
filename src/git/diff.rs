@@ -189,9 +189,12 @@ pub fn parse_diff(diff_output: &str) -> Result<Vec<FileDiff>, crate::error::GitE
 fn parse_diff_header(line: &str) -> Result<(String, String), crate::error::GitError> {
     // Format: "diff --git a/<path> b/<path>"
     // Tricky: paths can contain spaces. We rely on "a/" and "b/" prefixes.
-    let rest = line
-        .strip_prefix("diff --git ")
-        .ok_or_else(|| DiffParseSnafu { message: format!("invalid diff header: {line}") }.build())?;
+    let rest = line.strip_prefix("diff --git ").ok_or_else(|| {
+        DiffParseSnafu {
+            message: format!("invalid diff header: {line}"),
+        }
+        .build()
+    })?;
 
     // Find " b/" to split - search from the right side of a/ prefix
     if let Some(a_rest) = rest.strip_prefix("a/") {

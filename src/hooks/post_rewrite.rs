@@ -48,11 +48,7 @@ pub fn handle_post_rewrite(
 }
 
 /// Handle a single amend migration: copy/update the annotation from old SHA to new SHA.
-fn handle_single_amend(
-    git_ops: &dyn GitOps,
-    old_sha: &str,
-    new_sha: &str,
-) -> Result<()> {
+fn handle_single_amend(git_ops: &dyn GitOps, old_sha: &str, new_sha: &str) -> Result<()> {
     // Read the old annotation
     let old_note = git_ops.note_read(old_sha).context(GitSnafu)?;
     let old_json = match old_note {

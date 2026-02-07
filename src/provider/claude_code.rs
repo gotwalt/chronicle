@@ -1,5 +1,5 @@
-use crate::error::ProviderError;
 use crate::error::provider_error::ApiSnafu;
+use crate::error::ProviderError;
 use crate::provider::{
     AuthStatus, CompletionRequest, CompletionResponse, ContentBlock, LlmProvider, StopReason,
     TokenUsage,
@@ -18,10 +18,7 @@ impl ClaudeCodeProvider {
 }
 
 impl LlmProvider for ClaudeCodeProvider {
-    fn complete(
-        &self,
-        request: &CompletionRequest,
-    ) -> Result<CompletionResponse, ProviderError> {
+    fn complete(&self, request: &CompletionRequest) -> Result<CompletionResponse, ProviderError> {
         // Build a single text prompt from the request
         let mut prompt = String::new();
 
@@ -129,9 +126,7 @@ impl LlmProvider for ClaudeCodeProvider {
             Ok(_) => Ok(AuthStatus::Invalid(
                 "claude CLI returned non-zero exit code".to_string(),
             )),
-            Err(e) => Ok(AuthStatus::Invalid(format!(
-                "claude CLI not found: {e}"
-            ))),
+            Err(e) => Ok(AuthStatus::Invalid(format!("claude CLI not found: {e}"))),
         }
     }
 

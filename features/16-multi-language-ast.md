@@ -2,7 +2,7 @@
 
 ## Overview
 
-Feature 03 established tree-sitter AST parsing for Rust, with TypeScript/JavaScript and Python specified but deferred. This feature expands outline extraction and anchor resolution to ten languages: Rust, TypeScript, TSX, JavaScript, JSX, Python, Go, Java, C, C++, and Ruby.
+Feature 03 established tree-sitter AST parsing for Rust, with TypeScript/JavaScript and Python specified but deferred. This feature expands outline extraction and anchor resolution to thirteen languages: Rust, TypeScript, TSX, JavaScript, JSX, Python, Go, Java, C, C++, Ruby, Objective-C, and Swift.
 
 Each language gets its own `outline_*.rs` extractor module. All languages use `::` as the internal qualified-name separator (e.g., `MyClass::my_method` even in Python/Go/Java), keeping the existing anchor resolution code in `anchor.rs` unchanged.
 
@@ -32,6 +32,8 @@ New `SemanticKind` variants are added for constructs not present in Rust: `Class
 | C | `tree-sitter-c` | `.c`, `.h` | `lang-c` |
 | C++ | `tree-sitter-cpp` | `.cc`, `.cpp`, `.cxx`, `.hpp`, `.hxx`, `.hh` | `lang-cpp` |
 | Ruby | `tree-sitter-ruby` | `.rb`, `.rake`, `.gemspec` | `lang-ruby` |
+| Objective-C | `tree-sitter-objc` 3 | `.m`, `.mm` | `lang-objc` |
+| Swift | `tree-sitter-swift` 0.7 | `.swift` | `lang-swift` |
 
 JavaScript and JSX reuse the TypeScript grammar crate — the TypeScript parser is a strict superset of JavaScript. JavaScript files use `LANGUAGE_TYPESCRIPT`, JSX files use `LANGUAGE_TSX`. Both share the `outline_typescript.rs` extractor and the `lang-typescript` feature flag.
 
@@ -44,11 +46,12 @@ JavaScript and JSX reuse the TypeScript grammar crate — the TypeScript parser 
 | Variant | `as_str()` | `from_str_loose()` aliases |
 |---------|-----------|--------------------------|
 | `Class` | `"class"` | `"class"` |
-| `Interface` | `"interface"` | `"interface"` |
+| `Interface` | `"interface"` | `"interface"`, `"trait"`, `"protocol"` |
+| `Extension` | `"extension"` | `"extension"`, `"impl"`, `"category"` |
 | `Namespace` | `"namespace"` | `"namespace"`, `"package"` |
 | `Constructor` | `"constructor"` | `"constructor"`, `"ctor"` |
 
-These are added to the existing `SemanticKind` enum in `src/ast/outline.rs`. The existing variants (`Function`, `Method`, `Struct`, `Enum`, `Trait`, `Impl`, `TypeAlias`, `Constant`, `Static`, `Module`, `Decorator`) remain unchanged.
+The previous `Trait` variant has been merged into `Interface` (traits, protocols, and interfaces are all contracts). The previous `Impl` variant has been renamed to `Extension` (Rust impl blocks, Swift extensions, and ObjC categories all add implementation to existing types). Backward compatibility is maintained via `from_str_loose()` aliases.
 
 ---
 
@@ -365,6 +368,53 @@ pub fn extract_ruby_outline(source: &str) -> Result<Vec<OutlineEntry>, AstError>
 **Signature delimiter:** Ruby has no `{` or `:` body delimiter. Extract from `def` keyword to end of parameter list (closing `)`), or to end of method name if no parameters. For classes/modules, extract the `class`/`module` keyword plus the name and any superclass (`< Base`).
 
 **Grammar:** `tree_sitter_ruby::LANGUAGE`
+
+### Objective-C (`outline_objc.rs`)
+
+```rust
+pub fn extract_objc_outline(source: &str) -> Result<Vec<OutlineEntry>, AstError>
+```
+
+| tree-sitter node kind | SemanticKind | Name extraction | Notes |
+|----------------------|--------------|-----------------|-------|
+| `class_interface` | Class | First identifier child | Descend for method declarations |
+| `class_implementation` | Class | First identifier child | Descend for method definitions |
+| `protocol_declaration` | Interface | First identifier child | Descend for method declarations; skip forward declarations |
+| `class_interface` (with `category` field) | Extension | `ClassName(CategoryName)` | Category interface |
+| `class_implementation` (with `category` field) | Extension | `ClassName(CategoryName)` | Category implementation |
+| `method_declaration` / `method_definition` | Method | `ClassName::±selector` | `+` for class methods, `-` for instance methods |
+| `function_definition` | Function | Declarator chain name | C-style free functions |
+
+**Qualified names:** `ClassName::±selectorName:` (e.g., `Shape::-initWithName:`, `Shape::+defaultShape`). The `+`/`-` prefix distinguishes class methods from instance methods. Multi-part selectors include colons (e.g., `initWithName:age:`).
+
+**Signature delimiter:** `{` for method definitions and functions, `;` for method declarations.
+
+**Grammar:** `tree_sitter_objc::LANGUAGE`
+
+### Swift (`outline_swift.rs`)
+
+```rust
+pub fn extract_swift_outline(source: &str) -> Result<Vec<OutlineEntry>, AstError>
+```
+
+| tree-sitter node kind | SemanticKind | Name extraction | Notes |
+|----------------------|--------------|-----------------|-------|
+| `class_declaration` (kind=class/actor) | Class | `name` field | Descend into `body` for methods |
+| `class_declaration` (kind=struct) | Struct | `name` field | Descend into `body` for methods |
+| `class_declaration` (kind=enum) | Enum | `name` field | Descend into `body` for methods |
+| `class_declaration` (kind=extension) | Extension | `name` field (extended type) | Descend into `body` for methods |
+| `protocol_declaration` | Interface | `name` field | Descend into `body` for protocol methods |
+| `function_declaration` / `protocol_function_declaration` | Function / Method | `name` field | Method if inside type body |
+| `init_declaration` | Constructor | `TypeName::init` | Only inside type bodies |
+| `typealias_declaration` | TypeAlias | `name` field | |
+
+**Note:** The Swift grammar uses a single `class_declaration` node for class, struct, enum, actor, and extension, differentiated by the `declaration_kind` field. Protocol methods use `protocol_function_declaration` rather than `function_declaration`.
+
+**Qualified names:** `TypeName::methodName` (e.g., `Shape::draw`, `Vehicle::init`).
+
+**Signature delimiter:** `{`
+
+**Grammar:** `tree_sitter_swift::LANGUAGE`
 
 ---
 

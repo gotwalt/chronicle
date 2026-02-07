@@ -1,12 +1,7 @@
 use crate::error::Result;
 use crate::git::CliOps;
 
-pub fn run(
-    path: String,
-    anchor: Option<String>,
-    commit: String,
-    no_tui: bool,
-) -> Result<()> {
+pub fn run(path: String, anchor: Option<String>, commit: String, no_tui: bool) -> Result<()> {
     let repo_dir = std::env::current_dir().map_err(|e| crate::error::ChronicleError::Io {
         source: e,
         location: snafu::Location::default(),

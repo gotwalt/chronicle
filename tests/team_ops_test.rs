@@ -115,8 +115,14 @@ fn sync_enable_adds_refspecs() {
     // After enable
     let config = get_sync_config(&repo_dir, "origin").unwrap();
     assert!(config.is_enabled());
-    assert!(config.push_refspec.unwrap().contains("refs/notes/chronicle"));
-    assert!(config.fetch_refspec.unwrap().contains("refs/notes/chronicle"));
+    assert!(config
+        .push_refspec
+        .unwrap()
+        .contains("refs/notes/chronicle"));
+    assert!(config
+        .fetch_refspec
+        .unwrap()
+        .contains("refs/notes/chronicle"));
 }
 
 #[test]
@@ -194,13 +200,7 @@ fn export_import_roundtrip() {
     // (For simplicity, use the same repo and remove the note first)
     // Remove existing note
     Command::new("git")
-        .args([
-            "notes",
-            "--ref",
-            "refs/notes/chronicle",
-            "remove",
-            &sha,
-        ])
+        .args(["notes", "--ref", "refs/notes/chronicle", "remove", &sha])
         .current_dir(dir.path())
         .output()
         .unwrap();

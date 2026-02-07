@@ -124,17 +124,22 @@ pub fn synthesize_squash_annotation(ctx: &SquashSynthesisContext) -> Annotation 
 
         // Merge regions: collect all, deduplicating by (file, ast_anchor.name)
         for region in &ann.regions {
-            let already_exists = all_regions.iter().any(|r| {
-                r.file == region.file && r.ast_anchor.name == region.ast_anchor.name
-            });
+            let already_exists = all_regions
+                .iter()
+                .any(|r| r.file == region.file && r.ast_anchor.name == region.ast_anchor.name);
             if already_exists {
                 // Find existing and append reasoning
-                if let Some(existing) = all_regions.iter_mut().find(|r| {
-                    r.file == region.file && r.ast_anchor.name == region.ast_anchor.name
-                }) {
+                if let Some(existing) = all_regions
+                    .iter_mut()
+                    .find(|r| r.file == region.file && r.ast_anchor.name == region.ast_anchor.name)
+                {
                     // Merge constraints (never drop)
                     for constraint in &region.constraints {
-                        if !existing.constraints.iter().any(|c| c.text == constraint.text) {
+                        if !existing
+                            .constraints
+                            .iter()
+                            .any(|c| c.text == constraint.text)
+                        {
                             existing.constraints.push(constraint.clone());
                         }
                     }
@@ -484,8 +489,16 @@ mod tests {
         assert_eq!(result.regions[0].lines.start, 1);
         assert_eq!(result.regions[0].lines.end, 20);
         // Reasoning should be consolidated
-        assert!(result.regions[0].reasoning.as_ref().unwrap().contains("abc123"));
-        assert!(result.regions[0].reasoning.as_ref().unwrap().contains("def456"));
+        assert!(result.regions[0]
+            .reasoning
+            .as_ref()
+            .unwrap()
+            .contains("abc123"));
+        assert!(result.regions[0]
+            .reasoning
+            .as_ref()
+            .unwrap()
+            .contains("def456"));
     }
 
     #[test]

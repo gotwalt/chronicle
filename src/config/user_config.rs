@@ -2,10 +2,10 @@ use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 
-use crate::error::SetupError;
 use crate::error::setup_error::{
     NoHomeDirectorySnafu, ReadConfigSnafu, ReadFileSnafu, WriteConfigSnafu, WriteFileSnafu,
 };
+use crate::error::SetupError;
 use snafu::ResultExt;
 
 /// User-level config stored at ~/.git-chronicle.toml.

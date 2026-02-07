@@ -20,7 +20,10 @@ pub fn run() -> Result<()> {
     };
 
     new_config.save().context(SetupSnafu)?;
-    eprintln!("Configuration updated: provider = {}", new_config.provider.provider_type);
+    eprintln!(
+        "Configuration updated: provider = {}",
+        new_config.provider.provider_type
+    );
 
     Ok(())
 }

@@ -19,10 +19,7 @@ pub struct ExportEntry {
 ///
 /// Iterates all notes under `refs/notes/chronicle`, deserializes each as an
 /// Annotation, and writes one JSON object per line.
-pub fn export_annotations<W: Write>(
-    git_ops: &dyn GitOps,
-    writer: &mut W,
-) -> Result<usize> {
+pub fn export_annotations<W: Write>(git_ops: &dyn GitOps, writer: &mut W) -> Result<usize> {
     let note_list = list_annotated_commits(git_ops)?;
     let mut count = 0;
 
@@ -43,12 +40,11 @@ pub fn export_annotations<W: Write>(
             annotation,
         };
 
-        let line = serde_json::to_string(&entry).map_err(|e| {
-            crate::error::ChronicleError::Json {
+        let line =
+            serde_json::to_string(&entry).map_err(|e| crate::error::ChronicleError::Json {
                 source: e,
                 location: snafu::Location::default(),
-            }
-        })?;
+            })?;
 
         writeln!(writer, "{line}").map_err(|e| crate::error::ChronicleError::Io {
             source: e,

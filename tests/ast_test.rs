@@ -183,7 +183,7 @@ fn outline_extracts_trait() {
     let outline = ast::extract_outline(SAMPLE_RUST, Language::Rust).unwrap();
     let traits: Vec<&OutlineEntry> = outline
         .iter()
-        .filter(|e| e.kind == SemanticKind::Trait)
+        .filter(|e| e.kind == SemanticKind::Interface)
         .collect();
     assert_eq!(traits.len(), 1);
     assert_eq!(traits[0].name, "Processor");
@@ -195,7 +195,7 @@ fn outline_extracts_impl_and_methods() {
 
     let impls: Vec<&OutlineEntry> = outline
         .iter()
-        .filter(|e| e.kind == SemanticKind::Impl)
+        .filter(|e| e.kind == SemanticKind::Extension)
         .collect();
     assert_eq!(impls.len(), 1);
     assert_eq!(impls[0].name, "Config");
@@ -234,10 +234,23 @@ fn outline_entries_have_valid_line_ranges() {
 fn outline_entries_have_signatures() {
     let outline = ast::extract_outline(SAMPLE_RUST, Language::Rust).unwrap();
     for entry in &outline {
-        assert!(entry.signature.is_some(), "expected signature for {}", entry.name);
+        assert!(
+            entry.signature.is_some(),
+            "expected signature for {}",
+            entry.name
+        );
         let sig = entry.signature.as_ref().unwrap();
-        assert!(!sig.is_empty(), "signature should not be empty for {}", entry.name);
-        assert!(!sig.contains('{'), "signature for {} should not contain body: {}", entry.name, sig);
+        assert!(
+            !sig.is_empty(),
+            "signature should not be empty for {}",
+            entry.name
+        );
+        assert!(
+            !sig.contains('{'),
+            "signature for {} should not contain body: {}",
+            entry.name,
+            sig
+        );
     }
 }
 
@@ -302,27 +315,45 @@ fn anchor_lines_are_correct() {
 #[test]
 fn semantic_kind_class() {
     assert_eq!(SemanticKind::Class.as_str(), "class");
-    assert_eq!(SemanticKind::from_str_loose("class"), Some(SemanticKind::Class));
+    assert_eq!(
+        SemanticKind::from_str_loose("class"),
+        Some(SemanticKind::Class)
+    );
 }
 
 #[test]
 fn semantic_kind_interface() {
     assert_eq!(SemanticKind::Interface.as_str(), "interface");
-    assert_eq!(SemanticKind::from_str_loose("interface"), Some(SemanticKind::Interface));
+    assert_eq!(
+        SemanticKind::from_str_loose("interface"),
+        Some(SemanticKind::Interface)
+    );
 }
 
 #[test]
 fn semantic_kind_namespace() {
     assert_eq!(SemanticKind::Namespace.as_str(), "namespace");
-    assert_eq!(SemanticKind::from_str_loose("namespace"), Some(SemanticKind::Namespace));
-    assert_eq!(SemanticKind::from_str_loose("package"), Some(SemanticKind::Namespace));
+    assert_eq!(
+        SemanticKind::from_str_loose("namespace"),
+        Some(SemanticKind::Namespace)
+    );
+    assert_eq!(
+        SemanticKind::from_str_loose("package"),
+        Some(SemanticKind::Namespace)
+    );
 }
 
 #[test]
 fn semantic_kind_constructor() {
     assert_eq!(SemanticKind::Constructor.as_str(), "constructor");
-    assert_eq!(SemanticKind::from_str_loose("constructor"), Some(SemanticKind::Constructor));
-    assert_eq!(SemanticKind::from_str_loose("ctor"), Some(SemanticKind::Constructor));
+    assert_eq!(
+        SemanticKind::from_str_loose("constructor"),
+        Some(SemanticKind::Constructor)
+    );
+    assert_eq!(
+        SemanticKind::from_str_loose("ctor"),
+        Some(SemanticKind::Constructor)
+    );
 }
 
 // --- TypeScript outline tests ---
@@ -366,24 +397,48 @@ export function exported(): void {}
 #[test]
 fn typescript_outline_function() {
     let outline = ast::extract_outline(SAMPLE_TS, Language::TypeScript).unwrap();
-    let fns: Vec<&OutlineEntry> = outline.iter().filter(|e| e.kind == SemanticKind::Function).collect();
-    assert!(fns.iter().any(|e| e.name == "greet"), "expected function greet, got: {:?}", fns);
-    assert!(fns.iter().any(|e| e.name == "handler"), "expected arrow function handler, got: {:?}", fns);
-    assert!(fns.iter().any(|e| e.name == "exported"), "expected exported function, got: {:?}", fns);
+    let fns: Vec<&OutlineEntry> = outline
+        .iter()
+        .filter(|e| e.kind == SemanticKind::Function)
+        .collect();
+    assert!(
+        fns.iter().any(|e| e.name == "greet"),
+        "expected function greet, got: {:?}",
+        fns
+    );
+    assert!(
+        fns.iter().any(|e| e.name == "handler"),
+        "expected arrow function handler, got: {:?}",
+        fns
+    );
+    assert!(
+        fns.iter().any(|e| e.name == "exported"),
+        "expected exported function, got: {:?}",
+        fns
+    );
 }
 
 #[test]
 fn typescript_outline_class_and_methods() {
     let outline = ast::extract_outline(SAMPLE_TS, Language::TypeScript).unwrap();
-    let classes: Vec<&OutlineEntry> = outline.iter().filter(|e| e.kind == SemanticKind::Class).collect();
+    let classes: Vec<&OutlineEntry> = outline
+        .iter()
+        .filter(|e| e.kind == SemanticKind::Class)
+        .collect();
     assert_eq!(classes.len(), 1);
     assert_eq!(classes[0].name, "Greeter");
 
-    let constructors: Vec<&OutlineEntry> = outline.iter().filter(|e| e.kind == SemanticKind::Constructor).collect();
+    let constructors: Vec<&OutlineEntry> = outline
+        .iter()
+        .filter(|e| e.kind == SemanticKind::Constructor)
+        .collect();
     assert_eq!(constructors.len(), 1);
     assert_eq!(constructors[0].name, "Greeter::constructor");
 
-    let methods: Vec<&OutlineEntry> = outline.iter().filter(|e| e.kind == SemanticKind::Method).collect();
+    let methods: Vec<&OutlineEntry> = outline
+        .iter()
+        .filter(|e| e.kind == SemanticKind::Method)
+        .collect();
     let method_names: Vec<&str> = methods.iter().map(|m| m.name.as_str()).collect();
     assert!(method_names.contains(&"Greeter::greet"));
     assert!(method_names.contains(&"Greeter::create"));
@@ -392,7 +447,10 @@ fn typescript_outline_class_and_methods() {
 #[test]
 fn typescript_outline_interface() {
     let outline = ast::extract_outline(SAMPLE_TS, Language::TypeScript).unwrap();
-    let ifaces: Vec<&OutlineEntry> = outline.iter().filter(|e| e.kind == SemanticKind::Interface).collect();
+    let ifaces: Vec<&OutlineEntry> = outline
+        .iter()
+        .filter(|e| e.kind == SemanticKind::Interface)
+        .collect();
     assert_eq!(ifaces.len(), 1);
     assert_eq!(ifaces[0].name, "Greetable");
 }
@@ -400,7 +458,10 @@ fn typescript_outline_interface() {
 #[test]
 fn typescript_outline_enum() {
     let outline = ast::extract_outline(SAMPLE_TS, Language::TypeScript).unwrap();
-    let enums: Vec<&OutlineEntry> = outline.iter().filter(|e| e.kind == SemanticKind::Enum).collect();
+    let enums: Vec<&OutlineEntry> = outline
+        .iter()
+        .filter(|e| e.kind == SemanticKind::Enum)
+        .collect();
     assert_eq!(enums.len(), 1);
     assert_eq!(enums[0].name, "Color");
 }
@@ -408,7 +469,10 @@ fn typescript_outline_enum() {
 #[test]
 fn typescript_outline_type_alias() {
     let outline = ast::extract_outline(SAMPLE_TS, Language::TypeScript).unwrap();
-    let aliases: Vec<&OutlineEntry> = outline.iter().filter(|e| e.kind == SemanticKind::TypeAlias).collect();
+    let aliases: Vec<&OutlineEntry> = outline
+        .iter()
+        .filter(|e| e.kind == SemanticKind::TypeAlias)
+        .collect();
     assert_eq!(aliases.len(), 1);
     assert_eq!(aliases[0].name, "StringAlias");
 }
@@ -438,11 +502,21 @@ const arrow = () => {
 #[test]
 fn javascript_outline_function_and_class() {
     let outline = ast::extract_outline(SAMPLE_JS, Language::JavaScript).unwrap();
-    assert!(outline.iter().any(|e| e.kind == SemanticKind::Function && e.name == "hello"));
-    assert!(outline.iter().any(|e| e.kind == SemanticKind::Class && e.name == "MyClass"));
-    assert!(outline.iter().any(|e| e.kind == SemanticKind::Constructor && e.name == "MyClass::constructor"));
-    assert!(outline.iter().any(|e| e.kind == SemanticKind::Method && e.name == "MyClass::doStuff"));
-    assert!(outline.iter().any(|e| e.kind == SemanticKind::Function && e.name == "arrow"));
+    assert!(outline
+        .iter()
+        .any(|e| e.kind == SemanticKind::Function && e.name == "hello"));
+    assert!(outline
+        .iter()
+        .any(|e| e.kind == SemanticKind::Class && e.name == "MyClass"));
+    assert!(outline
+        .iter()
+        .any(|e| e.kind == SemanticKind::Constructor && e.name == "MyClass::constructor"));
+    assert!(outline
+        .iter()
+        .any(|e| e.kind == SemanticKind::Method && e.name == "MyClass::doStuff"));
+    assert!(outline
+        .iter()
+        .any(|e| e.kind == SemanticKind::Function && e.name == "arrow"));
 }
 
 // --- Python outline tests ---
@@ -466,7 +540,10 @@ class Animal:
 #[test]
 fn python_outline_function() {
     let outline = ast::extract_outline(SAMPLE_PY, Language::Python).unwrap();
-    let fns: Vec<&OutlineEntry> = outline.iter().filter(|e| e.kind == SemanticKind::Function).collect();
+    let fns: Vec<&OutlineEntry> = outline
+        .iter()
+        .filter(|e| e.kind == SemanticKind::Function)
+        .collect();
     assert_eq!(fns.len(), 1);
     assert_eq!(fns[0].name, "top_level");
 }
@@ -474,15 +551,24 @@ fn python_outline_function() {
 #[test]
 fn python_outline_class_and_methods() {
     let outline = ast::extract_outline(SAMPLE_PY, Language::Python).unwrap();
-    let classes: Vec<&OutlineEntry> = outline.iter().filter(|e| e.kind == SemanticKind::Class).collect();
+    let classes: Vec<&OutlineEntry> = outline
+        .iter()
+        .filter(|e| e.kind == SemanticKind::Class)
+        .collect();
     assert_eq!(classes.len(), 1);
     assert_eq!(classes[0].name, "Animal");
 
-    let ctors: Vec<&OutlineEntry> = outline.iter().filter(|e| e.kind == SemanticKind::Constructor).collect();
+    let ctors: Vec<&OutlineEntry> = outline
+        .iter()
+        .filter(|e| e.kind == SemanticKind::Constructor)
+        .collect();
     assert_eq!(ctors.len(), 1);
     assert_eq!(ctors[0].name, "Animal::__init__");
 
-    let methods: Vec<&OutlineEntry> = outline.iter().filter(|e| e.kind == SemanticKind::Method).collect();
+    let methods: Vec<&OutlineEntry> = outline
+        .iter()
+        .filter(|e| e.kind == SemanticKind::Method)
+        .collect();
     let method_names: Vec<&str> = methods.iter().map(|m| m.name.as_str()).collect();
     assert!(method_names.contains(&"Animal::speak"));
     assert!(method_names.contains(&"Animal::create"));
@@ -515,7 +601,10 @@ const MaxRetries = 3
 #[test]
 fn go_outline_function() {
     let outline = ast::extract_outline(SAMPLE_GO, Language::Go).unwrap();
-    let fns: Vec<&OutlineEntry> = outline.iter().filter(|e| e.kind == SemanticKind::Function).collect();
+    let fns: Vec<&OutlineEntry> = outline
+        .iter()
+        .filter(|e| e.kind == SemanticKind::Function)
+        .collect();
     assert_eq!(fns.len(), 1);
     assert_eq!(fns[0].name, "main");
 }
@@ -523,20 +612,28 @@ fn go_outline_function() {
 #[test]
 fn go_outline_struct_and_method() {
     let outline = ast::extract_outline(SAMPLE_GO, Language::Go).unwrap();
-    assert!(outline.iter().any(|e| e.kind == SemanticKind::Struct && e.name == "Server"));
-    assert!(outline.iter().any(|e| e.kind == SemanticKind::Method && e.name == "Server::Start"));
+    assert!(outline
+        .iter()
+        .any(|e| e.kind == SemanticKind::Struct && e.name == "Server"));
+    assert!(outline
+        .iter()
+        .any(|e| e.kind == SemanticKind::Method && e.name == "Server::Start"));
 }
 
 #[test]
 fn go_outline_interface() {
     let outline = ast::extract_outline(SAMPLE_GO, Language::Go).unwrap();
-    assert!(outline.iter().any(|e| e.kind == SemanticKind::Interface && e.name == "Handler"));
+    assert!(outline
+        .iter()
+        .any(|e| e.kind == SemanticKind::Interface && e.name == "Handler"));
 }
 
 #[test]
 fn go_outline_const() {
     let outline = ast::extract_outline(SAMPLE_GO, Language::Go).unwrap();
-    assert!(outline.iter().any(|e| e.kind == SemanticKind::Const && e.name == "MaxRetries"));
+    assert!(outline
+        .iter()
+        .any(|e| e.kind == SemanticKind::Const && e.name == "MaxRetries"));
 }
 
 // --- Java outline tests ---
@@ -563,22 +660,38 @@ public class Calculator {
 #[test]
 fn java_outline_class_and_methods() {
     let outline = ast::extract_outline(SAMPLE_JAVA, Language::Java).unwrap();
-    assert!(outline.iter().any(|e| e.kind == SemanticKind::Class && e.name == "Calculator"),
-        "expected Calculator class, got: {:?}", outline.iter().map(|e| (&e.kind, &e.name)).collect::<Vec<_>>());
-    assert!(outline.iter().any(|e| e.kind == SemanticKind::Constructor && e.name == "Calculator::Calculator"));
-    assert!(outline.iter().any(|e| e.kind == SemanticKind::Method && e.name == "Calculator::add"));
+    assert!(
+        outline
+            .iter()
+            .any(|e| e.kind == SemanticKind::Class && e.name == "Calculator"),
+        "expected Calculator class, got: {:?}",
+        outline
+            .iter()
+            .map(|e| (&e.kind, &e.name))
+            .collect::<Vec<_>>()
+    );
+    assert!(outline
+        .iter()
+        .any(|e| e.kind == SemanticKind::Constructor && e.name == "Calculator::Calculator"));
+    assert!(outline
+        .iter()
+        .any(|e| e.kind == SemanticKind::Method && e.name == "Calculator::add"));
 }
 
 #[test]
 fn java_outline_nested_interface() {
     let outline = ast::extract_outline(SAMPLE_JAVA, Language::Java).unwrap();
-    assert!(outline.iter().any(|e| e.kind == SemanticKind::Interface && e.name == "Calculator::Operation"));
+    assert!(outline
+        .iter()
+        .any(|e| e.kind == SemanticKind::Interface && e.name == "Calculator::Operation"));
 }
 
 #[test]
 fn java_outline_nested_enum() {
     let outline = ast::extract_outline(SAMPLE_JAVA, Language::Java).unwrap();
-    assert!(outline.iter().any(|e| e.kind == SemanticKind::Enum && e.name == "Calculator::Mode"));
+    assert!(outline
+        .iter()
+        .any(|e| e.kind == SemanticKind::Enum && e.name == "Calculator::Mode"));
 }
 
 // --- C outline tests ---
@@ -605,26 +718,40 @@ typedef unsigned int uint;
 #[test]
 fn c_outline_function() {
     let outline = ast::extract_outline(SAMPLE_C, Language::C).unwrap();
-    assert!(outline.iter().any(|e| e.kind == SemanticKind::Function && e.name == "add"),
-        "got: {:?}", outline.iter().map(|e| (&e.kind, &e.name)).collect::<Vec<_>>());
+    assert!(
+        outline
+            .iter()
+            .any(|e| e.kind == SemanticKind::Function && e.name == "add"),
+        "got: {:?}",
+        outline
+            .iter()
+            .map(|e| (&e.kind, &e.name))
+            .collect::<Vec<_>>()
+    );
 }
 
 #[test]
 fn c_outline_struct() {
     let outline = ast::extract_outline(SAMPLE_C, Language::C).unwrap();
-    assert!(outline.iter().any(|e| e.kind == SemanticKind::Struct && e.name == "Point"));
+    assert!(outline
+        .iter()
+        .any(|e| e.kind == SemanticKind::Struct && e.name == "Point"));
 }
 
 #[test]
 fn c_outline_enum() {
     let outline = ast::extract_outline(SAMPLE_C, Language::C).unwrap();
-    assert!(outline.iter().any(|e| e.kind == SemanticKind::Enum && e.name == "Color"));
+    assert!(outline
+        .iter()
+        .any(|e| e.kind == SemanticKind::Enum && e.name == "Color"));
 }
 
 #[test]
 fn c_outline_typedef() {
     let outline = ast::extract_outline(SAMPLE_C, Language::C).unwrap();
-    assert!(outline.iter().any(|e| e.kind == SemanticKind::TypeAlias && e.name == "uint"));
+    assert!(outline
+        .iter()
+        .any(|e| e.kind == SemanticKind::TypeAlias && e.name == "uint"));
 }
 
 // --- C++ outline tests ---
@@ -649,24 +776,52 @@ using Integer = int;
 #[test]
 fn cpp_outline_namespace() {
     let outline = ast::extract_outline(SAMPLE_CPP, Language::Cpp).unwrap();
-    assert!(outline.iter().any(|e| e.kind == SemanticKind::Namespace && e.name == "math"),
-        "got: {:?}", outline.iter().map(|e| (&e.kind, &e.name)).collect::<Vec<_>>());
+    assert!(
+        outline
+            .iter()
+            .any(|e| e.kind == SemanticKind::Namespace && e.name == "math"),
+        "got: {:?}",
+        outline
+            .iter()
+            .map(|e| (&e.kind, &e.name))
+            .collect::<Vec<_>>()
+    );
 }
 
 #[test]
 fn cpp_outline_class_and_methods() {
     let outline = ast::extract_outline(SAMPLE_CPP, Language::Cpp).unwrap();
-    assert!(outline.iter().any(|e| e.kind == SemanticKind::Class && e.name == "math::Calculator"),
-        "got: {:?}", outline.iter().map(|e| (&e.kind, &e.name)).collect::<Vec<_>>());
-    assert!(outline.iter().any(|e| e.kind == SemanticKind::Constructor && e.name == "math::Calculator::Calculator"));
-    assert!(outline.iter().any(|e| e.kind == SemanticKind::Method && e.name == "math::Calculator::add"));
+    assert!(
+        outline
+            .iter()
+            .any(|e| e.kind == SemanticKind::Class && e.name == "math::Calculator"),
+        "got: {:?}",
+        outline
+            .iter()
+            .map(|e| (&e.kind, &e.name))
+            .collect::<Vec<_>>()
+    );
+    assert!(outline
+        .iter()
+        .any(|e| e.kind == SemanticKind::Constructor && e.name == "math::Calculator::Calculator"));
+    assert!(outline
+        .iter()
+        .any(|e| e.kind == SemanticKind::Method && e.name == "math::Calculator::add"));
 }
 
 #[test]
 fn cpp_outline_alias() {
     let outline = ast::extract_outline(SAMPLE_CPP, Language::Cpp).unwrap();
-    assert!(outline.iter().any(|e| e.kind == SemanticKind::TypeAlias && e.name == "Integer"),
-        "got: {:?}", outline.iter().map(|e| (&e.kind, &e.name)).collect::<Vec<_>>());
+    assert!(
+        outline
+            .iter()
+            .any(|e| e.kind == SemanticKind::TypeAlias && e.name == "Integer"),
+        "got: {:?}",
+        outline
+            .iter()
+            .map(|e| (&e.kind, &e.name))
+            .collect::<Vec<_>>()
+    );
 }
 
 // --- Ruby outline tests ---
@@ -696,24 +851,386 @@ end
 #[test]
 fn ruby_outline_top_level_function() {
     let outline = ast::extract_outline(SAMPLE_RUBY, Language::Ruby).unwrap();
-    assert!(outline.iter().any(|e| e.kind == SemanticKind::Function && e.name == "top_level_method"),
-        "got: {:?}", outline.iter().map(|e| (&e.kind, &e.name)).collect::<Vec<_>>());
+    assert!(
+        outline
+            .iter()
+            .any(|e| e.kind == SemanticKind::Function && e.name == "top_level_method"),
+        "got: {:?}",
+        outline
+            .iter()
+            .map(|e| (&e.kind, &e.name))
+            .collect::<Vec<_>>()
+    );
 }
 
 #[test]
 fn ruby_outline_module() {
     let outline = ast::extract_outline(SAMPLE_RUBY, Language::Ruby).unwrap();
-    assert!(outline.iter().any(|e| e.kind == SemanticKind::Module && e.name == "MyModule"));
+    assert!(outline
+        .iter()
+        .any(|e| e.kind == SemanticKind::Module && e.name == "MyModule"));
 }
 
 #[test]
 fn ruby_outline_class_and_methods() {
     let outline = ast::extract_outline(SAMPLE_RUBY, Language::Ruby).unwrap();
-    assert!(outline.iter().any(|e| e.kind == SemanticKind::Class && e.name == "MyModule::MyClass"),
-        "got: {:?}", outline.iter().map(|e| (&e.kind, &e.name)).collect::<Vec<_>>());
-    assert!(outline.iter().any(|e| e.kind == SemanticKind::Constructor && e.name == "MyModule::MyClass::initialize"));
-    assert!(outline.iter().any(|e| e.kind == SemanticKind::Method && e.name == "MyModule::MyClass::greet"));
-    assert!(outline.iter().any(|e| e.kind == SemanticKind::Method && e.name == "MyModule::MyClass::create"));
+    assert!(
+        outline
+            .iter()
+            .any(|e| e.kind == SemanticKind::Class && e.name == "MyModule::MyClass"),
+        "got: {:?}",
+        outline
+            .iter()
+            .map(|e| (&e.kind, &e.name))
+            .collect::<Vec<_>>()
+    );
+    assert!(outline
+        .iter()
+        .any(|e| e.kind == SemanticKind::Constructor && e.name == "MyModule::MyClass::initialize"));
+    assert!(outline
+        .iter()
+        .any(|e| e.kind == SemanticKind::Method && e.name == "MyModule::MyClass::greet"));
+    assert!(outline
+        .iter()
+        .any(|e| e.kind == SemanticKind::Method && e.name == "MyModule::MyClass::create"));
+}
+
+// --- Objective-C outline tests ---
+
+const SAMPLE_OBJC: &str = r#"
+#import <Foundation/Foundation.h>
+
+@protocol Printable
+- (void)print;
+@end
+
+@interface Dog : NSObject <Printable>
+- (instancetype)initWithName:(NSString *)name;
+- (void)print;
++ (Dog *)stray;
+@end
+
+@implementation Dog
+- (instancetype)initWithName:(NSString *)name {
+    self = [super init];
+    return self;
+}
+- (void)print {
+    NSLog(@"Dog");
+}
++ (Dog *)stray {
+    return [[Dog alloc] initWithName:@"stray"];
+}
+@end
+
+@interface Dog (Tricks)
+- (void)sit;
+@end
+
+void walkDog(Dog *d) {
+    [d print];
+}
+"#;
+
+#[test]
+fn objc_outline_protocol() {
+    let outline = ast::extract_outline(SAMPLE_OBJC, Language::ObjC).unwrap();
+    assert!(
+        outline
+            .iter()
+            .any(|e| e.kind == SemanticKind::Interface && e.name == "Printable"),
+        "got: {:?}",
+        outline
+            .iter()
+            .map(|e| (&e.kind, &e.name))
+            .collect::<Vec<_>>()
+    );
+}
+
+#[test]
+fn objc_outline_class() {
+    let outline = ast::extract_outline(SAMPLE_OBJC, Language::ObjC).unwrap();
+    let classes: Vec<&OutlineEntry> = outline
+        .iter()
+        .filter(|e| e.kind == SemanticKind::Class)
+        .collect();
+    assert!(
+        classes.len() >= 1,
+        "got: {:?}",
+        classes.iter().map(|e| &e.name).collect::<Vec<_>>()
+    );
+    assert!(classes.iter().any(|c| c.name == "Dog"));
+}
+
+#[test]
+fn objc_outline_category() {
+    let outline = ast::extract_outline(SAMPLE_OBJC, Language::ObjC).unwrap();
+    assert!(
+        outline
+            .iter()
+            .any(|e| e.kind == SemanticKind::Extension && e.name == "Dog(Tricks)"),
+        "got: {:?}",
+        outline
+            .iter()
+            .map(|e| (&e.kind, &e.name))
+            .collect::<Vec<_>>()
+    );
+}
+
+#[test]
+fn objc_outline_methods() {
+    let outline = ast::extract_outline(SAMPLE_OBJC, Language::ObjC).unwrap();
+    let methods: Vec<&OutlineEntry> = outline
+        .iter()
+        .filter(|e| e.kind == SemanticKind::Method)
+        .collect();
+    let names: Vec<&str> = methods.iter().map(|m| m.name.as_str()).collect();
+    assert!(
+        names
+            .iter()
+            .any(|n| n.contains("Dog") && n.contains("initWithName:")),
+        "got: {:?}",
+        names
+    );
+    assert!(
+        names
+            .iter()
+            .any(|n| n.contains("Dog") && n.contains("-print")),
+        "got: {:?}",
+        names
+    );
+    assert!(
+        names
+            .iter()
+            .any(|n| n.contains("Dog") && n.contains("+stray")),
+        "got: {:?}",
+        names
+    );
+}
+
+#[test]
+fn objc_outline_free_function() {
+    let outline = ast::extract_outline(SAMPLE_OBJC, Language::ObjC).unwrap();
+    assert!(
+        outline
+            .iter()
+            .any(|e| e.kind == SemanticKind::Function && e.name == "walkDog"),
+        "got: {:?}",
+        outline
+            .iter()
+            .map(|e| (&e.kind, &e.name))
+            .collect::<Vec<_>>()
+    );
+}
+
+// --- Swift outline tests ---
+
+const SAMPLE_SWIFT: &str = r#"
+protocol Runnable {
+    func run()
+}
+
+class Vehicle {
+    var speed: Int
+
+    init(speed: Int) {
+        self.speed = speed
+    }
+
+    func accelerate() {
+        speed += 10
+    }
+}
+
+struct Coordinate {
+    var x: Double
+    var y: Double
+}
+
+enum Compass {
+    case north, south, east, west
+}
+
+extension Vehicle {
+    func brake() {
+        speed = 0
+    }
+}
+
+typealias Speed = Int
+
+func freeFunc() -> Int {
+    return 42
+}
+"#;
+
+#[test]
+fn swift_outline_protocol() {
+    let outline = ast::extract_outline(SAMPLE_SWIFT, Language::Swift).unwrap();
+    assert!(
+        outline
+            .iter()
+            .any(|e| e.kind == SemanticKind::Interface && e.name == "Runnable"),
+        "got: {:?}",
+        outline
+            .iter()
+            .map(|e| (&e.kind, &e.name))
+            .collect::<Vec<_>>()
+    );
+}
+
+#[test]
+fn swift_outline_class_and_methods() {
+    let outline = ast::extract_outline(SAMPLE_SWIFT, Language::Swift).unwrap();
+    assert!(
+        outline
+            .iter()
+            .any(|e| e.kind == SemanticKind::Class && e.name == "Vehicle"),
+        "got: {:?}",
+        outline
+            .iter()
+            .map(|e| (&e.kind, &e.name))
+            .collect::<Vec<_>>()
+    );
+    assert!(outline
+        .iter()
+        .any(|e| e.kind == SemanticKind::Constructor && e.name == "Vehicle::init"));
+    assert!(outline
+        .iter()
+        .any(|e| e.kind == SemanticKind::Method && e.name == "Vehicle::accelerate"));
+}
+
+#[test]
+fn swift_outline_struct() {
+    let outline = ast::extract_outline(SAMPLE_SWIFT, Language::Swift).unwrap();
+    assert!(
+        outline
+            .iter()
+            .any(|e| e.kind == SemanticKind::Struct && e.name == "Coordinate"),
+        "got: {:?}",
+        outline
+            .iter()
+            .map(|e| (&e.kind, &e.name))
+            .collect::<Vec<_>>()
+    );
+}
+
+#[test]
+fn swift_outline_enum() {
+    let outline = ast::extract_outline(SAMPLE_SWIFT, Language::Swift).unwrap();
+    assert!(
+        outline
+            .iter()
+            .any(|e| e.kind == SemanticKind::Enum && e.name == "Compass"),
+        "got: {:?}",
+        outline
+            .iter()
+            .map(|e| (&e.kind, &e.name))
+            .collect::<Vec<_>>()
+    );
+}
+
+#[test]
+fn swift_outline_extension() {
+    let outline = ast::extract_outline(SAMPLE_SWIFT, Language::Swift).unwrap();
+    assert!(
+        outline
+            .iter()
+            .any(|e| e.kind == SemanticKind::Extension && e.name == "Vehicle"),
+        "got: {:?}",
+        outline
+            .iter()
+            .map(|e| (&e.kind, &e.name))
+            .collect::<Vec<_>>()
+    );
+    assert!(outline
+        .iter()
+        .any(|e| e.kind == SemanticKind::Method && e.name == "Vehicle::brake"));
+}
+
+#[test]
+fn swift_outline_typealias() {
+    let outline = ast::extract_outline(SAMPLE_SWIFT, Language::Swift).unwrap();
+    assert!(
+        outline
+            .iter()
+            .any(|e| e.kind == SemanticKind::TypeAlias && e.name == "Speed"),
+        "got: {:?}",
+        outline
+            .iter()
+            .map(|e| (&e.kind, &e.name))
+            .collect::<Vec<_>>()
+    );
+}
+
+#[test]
+fn swift_outline_free_function() {
+    let outline = ast::extract_outline(SAMPLE_SWIFT, Language::Swift).unwrap();
+    assert!(
+        outline
+            .iter()
+            .any(|e| e.kind == SemanticKind::Function && e.name == "freeFunc"),
+        "got: {:?}",
+        outline
+            .iter()
+            .map(|e| (&e.kind, &e.name))
+            .collect::<Vec<_>>()
+    );
+}
+
+// --- Language detection for new languages ---
+
+#[test]
+fn language_from_path_m() {
+    assert_eq!(Language::from_path("src/AppDelegate.m"), Language::ObjC);
+}
+
+#[test]
+fn language_from_path_mm() {
+    assert_eq!(Language::from_path("src/Bridge.mm"), Language::ObjC);
+}
+
+#[test]
+fn language_from_path_swift() {
+    assert_eq!(
+        Language::from_path("src/ViewController.swift"),
+        Language::Swift
+    );
+}
+
+// --- SemanticKind generalization ---
+
+#[test]
+fn semantic_kind_extension() {
+    assert_eq!(SemanticKind::Extension.as_str(), "extension");
+    assert_eq!(
+        SemanticKind::from_str_loose("extension"),
+        Some(SemanticKind::Extension)
+    );
+    // Backward compat: old "impl" still resolves
+    assert_eq!(
+        SemanticKind::from_str_loose("impl"),
+        Some(SemanticKind::Extension)
+    );
+    // ObjC term
+    assert_eq!(
+        SemanticKind::from_str_loose("category"),
+        Some(SemanticKind::Extension)
+    );
+}
+
+#[test]
+fn semantic_kind_trait_backward_compat() {
+    // Old "trait" annotations still resolve to Interface
+    assert_eq!(
+        SemanticKind::from_str_loose("trait"),
+        Some(SemanticKind::Interface)
+    );
+    // ObjC/Swift term
+    assert_eq!(
+        SemanticKind::from_str_loose("protocol"),
+        Some(SemanticKind::Interface)
+    );
 }
 
 // --- Cross-language anchor resolution ---
@@ -738,11 +1255,19 @@ fn anchor_resolution_works_for_go() {
 
 fn assert_valid_line_ranges(outline: &[OutlineEntry], lang: &str) {
     for entry in outline {
-        assert!(entry.lines.start > 0, "{}: line start should be 1-based for {}", lang, entry.name);
+        assert!(
+            entry.lines.start > 0,
+            "{}: line start should be 1-based for {}",
+            lang,
+            entry.name
+        );
         assert!(
             entry.lines.end >= entry.lines.start,
             "{}: end ({}) should be >= start ({}) for {}",
-            lang, entry.lines.end, entry.lines.start, entry.name
+            lang,
+            entry.lines.end,
+            entry.lines.start,
+            entry.name
         );
     }
 }
@@ -759,6 +1284,8 @@ fn all_languages_have_valid_line_ranges() {
         (SAMPLE_C, Language::C),
         (SAMPLE_CPP, Language::Cpp),
         (SAMPLE_RUBY, Language::Ruby),
+        (SAMPLE_OBJC, Language::ObjC),
+        (SAMPLE_SWIFT, Language::Swift),
     ];
     for (source, lang) in cases {
         let outline = ast::extract_outline(source, *lang).unwrap();

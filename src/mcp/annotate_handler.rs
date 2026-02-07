@@ -162,8 +162,13 @@ pub struct AnchorResolution {
 #[serde(rename_all = "snake_case", tag = "kind")]
 pub enum AnchorResolutionKind {
     Exact,
-    Qualified { resolved_name: String },
-    Fuzzy { resolved_name: String, distance: u32 },
+    Qualified {
+        resolved_name: String,
+    },
+    Fuzzy {
+        resolved_name: String,
+        distance: u32,
+    },
     Unresolved,
 }
 
@@ -214,8 +219,7 @@ pub fn handle_annotate(git_ops: &dyn GitOps, input: AnnotateInput) -> Result<Ann
     let mut anchor_resolutions = Vec::new();
 
     for region_input in &input.regions {
-        let (region, resolution) =
-            resolve_and_build_region(git_ops, &full_sha, region_input)?;
+        let (region, resolution) = resolve_and_build_region(git_ops, &full_sha, region_input)?;
         regions.push(region);
         anchor_resolutions.push(resolution);
     }
@@ -239,16 +243,15 @@ pub fn handle_annotate(git_ops: &dyn GitOps, input: AnnotateInput) -> Result<Ann
     };
 
     // 5. Validate (reject on structural errors)
-    annotation.validate().map_err(|msg| {
-        crate::error::ChronicleError::Validation {
+    annotation
+        .validate()
+        .map_err(|msg| crate::error::ChronicleError::Validation {
             message: msg,
             location: snafu::Location::new(file!(), line!(), 0),
-        }
-    })?;
+        })?;
 
     // 6. Serialize and write git note
-    let json = serde_json::to_string_pretty(&annotation)
-        .context(chronicle_error::JsonSnafu)?;
+    let json = serde_json::to_string_pretty(&annotation).context(chronicle_error::JsonSnafu)?;
     git_ops
         .note_write(&full_sha, &json)
         .context(chronicle_error::GitSnafu)?;
@@ -292,11 +295,7 @@ fn resolve_and_build_region(
                 Ok(source) => {
                     match ast::extract_outline(&source, lang) {
                         Ok(outline) => {
-                            match ast::resolve_anchor(
-                                &outline,
-                                &anchor.unit_type,
-                                &anchor.name,
-                            ) {
+                            match ast::resolve_anchor(&outline, &anchor.unit_type, &anchor.name) {
                                 Some(anchor_match) => {
                                     let entry = anchor_match.entry();
                                     let corrected_lines = anchor_match.lines();
@@ -501,7 +500,10 @@ mod tests {
             Ok(vec![])
         }
 
-        fn list_annotated_commits(&self, _limit: u32) -> std::result::Result<Vec<String>, GitError> {
+        fn list_annotated_commits(
+            &self,
+            _limit: u32,
+        ) -> std::result::Result<Vec<String>, GitError> {
             Ok(vec![])
         }
     }
@@ -551,8 +553,7 @@ impl Config {
 
     #[test]
     fn test_handle_annotate_writes_note() {
-        let mock = MockGitOps::new("abc123def456")
-            .with_file("src/lib.rs", sample_rust_source());
+        let mock = MockGitOps::new("abc123def456").with_file("src/lib.rs", sample_rust_source());
 
         let input = make_basic_input();
         let result = handle_annotate(&mock, input).unwrap();
@@ -576,8 +577,7 @@ impl Config {
 
     #[test]
     fn test_anchor_resolution_exact() {
-        let mock = MockGitOps::new("abc123")
-            .with_file("src/lib.rs", sample_rust_source());
+        let mock = MockGitOps::new("abc123").with_file("src/lib.rs", sample_rust_source());
 
         let input = make_basic_input();
         let result = handle_annotate(&mock, input).unwrap();
@@ -594,8 +594,7 @@ impl Config {
 
     #[test]
     fn test_anchor_resolution_corrects_lines() {
-        let mock = MockGitOps::new("abc123")
-            .with_file("src/lib.rs", sample_rust_source());
+        let mock = MockGitOps::new("abc123").with_file("src/lib.rs", sample_rust_source());
 
         let input = make_basic_input();
         let _result = handle_annotate(&mock, input).unwrap();
@@ -614,8 +613,7 @@ impl Config {
 
     #[test]
     fn test_constraints_have_author_source() {
-        let mock = MockGitOps::new("abc123")
-            .with_file("src/lib.rs", sample_rust_source());
+        let mock = MockGitOps::new("abc123").with_file("src/lib.rs", sample_rust_source());
 
         let input = make_basic_input();
         handle_annotate(&mock, input).unwrap();
@@ -683,8 +681,7 @@ impl Config {
 
     #[test]
     fn test_validation_rejects_empty_summary() {
-        let mock = MockGitOps::new("abc123")
-            .with_file("src/lib.rs", sample_rust_source());
+        let mock = MockGitOps::new("abc123").with_file("src/lib.rs", sample_rust_source());
 
         let input = AnnotateInput {
             commit: "HEAD".to_string(),
@@ -700,8 +697,8 @@ impl Config {
 
     #[test]
     fn test_unsupported_language_uses_input_as_is() {
-        let mock = MockGitOps::new("abc123")
-            .with_file("src/data.toml", "[section]\nkey = \"value\"\n");
+        let mock =
+            MockGitOps::new("abc123").with_file("src/data.toml", "[section]\nkey = \"value\"\n");
 
         let input = AnnotateInput {
             commit: "HEAD".to_string(),

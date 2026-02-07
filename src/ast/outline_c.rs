@@ -25,11 +25,7 @@ pub fn extract_c_outline(source: &str) -> Result<Vec<OutlineEntry>, AstError> {
     Ok(entries)
 }
 
-pub(crate) fn walk_c_node(
-    node: tree_sitter::Node,
-    source: &[u8],
-    entries: &mut Vec<OutlineEntry>,
-) {
+pub(crate) fn walk_c_node(node: tree_sitter::Node, source: &[u8], entries: &mut Vec<OutlineEntry>) {
     let mut cursor = node.walk();
     for child in node.children(&mut cursor) {
         if should_skip_node(&child) {
@@ -72,10 +68,7 @@ pub(crate) fn walk_c_node(
     }
 }
 
-fn extract_c_function(
-    node: tree_sitter::Node,
-    source: &[u8],
-) -> Option<OutlineEntry> {
+fn extract_c_function(node: tree_sitter::Node, source: &[u8]) -> Option<OutlineEntry> {
     let declarator = node.child_by_field_name("declarator")?;
     let name = extract_declarator_name(declarator, source)?;
     let signature = extract_signature_with_delimiter(node, source, '{');
@@ -90,15 +83,14 @@ fn extract_c_function(
 
 /// Walk the declarator chain to find the function/variable name.
 /// C declarators can be nested: function_declarator -> pointer_declarator -> identifier
-pub(crate) fn extract_declarator_name(
-    node: tree_sitter::Node,
-    source: &[u8],
-) -> Option<String> {
+pub(crate) fn extract_declarator_name(node: tree_sitter::Node, source: &[u8]) -> Option<String> {
     match node.kind() {
         "identifier" | "type_identifier" | "field_identifier" => {
             node.utf8_text(source).ok().map(String::from)
         }
-        "function_declarator" | "pointer_declarator" | "parenthesized_declarator"
+        "function_declarator"
+        | "pointer_declarator"
+        | "parenthesized_declarator"
         | "array_declarator" => {
             // Try the "declarator" field first, then fall back to first named child
             if let Some(inner) = node.child_by_field_name("declarator") {
@@ -135,10 +127,7 @@ fn extract_c_tagged(
     })
 }
 
-fn extract_c_typedef(
-    node: tree_sitter::Node,
-    source: &[u8],
-) -> Option<OutlineEntry> {
+fn extract_c_typedef(node: tree_sitter::Node, source: &[u8]) -> Option<OutlineEntry> {
     let declarator = node.child_by_field_name("declarator")?;
     let name = extract_declarator_name(declarator, source)?;
     let full_text = node.utf8_text(source).unwrap_or("").trim().to_string();

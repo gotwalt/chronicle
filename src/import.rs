@@ -54,16 +54,13 @@ pub fn import_annotations<R: BufRead>(
         };
 
         // Validate annotation
-        if let Err(_) = entry.annotation.validate() {
+        if entry.annotation.validate().is_err() {
             summary.skipped_invalid += 1;
             continue;
         }
 
         // Check if commit exists locally
-        let commit_exists = match git_ops.commit_info(&entry.commit_sha) {
-            Ok(_) => true,
-            Err(_) => false,
-        };
+        let commit_exists = git_ops.commit_info(&entry.commit_sha).is_ok();
 
         if !commit_exists {
             summary.skipped_not_found += 1;
@@ -86,7 +83,9 @@ pub fn import_annotations<R: BufRead>(
                     location: snafu::Location::default(),
                 }
             })?;
-            git_ops.note_write(&entry.commit_sha, &content).context(GitSnafu)?;
+            git_ops
+                .note_write(&entry.commit_sha, &content)
+                .context(GitSnafu)?;
         }
 
         summary.imported += 1;

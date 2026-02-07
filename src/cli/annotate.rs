@@ -34,11 +34,12 @@ pub fn run(
         return run_amend_migration(&git_ops, &commit, &old_sha);
     }
 
-    let provider = crate::provider::discover_provider()
-        .map_err(|e| crate::error::ChronicleError::Provider {
+    let provider = crate::provider::discover_provider().map_err(|e| {
+        crate::error::ChronicleError::Provider {
             source: e,
             location: snafu::Location::default(),
-        })?;
+        }
+    })?;
 
     let annotation = crate::annotate::run(&git_ops, provider.as_ref(), &commit, sync)?;
 
@@ -94,7 +95,9 @@ fn run_squash_synthesis(git_ops: &CliOps, commit: &str, sources: &str) -> Result
 
     // Write as git note
     let json = serde_json::to_string_pretty(&annotation).context(JsonSnafu)?;
-    git_ops.note_write(&resolved_commit, &json).context(GitSnafu)?;
+    git_ops
+        .note_write(&resolved_commit, &json)
+        .context(GitSnafu)?;
 
     println!("{json}");
     Ok(())
@@ -142,7 +145,9 @@ fn run_amend_migration(git_ops: &CliOps, commit: &str, old_sha: &str) -> Result<
     let annotation = migrate_amend_annotation(&ctx);
 
     let json = serde_json::to_string_pretty(&annotation).context(JsonSnafu)?;
-    git_ops.note_write(&resolved_commit, &json).context(GitSnafu)?;
+    git_ops
+        .note_write(&resolved_commit, &json)
+        .context(GitSnafu)?;
 
     println!("{json}");
     Ok(())
@@ -166,12 +171,11 @@ fn run_live(git_ops: &CliOps) -> Result<()> {
 
     let result = crate::mcp::annotate_handler::handle_annotate(git_ops, input)?;
 
-    let json = serde_json::to_string_pretty(&result).map_err(|e| {
-        crate::error::ChronicleError::Json {
+    let json =
+        serde_json::to_string_pretty(&result).map_err(|e| crate::error::ChronicleError::Json {
             source: e,
             location: snafu::Location::default(),
-        }
-    })?;
+        })?;
     println!("{json}");
 
     Ok(())

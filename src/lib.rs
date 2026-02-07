@@ -1,18 +1,20 @@
-pub mod error;
-pub mod schema;
-pub mod git;
-pub mod ast;
-pub mod provider;
+#![allow(clippy::result_large_err)]
+
 pub mod agent;
 pub mod annotate;
-pub mod hooks;
-pub mod config;
-pub mod mcp;
-pub mod read;
+pub mod ast;
 pub mod cli;
+pub mod config;
+pub mod doctor;
+pub mod error;
+pub mod export;
+pub mod git;
+pub mod hooks;
+pub mod import;
+pub mod mcp;
+pub mod provider;
+pub mod read;
+pub mod schema;
+pub mod setup;
 pub mod show;
 pub mod sync;
-pub mod export;
-pub mod import;
-pub mod doctor;
-pub mod setup;

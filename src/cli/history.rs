@@ -1,6 +1,6 @@
 use crate::error::Result;
 use crate::git::CliOps;
-use crate::read::history::{HistoryQuery, build_timeline};
+use crate::read::history::{build_timeline, HistoryQuery};
 
 pub fn run(
     path: String,
@@ -22,10 +22,11 @@ pub fn run(
         follow_related,
     };
 
-    let result = build_timeline(&git_ops, &query).map_err(|e| crate::error::ChronicleError::Git {
-        source: e,
-        location: snafu::Location::default(),
-    })?;
+    let result =
+        build_timeline(&git_ops, &query).map_err(|e| crate::error::ChronicleError::Git {
+            source: e,
+            location: snafu::Location::default(),
+        })?;
 
     let json = if format == "pretty" {
         serde_json::to_string_pretty(&result)

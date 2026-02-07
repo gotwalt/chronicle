@@ -1,8 +1,8 @@
 use std::path::PathBuf;
 use std::process::Command;
 
-use crate::error::git_error::CommandFailedSnafu;
 use crate::error::chronicle_error::GitSnafu;
+use crate::error::git_error::CommandFailedSnafu;
 use crate::error::{GitError, Result};
 use snafu::ResultExt;
 
@@ -56,7 +56,10 @@ fn run_git(repo_dir: &PathBuf, args: &[&str]) -> std::result::Result<String, Git
 }
 
 /// Run git and return (success, stdout, stderr) without failing on non-zero exit.
-fn run_git_raw(repo_dir: &PathBuf, args: &[&str]) -> std::result::Result<(bool, String, String), GitError> {
+fn run_git_raw(
+    repo_dir: &PathBuf,
+    args: &[&str],
+) -> std::result::Result<(bool, String, String), GitError> {
     let output = Command::new("git")
         .args(args)
         .current_dir(repo_dir)
@@ -100,7 +103,12 @@ pub fn enable_sync(repo_dir: &PathBuf, remote: &str) -> Result<()> {
     if config.push_refspec.is_none() {
         run_git(
             repo_dir,
-            &["config", "--add", &format!("remote.{remote}.push"), NOTES_REF],
+            &[
+                "config",
+                "--add",
+                &format!("remote.{remote}.push"),
+                NOTES_REF,
+            ],
         )
         .context(GitSnafu)?;
     }
@@ -110,7 +118,12 @@ pub fn enable_sync(repo_dir: &PathBuf, remote: &str) -> Result<()> {
         let fetch_spec = format!("+{NOTES_REF}:{NOTES_REF}");
         run_git(
             repo_dir,
-            &["config", "--add", &format!("remote.{remote}.fetch"), &fetch_spec],
+            &[
+                "config",
+                "--add",
+                &format!("remote.{remote}.fetch"),
+                &fetch_spec,
+            ],
         )
         .context(GitSnafu)?;
     }
