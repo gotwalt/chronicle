@@ -1,0 +1,95 @@
+{
+  "schema": "chronicle/v1",
+  "commit": "663d635107f1675ddce2efdc830477783b3093e5",
+  "timestamp": "2026-02-07T00:25:52.683349899+00:00",
+  "summary": "## Summary\n\nThis commit standardizes git configuration across GitHub Actions workflows by replacing custom Chronicle email addresses with the official GitHub Actions bot credentials:\n\n- **CI Workflow (ci.yml)**: Changed from `ci@chronicle.dev` / \"Chronicle CI\" to the official GitHub Actions bot identity\n- **Release Workflow (release.yml)**: Changed from `release-bot@chronicle.dev` / \"Chronicle Release Bot\" to the official GitHub Actions bot identity\n\nThe new configuration uses:\n- Email: `41898282+github-actions[bot]@users.noreply.github.com`\n- Name: `github-actions[bot]`\n\nThis is a best practice change that:\n1. **Improves transparency**: Commits are properly attributed to GitHub's automation system\n2. **Follows GitHub conventions**: Uses the standardized bot account format recognized throughout GitHub\n3. **Ensures consistency**: Both workflows now use the same identity for automated git operations\n\nThe change is low-risk as it only affects how commits are attributed in CI/CD processes. The workflows continue to function identically, but with more appropriate attribution for automated actions.",
+  "context_level": "inferred",
+  "regions": [
+    {
+      "file": ".github/workflows/ci.yml",
+      "ast_anchor": {
+        "unit_type": "step",
+        "name": "Configure git for tests"
+      },
+      "lines": {
+        "start": 41,
+        "end": 44
+      },
+      "intent": "Update git configuration in CI workflow to use the official GitHub Actions bot email address (41898282+github-actions[bot]@users.noreply.github.com) instead of a custom Chronicle CI email address",
+      "reasoning": "Using the official GitHub Actions bot email address is a GitHub best practice for automated commits and git operations in workflows. The email format 41898282+github-actions[bot]@users.noreply.github.com is the standard noreply address for the github-actions[bot] user, which properly attributes automated actions to GitHub's bot account rather than a custom domain email.",
+      "constraints": [
+        {
+          "text": "Must use valid git email format",
+          "source": "inferred"
+        },
+        {
+          "text": "Email address must be consistent with the username github-actions[bot]",
+          "source": "inferred"
+        }
+      ],
+      "tags": [
+        "configuration",
+        "ci",
+        "best-practice"
+      ]
+    },
+    {
+      "file": ".github/workflows/release.yml",
+      "ast_anchor": {
+        "unit_type": "step",
+        "name": "Configure git"
+      },
+      "lines": {
+        "start": 28,
+        "end": 31
+      },
+      "intent": "Update git configuration in release workflow to use the official GitHub Actions bot email address (41898282+github-actions[bot]@users.noreply.github.com) instead of a custom Chronicle Release Bot email address",
+      "reasoning": "Using the official GitHub Actions bot email address is a GitHub best practice for automated commits and git operations in workflows. This ensures release commits and tags are properly attributed to GitHub's bot account, which is more transparent and follows GitHub's recommended practices for automated workflows that create commits.",
+      "constraints": [
+        {
+          "text": "Must use valid git email format for automated commits",
+          "source": "inferred"
+        },
+        {
+          "text": "Email address must be consistent with the username github-actions[bot]",
+          "source": "inferred"
+        },
+        {
+          "text": "Git configuration must be set before version bump and commit steps",
+          "source": "inferred"
+        }
+      ],
+      "tags": [
+        "configuration",
+        "ci",
+        "release",
+        "best-practice"
+      ]
+    }
+  ],
+  "cross_cutting": [
+    {
+      "description": "Standardize git configuration across all GitHub Actions workflows to use the official github-actions[bot] noreply email address (41898282+github-actions[bot]@users.noreply.github.com). This change ensures consistent identity for automated git operations and follows GitHub's recommended practices for bot accounts.",
+      "regions": [
+        {
+          "file": ".github/workflows/ci.yml",
+          "anchor": "Configure git for tests"
+        },
+        {
+          "file": ".github/workflows/release.yml",
+          "anchor": "Configure git"
+        }
+      ],
+      "tags": [
+        "configuration",
+        "standardization",
+        "ci",
+        "best-practice"
+      ]
+    }
+  ],
+  "provenance": {
+    "operation": "initial",
+    "original_annotations_preserved": false
+  }
+}
