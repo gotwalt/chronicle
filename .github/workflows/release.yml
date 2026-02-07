@@ -62,6 +62,9 @@ jobs:
         id: merge
         run: echo "sha=$(git rev-parse HEAD~1)" >> "$GITHUB_OUTPUT"
 
+      - name: Fetch existing chronicle notes
+        run: git fetch origin refs/notes/chronicle:refs/notes/chronicle || true
+
       - name: Annotate merge commit with Chronicle
         continue-on-error: true
         env:
@@ -73,7 +76,7 @@ jobs:
         run: |
           git push origin main
           git push origin "${{ steps.version.outputs.tag }}"
-          git push origin "refs/notes/*" || true
+          git push origin refs/notes/chronicle || true
 
       - name: Create GitHub release
         env:
