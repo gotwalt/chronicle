@@ -71,7 +71,7 @@ fn main() {
             force,
             dry_run,
         } => chronicle::cli::import::run(file, force, dry_run),
-        Commands::Doctor { json } => chronicle::cli::doctor::run(json),
+        Commands::Doctor { json, staleness } => chronicle::cli::doctor::run(json, staleness),
         Commands::Deps {
             path,
             anchor,

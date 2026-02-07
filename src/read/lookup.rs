@@ -1,6 +1,6 @@
 use crate::error::GitError;
 use crate::git::GitOps;
-use crate::read::{contracts, decisions, history};
+use crate::read::{contracts, decisions, history, staleness};
 use crate::schema;
 
 /// Output of the composite lookup query.
@@ -13,6 +13,8 @@ pub struct LookupOutput {
     pub decisions: Vec<decisions::DecisionEntry>,
     pub recent_history: Vec<history::TimelineEntry>,
     pub open_follow_ups: Vec<FollowUpEntry>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub staleness: Vec<staleness::StalenessInfo>,
 }
 
 /// A follow-up entry from a recent annotation.
@@ -59,6 +61,14 @@ pub fn build_lookup(
     // 4. Follow-ups from recent annotations
     let follow_ups = collect_follow_ups(git, file)?;
 
+    // 5. Staleness: for recent annotated commits, compute how stale each is
+    let mut staleness_infos = Vec::new();
+    for entry in &history_out.timeline {
+        if let Some(info) = staleness::compute_staleness(git, file, &entry.commit)? {
+            staleness_infos.push(info);
+        }
+    }
+
     Ok(LookupOutput {
         schema: "chronicle-lookup/v1".to_string(),
         file: file.to_string(),
@@ -67,6 +77,7 @@ pub fn build_lookup(
         decisions: decisions_out.decisions,
         recent_history: history_out.timeline,
         open_follow_ups: follow_ups,
+        staleness: staleness_infos,
     })
 }
 

@@ -218,6 +218,10 @@ pub enum Commands {
         /// Output as JSON
         #[arg(long)]
         json: bool,
+
+        /// Include annotation staleness check (scans recent annotations)
+        #[arg(long)]
+        staleness: bool,
     },
 
     /// Find code that depends on a given file/anchor (dependency inversion)

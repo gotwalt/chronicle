@@ -25,6 +25,7 @@ pub fn run(path: String, anchor: Option<String>, format: String, compact: bool) 
                     "decisions": output.decisions,
                     "recent_history": output.recent_history,
                     "open_follow_ups": output.open_follow_ups,
+                    "staleness": output.staleness,
                 });
                 serde_json::to_string_pretty(&compact_out)
             } else {
@@ -96,11 +97,28 @@ pub fn run(path: String, anchor: Option<String>, format: String, compact: bool) 
                 println!();
             }
 
+            if !output.staleness.is_empty() {
+                let stale_entries: Vec<_> =
+                    output.staleness.iter().filter(|s| s.stale).collect();
+                if !stale_entries.is_empty() {
+                    println!("Stale annotations:");
+                    for s in &stale_entries {
+                        println!(
+                            "  {} ({} commits behind)",
+                            &s.annotation_commit[..7.min(s.annotation_commit.len())],
+                            s.commits_since
+                        );
+                    }
+                    println!();
+                }
+            }
+
             if output.contracts.is_empty()
                 && output.dependencies.is_empty()
                 && output.decisions.is_empty()
                 && output.recent_history.is_empty()
                 && output.open_follow_ups.is_empty()
+                && output.staleness.is_empty()
             {
                 println!("  (no context found)");
             }

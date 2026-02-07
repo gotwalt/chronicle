@@ -4,6 +4,7 @@ pub mod deps;
 pub mod history;
 pub mod lookup;
 pub mod retrieve;
+pub mod staleness;
 pub mod summary;
 
 use crate::error::{ChronicleError, Result};
