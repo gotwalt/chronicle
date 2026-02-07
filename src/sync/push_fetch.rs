@@ -7,6 +7,7 @@ use crate::error::{GitError, Result};
 use snafu::ResultExt;
 
 const NOTES_REF: &str = "refs/notes/chronicle";
+const KNOWLEDGE_REF: &str = "refs/notes/chronicle-knowledge";
 
 /// Current sync configuration for a remote.
 #[derive(Debug, Clone)]
@@ -123,6 +124,44 @@ pub fn enable_sync(repo_dir: &PathBuf, remote: &str) -> Result<()> {
                 "--add",
                 &format!("remote.{remote}.fetch"),
                 &fetch_spec,
+            ],
+        )
+        .context(GitSnafu)?;
+    }
+
+    // Also configure sync for the knowledge ref
+    let knowledge_push = get_config_values(repo_dir, &format!("remote.{remote}.push"))
+        .context(GitSnafu)?
+        .into_iter()
+        .any(|r| r.contains(KNOWLEDGE_REF));
+
+    if !knowledge_push {
+        run_git(
+            repo_dir,
+            &[
+                "config",
+                "--add",
+                &format!("remote.{remote}.push"),
+                KNOWLEDGE_REF,
+            ],
+        )
+        .context(GitSnafu)?;
+    }
+
+    let knowledge_fetch = get_config_values(repo_dir, &format!("remote.{remote}.fetch"))
+        .context(GitSnafu)?
+        .into_iter()
+        .any(|r| r.contains(KNOWLEDGE_REF));
+
+    if !knowledge_fetch {
+        let knowledge_fetch_spec = format!("{KNOWLEDGE_REF}:{KNOWLEDGE_REF}");
+        run_git(
+            repo_dir,
+            &[
+                "config",
+                "--add",
+                &format!("remote.{remote}.fetch"),
+                &knowledge_fetch_spec,
             ],
         )
         .context(GitSnafu)?;

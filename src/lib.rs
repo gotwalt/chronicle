@@ -11,6 +11,7 @@ pub mod export;
 pub mod git;
 pub mod hooks;
 pub mod import;
+pub mod knowledge;
 pub mod mcp;
 pub mod provider;
 pub mod read;

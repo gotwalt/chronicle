@@ -19,7 +19,7 @@ pub fn run(path: String, anchor: Option<String>, format: String, compact: bool) 
     match format.as_str() {
         "json" => {
             let json = if compact {
-                let compact_out = serde_json::json!({
+                let mut compact_out = serde_json::json!({
                     "contracts": output.contracts,
                     "dependencies": output.dependencies,
                     "decisions": output.decisions,
@@ -27,6 +27,9 @@ pub fn run(path: String, anchor: Option<String>, format: String, compact: bool) 
                     "open_follow_ups": output.open_follow_ups,
                     "staleness": output.staleness,
                 });
+                if let Some(ref k) = output.knowledge {
+                    compact_out["knowledge"] = serde_json::to_value(k).unwrap_or_default();
+                }
                 serde_json::to_string_pretty(&compact_out)
             } else {
                 serde_json::to_string_pretty(&output)
@@ -95,6 +98,30 @@ pub fn run(path: String, anchor: Option<String>, format: String, compact: bool) 
                     println!("  {} {}", &f.commit[..7.min(f.commit.len())], f.follow_up);
                 }
                 println!();
+            }
+
+            if let Some(ref knowledge) = output.knowledge {
+                if !knowledge.conventions.is_empty() {
+                    println!("Applicable conventions:");
+                    for c in &knowledge.conventions {
+                        println!("  [{}] {}", c.id, c.rule);
+                    }
+                    println!();
+                }
+                if !knowledge.boundaries.is_empty() {
+                    println!("Module boundaries:");
+                    for b in &knowledge.boundaries {
+                        println!("  [{}] {}: {}", b.id, b.owns, b.boundary);
+                    }
+                    println!();
+                }
+                if !knowledge.anti_patterns.is_empty() {
+                    println!("Anti-patterns:");
+                    for a in &knowledge.anti_patterns {
+                        println!("  [{}] Don't: {} -> {}", a.id, a.pattern, a.instead);
+                    }
+                    println!();
+                }
             }
 
             if !output.staleness.is_empty() {

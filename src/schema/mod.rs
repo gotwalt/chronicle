@@ -1,5 +1,6 @@
 pub mod common;
 pub mod correction;
+pub mod knowledge;
 pub mod migrate;
 pub mod v1;
 pub mod v2;

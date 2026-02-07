@@ -1,4 +1,4 @@
-use chronicle::cli::{Cli, Commands, SyncAction};
+use chronicle::cli::{Cli, Commands, KnowledgeAction, SyncAction};
 use clap::Parser;
 
 fn main() {
@@ -118,6 +118,27 @@ fn main() {
             format,
             compact,
         } => chronicle::cli::lookup::run(path, anchor, format, compact),
+        Commands::Knowledge { action } => match action {
+            KnowledgeAction::List { json } => chronicle::cli::knowledge::run_list(json),
+            KnowledgeAction::Add {
+                entry_type,
+                id,
+                scope,
+                rule,
+                module,
+                owns,
+                boundary,
+                pattern,
+                instead,
+                stability,
+                decided_in,
+                learned_from,
+            } => chronicle::cli::knowledge::run_add(
+                entry_type, id, scope, rule, module, owns, boundary, pattern, instead, stability,
+                decided_in, learned_from,
+            ),
+            KnowledgeAction::Remove { id } => chronicle::cli::knowledge::run_remove(id),
+        },
         Commands::Status { format } => chronicle::cli::status::run(format),
     };
 

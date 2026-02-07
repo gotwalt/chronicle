@@ -13,10 +13,13 @@ pub fn run(name: &str) -> Result<()> {
         "annotation" => {
             schema_for!(crate::schema::v2::Annotation)
         }
+        "knowledge" => {
+            schema_for!(crate::schema::knowledge::KnowledgeStore)
+        }
         _ => {
             return Err(crate::error::ChronicleError::Validation {
                 message: format!(
-                    "Unknown schema name: '{name}'. Available: annotate-input, annotation"
+                    "Unknown schema name: '{name}'. Available: annotate-input, annotation, knowledge"
                 ),
                 location: snafu::Location::default(),
             });

@@ -1,7 +1,9 @@
 use crate::error::GitError;
 use crate::git::GitOps;
+use crate::knowledge;
 use crate::read::{contracts, decisions, history, staleness};
 use crate::schema;
+use crate::schema::knowledge::FilteredKnowledge;
 
 /// Output of the composite lookup query.
 #[derive(Debug, Clone, serde::Serialize)]
@@ -15,6 +17,8 @@ pub struct LookupOutput {
     pub open_follow_ups: Vec<FollowUpEntry>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub staleness: Vec<staleness::StalenessInfo>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub knowledge: Option<FilteredKnowledge>,
 }
 
 /// A follow-up entry from a recent annotation.
@@ -69,6 +73,12 @@ pub fn build_lookup(
         }
     }
 
+    // 6. Knowledge: filter store by file scope (best-effort, don't fail lookup)
+    let knowledge_filtered = knowledge::read_store(git)
+        .ok()
+        .map(|store| knowledge::filter_by_scope(&store, file))
+        .filter(|k| !k.is_empty());
+
     Ok(LookupOutput {
         schema: "chronicle-lookup/v1".to_string(),
         file: file.to_string(),
@@ -78,6 +88,7 @@ pub fn build_lookup(
         recent_history: history_out.timeline,
         open_follow_ups: follow_ups,
         staleness: staleness_infos,
+        knowledge: knowledge_filtered,
     })
 }
 

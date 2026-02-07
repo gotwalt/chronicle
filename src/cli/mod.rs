@@ -11,6 +11,7 @@ pub mod flag;
 pub mod history;
 pub mod import;
 pub mod init;
+pub mod knowledge;
 pub mod lookup;
 pub mod read;
 pub mod reconfigure;
@@ -370,6 +371,80 @@ pub enum Commands {
         /// Output format
         #[arg(long, default_value = "json")]
         format: String,
+    },
+
+    /// Manage repo-level knowledge (conventions, boundaries, anti-patterns)
+    Knowledge {
+        #[command(subcommand)]
+        action: KnowledgeAction,
+    },
+}
+
+#[derive(Subcommand)]
+#[allow(clippy::large_enum_variant)]
+pub enum KnowledgeAction {
+    /// List all knowledge entries
+    List {
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+    },
+
+    /// Add a new knowledge entry
+    Add {
+        /// Type of entry: convention, boundary, anti-pattern
+        #[arg(long = "type")]
+        entry_type: String,
+
+        /// Stable ID (auto-generated if omitted)
+        #[arg(long)]
+        id: Option<String>,
+
+        /// File/directory scope (for conventions)
+        #[arg(long)]
+        scope: Option<String>,
+
+        /// The rule text (for conventions)
+        #[arg(long)]
+        rule: Option<String>,
+
+        /// Module directory (for boundaries)
+        #[arg(long)]
+        module: Option<String>,
+
+        /// What the module owns (for boundaries)
+        #[arg(long)]
+        owns: Option<String>,
+
+        /// What must not cross the boundary (for boundaries)
+        #[arg(long)]
+        boundary: Option<String>,
+
+        /// The anti-pattern to avoid
+        #[arg(long)]
+        pattern: Option<String>,
+
+        /// What to do instead (for anti-patterns)
+        #[arg(long)]
+        instead: Option<String>,
+
+        /// Stability level: permanent, provisional, experimental
+        #[arg(long)]
+        stability: Option<String>,
+
+        /// Commit SHA where this was decided
+        #[arg(long)]
+        decided_in: Option<String>,
+
+        /// Where this was learned (for anti-patterns)
+        #[arg(long)]
+        learned_from: Option<String>,
+    },
+
+    /// Remove a knowledge entry by ID
+    Remove {
+        /// ID of the entry to remove
+        id: String,
     },
 }
 
