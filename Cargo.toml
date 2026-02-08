@@ -1,6 +1,6 @@
 [package]
 name = "git-chronicle"
-version = "0.1.4"
+version = "0.1.5"
 edition = "2021"
 description = "AI-powered commit annotation tool that captures reasoning and intent behind code changes"
 license = "MIT"
