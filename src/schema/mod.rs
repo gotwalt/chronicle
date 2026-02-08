@@ -208,22 +208,19 @@ mod tests {
         assert!(ann
             .wisdom
             .iter()
-            .any(|w| w.category == WisdomCategory::Gotcha
-                && w.content == "Must not allocate"));
+            .any(|w| w.category == WisdomCategory::Gotcha && w.content == "Must not allocate"));
 
         // v1 risk_notes -> v2 Hazard -> v3 gotcha wisdom
         assert!(ann
             .wisdom
             .iter()
-            .any(|w| w.category == WisdomCategory::Gotcha
-                && w.content.contains("panic")));
+            .any(|w| w.category == WisdomCategory::Gotcha && w.content.contains("panic")));
 
         // v1 semantic_dependencies -> v2 Dependency -> v3 insight wisdom
         assert!(ann
             .wisdom
             .iter()
-            .any(|w| w.category == WisdomCategory::Insight
-                && w.content.contains("src/bar.rs")));
+            .any(|w| w.category == WisdomCategory::Insight && w.content.contains("src/bar.rs")));
 
         // v1 cross-cutting -> v2 Decision -> v3 insight wisdom
         assert!(ann

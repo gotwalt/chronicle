@@ -39,7 +39,10 @@ pub fn handle(git_ops: &CliOps, url: &str) -> crate::error::Result<Response> {
             let file_path = &path["/api/history/".len()..];
             handle_history(git_ops, file_path, query)
         }
-        _ => Ok(json_response(404, &serde_json::json!({"error": "not found"}))),
+        _ => Ok(json_response(
+            404,
+            &serde_json::json!({"error": "not found"}),
+        )),
     }
 }
 
@@ -83,7 +86,10 @@ fn handle_tree(git_ops: &CliOps) -> crate::error::Result<Response> {
         })
         .collect();
 
-    Ok(json_response(200, &serde_json::json!({ "files": tree_files })))
+    Ok(json_response(
+        200,
+        &serde_json::json!({ "files": tree_files }),
+    ))
 }
 
 fn handle_file(git_ops: &CliOps, file_path: &str) -> crate::error::Result<Response> {
@@ -114,12 +120,11 @@ fn handle_file_view(git_ops: &CliOps, file_path: &str) -> crate::error::Result<R
         })?;
     let language = detect_language(file_path);
 
-    let lookup_result = lookup::build_lookup(git_ops, file_path, None).map_err(|e| {
-        ChronicleError::Git {
+    let lookup_result =
+        lookup::build_lookup(git_ops, file_path, None).map_err(|e| ChronicleError::Git {
             source: e,
             location: snafu::Location::default(),
-        }
-    })?;
+        })?;
 
     let summary_result = summary::build_summary(
         git_ops,
@@ -145,19 +150,14 @@ fn handle_file_view(git_ops: &CliOps, file_path: &str) -> crate::error::Result<R
     ))
 }
 
-fn handle_lookup(
-    git_ops: &CliOps,
-    file_path: &str,
-    query: &str,
-) -> crate::error::Result<Response> {
+fn handle_lookup(git_ops: &CliOps, file_path: &str, query: &str) -> crate::error::Result<Response> {
     let anchor = parse_query_param(query, "anchor");
-    let result =
-        lookup::build_lookup(git_ops, file_path, anchor.as_deref()).map_err(|e| {
-            ChronicleError::Git {
-                source: e,
-                location: snafu::Location::default(),
-            }
-        })?;
+    let result = lookup::build_lookup(git_ops, file_path, anchor.as_deref()).map_err(|e| {
+        ChronicleError::Git {
+            source: e,
+            location: snafu::Location::default(),
+        }
+    })?;
     Ok(json_response(200, &result))
 }
 
@@ -203,24 +203,23 @@ fn handle_history(
 
 fn handle_decisions(git_ops: &CliOps, query: &str) -> crate::error::Result<Response> {
     let file = parse_query_param(query, "path");
-    let result = decisions::query_decisions(git_ops, &decisions::DecisionsQuery { file }).map_err(
-        |e| ChronicleError::Git {
-            source: e,
-            location: snafu::Location::default(),
-        },
-    )?;
+    let result =
+        decisions::query_decisions(git_ops, &decisions::DecisionsQuery { file }).map_err(|e| {
+            ChronicleError::Git {
+                source: e,
+                location: snafu::Location::default(),
+            }
+        })?;
     Ok(json_response(200, &result))
 }
 
 fn handle_sentiments(git_ops: &CliOps, query: &str) -> crate::error::Result<Response> {
     let file = parse_query_param(query, "path");
-    let result =
-        sentiments::query_sentiments(git_ops, &sentiments::SentimentsQuery { file }).map_err(
-            |e| ChronicleError::Git {
-                source: e,
-                location: snafu::Location::default(),
-            },
-        )?;
+    let result = sentiments::query_sentiments(git_ops, &sentiments::SentimentsQuery { file })
+        .map_err(|e| ChronicleError::Git {
+            source: e,
+            location: snafu::Location::default(),
+        })?;
     Ok(json_response(200, &result))
 }
 
@@ -241,11 +240,7 @@ fn json_response(status: u16, body: &impl serde::Serialize) -> Response {
             tiny_http::Header::from_bytes(&b"Content-Type"[..], &b"application/json"[..]).unwrap(),
         )
         .with_header(
-            tiny_http::Header::from_bytes(
-                &b"Access-Control-Allow-Origin"[..],
-                &b"*"[..],
-            )
-            .unwrap(),
+            tiny_http::Header::from_bytes(&b"Access-Control-Allow-Origin"[..], &b"*"[..]).unwrap(),
         )
         .with_status_code(status)
 }

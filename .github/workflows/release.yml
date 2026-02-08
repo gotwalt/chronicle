@@ -26,7 +26,9 @@ jobs:
           fetch-depth: 0
           token: ${{ secrets.RELEASE_TOKEN }}
 
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: "" # uses rust-toolchain.toml
 
       - uses: Swatinem/rust-cache@v2
 

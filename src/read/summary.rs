@@ -336,7 +336,7 @@ mod tests {
         // The "main" anchor should have both contract and hazard markers aggregated
         assert_eq!(result.units.len(), 1);
         assert_eq!(result.units[0].anchor.name, "src/main.rs"); // v3 groups by file, not anchor
-        // Both v1 constraints and risk_notes become Gotcha wisdom entries (constraints)
+                                                                // Both v1 constraints and risk_notes become Gotcha wisdom entries (constraints)
         assert_eq!(
             result.units[0].constraints,
             vec!["must not panic", "error handling is fragile"]
@@ -510,7 +510,10 @@ mod tests {
         assert_eq!(result.units.len(), 1);
         assert_eq!(result.units[0].anchor.name, "src/main.rs");
         // Both anchors' constraints merged into the file-level unit
-        assert_eq!(result.units[0].constraints, vec!["must not panic", "must be pure"]);
+        assert_eq!(
+            result.units[0].constraints,
+            vec!["must not panic", "must be pure"]
+        );
     }
 
     #[test]

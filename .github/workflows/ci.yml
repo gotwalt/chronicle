@@ -16,9 +16,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@master
         with:
-          components: rustfmt, clippy
+          toolchain: "" # uses rust-toolchain.toml
 
       - uses: Swatinem/rust-cache@v2
 
@@ -36,9 +36,14 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: "" # uses rust-toolchain.toml
 
       - uses: Swatinem/rust-cache@v2
+
+      - name: Install cargo-nextest
+        uses: taiki-e/install-action@nextest
 
       - name: Configure git for tests
         run: |
@@ -46,4 +51,11 @@ jobs:
           git config --global user.name "github-actions[bot]"
 
       - name: Run tests
-        run: cargo test --all-features
+        run: cargo nextest run --all-features --profile ci
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: target/nextest/ci/junit.xml

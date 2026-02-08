@@ -179,14 +179,16 @@ pub fn v2_to_v3(ann: v2::Annotation) -> v3::Annotation {
     // Rule 5: sentiments -> wisdom entries
     for sentiment in &ann.narrative.sentiments {
         let feeling_lower = sentiment.feeling.to_lowercase();
-        let category =
-            if feeling_lower.contains("worry") || feeling_lower.contains("unease") || feeling_lower.contains("concern") {
-                v3::WisdomCategory::Gotcha
-            } else if feeling_lower.contains("uncertain") || feeling_lower.contains("doubt") {
-                v3::WisdomCategory::UnfinishedThread
-            } else {
-                v3::WisdomCategory::Insight
-            };
+        let category = if feeling_lower.contains("worry")
+            || feeling_lower.contains("unease")
+            || feeling_lower.contains("concern")
+        {
+            v3::WisdomCategory::Gotcha
+        } else if feeling_lower.contains("uncertain") || feeling_lower.contains("doubt") {
+            v3::WisdomCategory::UnfinishedThread
+        } else {
+            v3::WisdomCategory::Insight
+        };
         wisdom.push(v3::WisdomEntry {
             category,
             content: format!("{}: {}", sentiment.feeling, sentiment.detail),
@@ -602,7 +604,10 @@ mod tests {
             .filter(|w| w.category == v3::WisdomCategory::DeadEnd)
             .collect();
         assert_eq!(dead_ends.len(), 2);
-        assert_eq!(dead_ends[0].content, "Fixed delay: Too aggressive under load");
+        assert_eq!(
+            dead_ends[0].content,
+            "Fixed delay: Too aggressive under load"
+        );
         // Empty reason: just the approach text
         assert_eq!(dead_ends[1].content, "No delay");
         assert!(dead_ends[0].file.is_none());
@@ -849,10 +854,7 @@ mod tests {
         // Should have wisdom from markers (contract, hazard, dependency) and the decision
         assert!(!v3_ann.wisdom.is_empty());
         // Provenance should be MigratedV1 (from the v1->v2 step)
-        assert_eq!(
-            v3_ann.provenance.source,
-            v2::ProvenanceSource::MigratedV1
-        );
+        assert_eq!(v3_ann.provenance.source, v2::ProvenanceSource::MigratedV1);
         assert!(v3_ann.validate().is_ok());
     }
 }
