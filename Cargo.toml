@@ -29,10 +29,14 @@ uuid = { version = "1", features = ["v4"] }
 ratatui = { version = "0.29", optional = true, default-features = false, features = ["crossterm"] }
 crossterm = { version = "0.28", optional = true }
 schemars = { version = "1.2.1", features = ["derive"] }
+tiny_http = { version = "0.12", optional = true }
+rust-embed = { version = "8", optional = true }
+open = { version = "5", optional = true }
 
 [features]
-default = ["tui"]
+default = ["tui", "web"]
 tui = ["ratatui", "crossterm"]
+web = ["dep:tiny_http", "dep:rust-embed", "dep:open"]
 
 [dev-dependencies]
 tempfile = "3"

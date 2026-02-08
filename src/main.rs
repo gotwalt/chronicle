@@ -148,6 +148,8 @@ fn main() {
             KnowledgeAction::Remove { id } => chronicle::cli::knowledge::run_remove(id),
         },
         Commands::Status { format } => chronicle::cli::status::run(format),
+        #[cfg(feature = "web")]
+        Commands::Web { port, open } => chronicle::cli::web::run(port, open),
     };
 
     if let Err(e) = result {

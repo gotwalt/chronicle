@@ -1,35 +1,45 @@
 import { useEffect, useState } from "react";
 import { codeToHtml } from "shiki";
-import type { FileAnnotation } from "../types";
+import type { SummaryUnit } from "../types";
 
-function buildAnnotatedLineSet(annotations: FileAnnotation[]): Map<number, number[]> {
-  // Maps line number -> array of annotation indices that cover that line
-  const lineMap = new Map<number, number[]>();
-  annotations.forEach((ann, idx) => {
-    if (ann.lines) {
-      for (let line = ann.lines.start; line <= ann.lines.end; line++) {
-        const existing = lineMap.get(line);
-        if (existing) {
-          existing.push(idx);
-        } else {
-          lineMap.set(line, [idx]);
-        }
+/** Map marker kind keywords to gutter colors */
+function gutterColor(unit: SummaryUnit): string {
+  const notes = (unit.risk_notes ?? "").toUpperCase();
+  if (notes.includes("SECURITY")) return "bg-rose-500";
+  if (notes.includes("DEPRECATED")) return "bg-zinc-500";
+  if (notes.includes("TECH_DEBT")) return "bg-orange-500";
+  if (notes.includes("UNSTABLE")) return "bg-orange-400";
+  if (notes.includes("PERF")) return "bg-purple-500";
+  if (notes.includes("TEST_COVERAGE")) return "bg-green-500";
+  if (unit.constraints && unit.constraints.length > 0) return "bg-amber-500";
+  return "bg-emerald-500";
+}
+
+function buildAnnotatedLineMap(
+  units: SummaryUnit[]
+): Map<number, { color: string }> {
+  const lineMap = new Map<number, { color: string }>();
+  for (const unit of units) {
+    if (unit.lines.start === 0 && unit.lines.end === 0) continue;
+    const color = gutterColor(unit);
+    for (let line = unit.lines.start; line <= unit.lines.end; line++) {
+      // First unit to claim a line wins
+      if (!lineMap.has(line)) {
+        lineMap.set(line, { color });
       }
     }
-  });
+  }
   return lineMap;
 }
 
 export function SourcePane({
   content,
   language,
-  annotations,
-  onRegionClick,
+  units,
 }: {
   content: string;
   language: string;
-  annotations: FileAnnotation[];
-  onRegionClick: (index: number) => void;
+  units: SummaryUnit[];
 }) {
   const [highlightedHtml, setHighlightedHtml] = useState<string>("");
   const [loading, setLoading] = useState(true);
@@ -50,7 +60,6 @@ export function SourcePane({
       })
       .catch(() => {
         if (!cancelled) {
-          // Fallback: plain text
           setHighlightedHtml("");
           setLoading(false);
         }
@@ -61,20 +70,16 @@ export function SourcePane({
     };
   }, [content, language]);
 
-  const annotatedLines = buildAnnotatedLineSet(annotations);
+  const annotatedLines = buildAnnotatedLineMap(units);
   const lines = content.split("\n");
 
   // Parse highlighted HTML to extract per-line HTML
   const lineHtmls: string[] = [];
   if (highlightedHtml) {
-    // Shiki wraps code in <pre><code>...\n...\n...</code></pre>
-    // Each line is: <span class="line"><span style="...">token</span>...</span>
-    // Lines are separated by real newlines inside <code>
     const codeMatch = highlightedHtml.match(/<code[^>]*>([\s\S]*)<\/code>/);
     if (codeMatch) {
       const rawLines = codeMatch[1].split("\n");
       for (const rawLine of rawLines) {
-        // Strip the outer <span class="line">...</span> wrapper, keep inner token spans
         const stripped = rawLine
           .replace(/^<span class="line">/, "")
           .replace(/<\/span>$/, "");
@@ -97,24 +102,14 @@ export function SourcePane({
         <tbody>
           {lines.map((line, i) => {
             const lineNum = i + 1;
-            const annIndices = annotatedLines.get(lineNum);
-            const isAnnotated = annIndices !== undefined && annIndices.length > 0;
-            const lineHtml = lineHtmls[i];
+            const marker = annotatedLines.get(lineNum);
 
             return (
-              <tr
-                key={i}
-                className={`group ${isAnnotated ? "cursor-pointer hover:bg-zinc-800/60" : ""}`}
-                onClick={
-                  isAnnotated
-                    ? () => onRegionClick(annIndices[0])
-                    : undefined
-                }
-              >
+              <tr key={i} className="group">
                 {/* Gutter marker */}
                 <td className="w-1 select-none p-0">
-                  {isAnnotated && (
-                    <div className="h-full w-[3px] bg-emerald-500" />
+                  {marker && (
+                    <div className={`h-full w-[3px] ${marker.color}`} />
                   )}
                 </td>
                 {/* Line number */}
@@ -123,8 +118,10 @@ export function SourcePane({
                 </td>
                 {/* Code */}
                 <td className="whitespace-pre pr-4 leading-6">
-                  {lineHtml ? (
-                    <span dangerouslySetInnerHTML={{ __html: lineHtml }} />
+                  {lineHtmls[i] ? (
+                    <span
+                      dangerouslySetInnerHTML={{ __html: lineHtmls[i] }}
+                    />
                   ) : (
                     <span className="text-zinc-300">{line}</span>
                   )}

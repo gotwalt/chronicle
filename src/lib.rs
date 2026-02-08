@@ -18,3 +18,5 @@ pub mod schema;
 pub mod setup;
 pub mod show;
 pub mod sync;
+#[cfg(feature = "web")]
+pub mod web;

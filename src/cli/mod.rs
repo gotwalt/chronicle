@@ -23,6 +23,8 @@ pub mod status;
 pub mod summary;
 pub mod sync;
 pub(crate) mod util;
+#[cfg(feature = "web")]
+pub mod web;
 
 use clap::{Parser, Subcommand};
 
@@ -379,6 +381,18 @@ pub enum Commands {
         /// Clear all staged notes
         #[arg(long)]
         clear: bool,
+    },
+
+    /// Launch web viewer for browsing annotations
+    #[cfg(feature = "web")]
+    Web {
+        /// Port to listen on
+        #[arg(long, default_value = "3000")]
+        port: u16,
+
+        /// Open browser automatically
+        #[arg(long)]
+        open: bool,
     },
 
     /// Manage repo-level knowledge (conventions, boundaries, anti-patterns)

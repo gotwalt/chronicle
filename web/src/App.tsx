@@ -7,6 +7,8 @@ export function App() {
       <Routes>
         <Route path="/" element={<Shell />} />
         <Route path="/file/*" element={<Shell />} />
+        <Route path="/decisions" element={<Shell />} />
+        <Route path="/knowledge" element={<Shell />} />
       </Routes>
     </HashRouter>
   );
