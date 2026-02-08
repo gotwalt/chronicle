@@ -2,16 +2,10 @@ import { useEffect, useState } from "react";
 import { codeToHtml } from "shiki";
 import type { SummaryUnit } from "../types";
 
-/** Map marker kind keywords to gutter colors */
+/** Map wisdom content to gutter colors */
 function gutterColor(unit: SummaryUnit): string {
-  const notes = (unit.risk_notes ?? "").toUpperCase();
-  if (notes.includes("SECURITY")) return "bg-rose-500";
-  if (notes.includes("DEPRECATED")) return "bg-zinc-500";
-  if (notes.includes("TECH_DEBT")) return "bg-orange-500";
-  if (notes.includes("UNSTABLE")) return "bg-orange-400";
-  if (notes.includes("PERF")) return "bg-purple-500";
-  if (notes.includes("TEST_COVERAGE")) return "bg-green-500";
   if (unit.constraints && unit.constraints.length > 0) return "bg-amber-500";
+  if (unit.risk_notes) return "bg-orange-400";
   return "bg-emerald-500";
 }
 

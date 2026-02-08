@@ -82,13 +82,13 @@ function FeelingBadge({ feeling }: { feeling: string }) {
   const lower = feeling.toLowerCase();
   let color = "bg-zinc-800 text-zinc-400";
 
-  if (lower === "worry" || lower === "unease") {
+  if (lower === "worry") {
     color = "bg-amber-900/60 text-amber-400";
-  } else if (lower === "confidence" || lower === "pride") {
+  } else if (lower === "confidence") {
     color = "bg-green-900/60 text-green-400";
-  } else if (lower === "curiosity" || lower === "surprise") {
+  } else if (lower === "uncertainty") {
     color = "bg-blue-900/60 text-blue-400";
-  } else if (lower === "doubt" || lower === "frustration") {
+  } else if (lower === "frustration") {
     color = "bg-red-900/60 text-red-400";
   }
 
