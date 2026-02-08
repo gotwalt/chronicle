@@ -1,0 +1,25 @@
+{
+  "schema": "chronicle/v3",
+  "commit": "20662053778381a8eaa627724e9972a490770e14",
+  "timestamp": "2026-02-08T14:44:54-08:00",
+  "summary": "Updates four key dependencies to their latest major versions: ureq 2→3, toml 0.8→0.9, ratatui 0.29→0.30, and crossterm 0.28→0.29. The ureq 3 upgrade required significant API changes in the HTTP client code: ureq 3 changed its error model from `ureq::Transport` to `ureq::Error`, switched from `set()` to `header()` for setting headers, changed `send_json()` to return a mutable response that exposes status directly rather than returning errors for non-2xx statuses, and modified response body reading from `into_json()` and `into_string()` to `body_mut().read_json()` and `body_mut().read_to_string()`. The ureq agent is now configured to disable automatic HTTP status errors (`http_status_as_error(false)`) to allow manual status code handling in the retry logic. The toml update appears to be a straightforward version bump with minor internal dependency changes. The ratatui 0.30 update brings a new modular architecture (ratatui-core, ratatui-crossterm, ratatui-widgets) and removes the cassowary constraint solver in favor of kasuari. The crossterm 0.29 update adds new dependencies (derive_more, document-features) but requires no code changes.",
+  "wisdom": [
+    {
+      "category": "insight",
+      "content": "Depends on src/provider/anthropic.rs:LlmProvider::complete — The ureq agent must have `http_status_as_error(false)` configured for the retry logic in `complete()` to work correctly. If this changes to the default behavior, non-2xx responses would be converted to errors before status codes can be inspected.",
+      "file": "src/provider/anthropic.rs",
+      "lines": {
+        "start": 23,
+        "end": 26
+      }
+    },
+    {
+      "category": "insight",
+      "content": "Disable ureq 3's automatic HTTP status-to-error conversion and handle status codes manually: The existing retry logic needs to distinguish between retryable errors (429, 5xx) and non-retryable errors (4xx). With ureq 3's automatic error conversion, all non-2xx responses would be immediately converted to errors, preventing the code from inspecting status codes and retry-after headers. Disabling automatic conversion via `http_status_as_error(false)` allows explicit status code checking and proper retry behavior.",
+      "file": "src/provider/anthropic.rs"
+    }
+  ],
+  "provenance": {
+    "source": "batch"
+  }
+}
