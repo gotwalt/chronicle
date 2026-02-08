@@ -19,5 +19,15 @@ fi
 
 # Check if the command was a git commit
 if echo "$command" | grep -qE '(^|\s|&&|\|)git\s+commit(\s|$)'; then
-    echo "REMINDER: You just created a git commit. Annotate it by piping AnnotateInput JSON to: git chronicle annotate --live. Include commit: \"HEAD\", summary, and narrative context. See the annotate skill for details."
+    cat << 'MSG'
+REMINDER: Annotate this commit. Annotations are context for future agents — write what the diff cannot tell you.
+
+Default (any non-trivial commit — single command, no temp files):
+  git chronicle annotate --live << 'EOF'
+  {"commit":"HEAD","summary":"WHY this approach, not what changed","rejected_alternatives":[{"approach":"...","reason":"..."}],"decisions":[{"what":"...","why":"...","stability":"provisional"}]}
+  EOF
+
+Summary-only (trivial changes like typos, renames, dep bumps):
+  git chronicle annotate --summary "WHY, not what — do not restate the commit message."
+MSG
 fi

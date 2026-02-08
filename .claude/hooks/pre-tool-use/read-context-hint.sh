@@ -26,6 +26,6 @@ echo "$file_path" >> "$HINT_CACHE"
 # Only for source code files
 case "$file_path" in
     *.rs|*.ts|*.tsx|*.js|*.jsx|*.py|*.go|*.java|*.cpp|*.c|*.h)
-        echo "TIP: Consider reading Chronicle annotations for $(basename "$file_path") before modifying it: ./target/debug/git-chronicle contracts \"$file_path\""
+        echo "TIP: Previous agents may have left contracts, decisions, or warnings for $(basename "$file_path"). Check before modifying: ./target/debug/git-chronicle contracts \"$file_path\""
         ;;
 esac

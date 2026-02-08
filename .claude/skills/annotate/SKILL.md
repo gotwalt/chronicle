@@ -1,113 +1,129 @@
 # Chronicle Annotate Skill
 
-## When to Use
+## Why This Matters
 
-After you create a git commit, annotate it using the live annotation path. This captures the story behind the change: why this approach was chosen, what was considered and rejected, and what is non-obvious about the code.
+Your context window is temporary. When this session ends, everything you
+learned — why you chose this approach, what you tried that failed, what's
+fragile — vanishes. Chronicle is your **persistent memory layer**: a place
+to store reasoning that survives past your session. The next agent who
+touches this code gets your thinking instantly, instead of reverse-engineering
+it from the diff.
 
-**Always annotate when:**
-- You created a commit that adds, modifies, or removes code
-- The commit has meaningful changes (not just formatting or whitespace)
+- The **commit message** says what changed
+- The **diff** shows how
+- The **annotation** explains *why this way*, what constraints to respect,
+  and what was already tried and failed
 
-**Skip annotation when:**
-- The commit only changes lockfiles, generated files, or vendored dependencies
-- The commit is a merge commit with no manual conflict resolution
+**Do not restate the commit message.** If your summary could be written from
+the diff alone, it has no value. Write what the diff cannot tell you.
 
-## How to Annotate (v2 format)
+## When to Annotate
 
-Write annotation JSON to a temp file and pipe it to the CLI. Use `<< 'EOF'` (quoted heredoc) to prevent shell expansion:
+After every commit that adds, modifies, or removes code. Skip only for
+lockfiles, generated files, vendored deps, or no-conflict merge commits.
 
-### Minimal annotation (most commits need only this):
+## How to Annotate
+
+Every annotation is a **single Bash command** — do NOT write temp files.
+
+### Default: rich annotation
+
+Before annotating, think about what you know now that will be lost:
+- Chose between approaches? → `rejected_alternatives` (saves the next
+  agent from the same dead ends)
+- Made a design choice? → `decisions` (records what's load-bearing vs.
+  provisional)
+- Non-obvious invariants? → `markers` (protects the next agent from
+  invisible breakage)
+- Part of a larger effort? → `effort`
 
 ```bash
-cat > /tmp/chronicle-annotate.json << 'EOF'
+git chronicle annotate --live << 'EOF'
 {
   "commit": "HEAD",
-  "summary": "Switch from fixed-interval to exponential backoff for MQTT reconnect. The broker rate-limits reconnect attempts, so rapid retries cause longer lockout periods."
-}
-EOF
-git chronicle annotate --live < /tmp/chronicle-annotate.json
-```
-
-### Rich annotation (when warranted):
-
-```bash
-cat > /tmp/chronicle-annotate.json << 'EOF'
-{
-  "commit": "HEAD",
-  "summary": "Redesign annotation schema from per-function regions to commit-level narrative with optional code markers.",
-  "motivation": "Current annotations restate diffs instead of capturing decision context.",
+  "summary": "Use exponential backoff for MQTT reconnect — the broker rate-limits reconnects, so rapid retries cause longer lockouts than patient ones.",
+  "motivation": "Production logs showed 30s lockouts during network blips.",
   "rejected_alternatives": [
-    {"approach": "Enrich v1 with optional commit-level fields", "reason": "Per-region structure still dominates and creates noise"}
+    {"approach": "Jittered fixed interval", "reason": "Still triggers rate limiter when multiple clients reconnect after an outage"}
   ],
   "decisions": [
-    {"what": "Lazy v1->v2 migration (translate on read)", "why": "Avoids risky bulk rewrite of git notes", "stability": "permanent"}
+    {"what": "Cap backoff at 60s", "why": "Balances recovery time vs. user-perceived downtime; matches broker's rate-limit window", "stability": "provisional", "revisit_when": "Broker config becomes tunable"}
   ],
   "markers": [
     {
-      "file": "src/schema/v2.rs",
-      "anchor": {"unit_type": "function", "name": "validate"},
-      "kind": {"type": "contract", "description": "Must be called before writing to git notes", "source": "author"}
+      "file": "src/mqtt/reconnect.rs",
+      "anchor": {"unit_type": "function", "name": "next_delay"},
+      "kind": {"type": "contract", "description": "Return value must not exceed MAX_BACKOFF_SECS; callers sleep on this without validation"}
     }
-  ],
-  "effort": {"id": "schema-v2", "description": "Chronicle schema v2 redesign", "phase": "start"}
+  ]
 }
 EOF
-git chronicle annotate --live < /tmp/chronicle-annotate.json
 ```
 
-## What to Include
-
-### Narrative (required)
-- **summary** (required): What this commit does and WHY this approach. Not a diff restatement.
-- **motivation** (when useful): What triggered this change?
-- **rejected_alternatives** (highest value): What was tried and why it didn't work. This prevents repeating dead ends.
-- **follow_up** (when applicable): Expected follow-up work. Omit if this is complete.
-
-### Decisions (optional)
-For architectural or design choices made in this commit:
-- **what**: What was decided
-- **why**: Why this decision was made
-- **stability**: `permanent`, `provisional`, or `experimental`
-- **revisit_when**: When should this be reconsidered?
-- **scope**: Files/modules this applies to
-
-### Code Markers (optional, only where non-obvious)
-Do NOT annotate every function. Only emit markers where there is something genuinely non-obvious:
-
-- **contract**: Behavioral invariant or precondition (e.g., "Must not block the async runtime")
-- **hazard**: Something that could cause bugs if misunderstood (e.g., "Not thread-safe without external locking")
-- **dependency**: Code that assumes something about code elsewhere (e.g., "Assumes Config::load returns defaults on missing file")
-- **unstable**: Provisional code that should be revisited (e.g., "Hardcoded timeout, replace when config system is ready")
-
-### Effort Link (optional)
-Link commits to a broader effort:
-- **id**: Stable identifier (ticket ID, slug)
-- **phase**: `start`, `in_progress`, or `complete`
-
-## Self-Documenting Schema
-
-To see the exact JSON Schema for the input format:
+### Minimal: summary-only (typos, renames, dep bumps only)
 
 ```bash
-git chronicle schema annotate-input
+git chronicle annotate --summary "Pin serde to 1.0.193 — 1.0.194 has a regression serializing flattened enums (serde-rs/serde#2770)."
 ```
 
-To see the stored annotation format:
+**Bad** (restates the diff): "Add exponential backoff to reconnect logic"
+**Good** (explains why): "Use exponential backoff because the broker rate-limits fixed-interval reconnects, causing longer outages than patient retries"
+
+### JSON field reference (exact structure — do not deviate)
+
+```
+{
+  "commit": "HEAD",                              // default HEAD
+  "summary": "...",                              // REQUIRED — why, not what
+  "motivation": "...",                           // what triggered this change
+  "rejected_alternatives": [                     // highest-value field
+    {"approach": "...", "reason": "..."}         //   or just a string (auto-converted)
+  ],
+  "follow_up": "...",                            // expected next steps
+  "decisions": [
+    {
+      "what": "...",                             // REQUIRED per decision
+      "why": "...",                              // REQUIRED per decision
+      "stability": "permanent",                  // permanent | provisional | experimental
+      "revisit_when": "...",                     // optional
+      "scope": ["src/foo.rs"]                    // optional
+    }
+  ],
+  "markers": [
+    {
+      "file": "src/foo.rs",                      // REQUIRED per marker
+      "anchor": {"unit_type": "function", "name": "bar"},  // optional
+      "kind": {"type": "contract", "description": "..."}   // REQUIRED
+    }
+  ],
+  "effort": {
+    "id": "ticket-123",                          // REQUIRED in effort
+    "description": "...",                        // REQUIRED in effort
+    "phase": "in_progress"                       // start | in_progress | complete
+  }
+}
+```
+
+Marker `kind.type` values: `contract`, `hazard`, `dependency`, `unstable`,
+`security`, `performance`, `deprecated`, `tech_debt`, `test_coverage`.
+
+Decision stability: `permanent` (load-bearing), `provisional` (check
+`revisit_when`), `experimental` (expect replacement).
+
+## Field Guidance
+
+- **summary**: The *why* behind this approach. Must add information beyond
+  the diff and commit message.
+- **rejected_alternatives**: Most valuable field. Every dead end you
+  document is one the next agent doesn't have to rediscover.
+- **markers**: Only where non-obvious. Contracts, hazards, cross-module
+  dependencies, security boundaries, performance-critical paths.
+- **decisions**: Choices a future agent might question. Tag stability so
+  they know how carefully to tread.
+
+## Schema Lookup
 
 ```bash
-git chronicle schema annotation
+git chronicle schema annotate-input   # input format
+git chronicle schema annotation       # stored format
 ```
-
-## Legacy v1 Format
-
-The v1 format (with `regions` and `cross_cutting` arrays) is still accepted for backward compatibility. If your input JSON has a `regions` key, it will be routed to the v1 handler.
-
-## Batch Fallback
-
-If you don't have structured input, the batch path uses an LLM to produce annotations:
-
-```bash
-git chronicle annotate --commit HEAD
-```
-
-This costs API tokens but works without any structured input.

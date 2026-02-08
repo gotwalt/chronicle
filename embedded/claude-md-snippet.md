@@ -30,20 +30,21 @@ updating the annotation is a bug. See the context skill for details.
 
 ### Writing annotations (after committing)
 
-After committing, annotate using the live path (v2 format). Use a temp file
-with a quoted heredoc to avoid shell escaping issues:
+Annotations are context for future agents — write what the diff cannot tell you.
+Do NOT restate the commit message. Every annotation is a single Bash command:
 
 ```bash
-cat > /tmp/chronicle-annotate.json << 'EOF'
-{
-  "commit": "HEAD",
-  "summary": "What this commit does and WHY this approach."
-}
+# Default (any non-trivial commit — include rejected_alternatives, decisions, markers as relevant):
+git chronicle annotate --live << 'EOF'
+{"commit":"HEAD","summary":"WHY this approach","rejected_alternatives":[...],"decisions":[{"what":"...","why":"...","stability":"provisional"}]}
 EOF
-git chronicle annotate --live < /tmp/chronicle-annotate.json
+
+# Summary-only (trivial changes — typos, renames, dep bumps):
+git chronicle annotate --summary "WHY, not what."
 ```
 
-See the annotate skill for the full annotation workflow.
+See the annotate skill for the full JSON field reference, good/bad summary
+examples, and guidance on when to use each field.
 
 ### Backfilling annotations
 
