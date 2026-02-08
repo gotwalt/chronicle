@@ -1,0 +1,41 @@
+{
+  "schema": "chronicle/v2",
+  "commit": "f91d96bcb54d97f9411af776f69ea6b3ca72e085",
+  "timestamp": "2026-02-07T18:39:06-08:00",
+  "narrative": {
+    "summary": "This commit completely rewrites the README to document the v2 schema evolution and current feature set. The rewrite shifts the narrative focus from \"recording intent\" to \"capturing what was learned,\" emphasizing Chronicle as institutional memory that survives context switches and agent sessions. Key structural changes include: (1) reorganizing examples to showcase high-level query commands (`contracts`, `decisions`, `lookup`) before raw `read` commands, (2) documenting the new knowledge store feature for repo-wide conventions and anti-patterns, (3) adding a dedicated \"What goes in an annotation\" section explaining the v2 schema's narrative-first structure, (4) promoting the \"live path\" (zero-cost agent annotations) as primary over the \"batch path\" (LLM-generated), and (5) expanding the command reference to include new commands like `lookup`, `knowledge`, `note`, `web`, and `schema`. The rewrite also clarifies that annotations are stored as git notes under `refs/notes/chronicle` and emphasizes the feedback loop where each agent session builds on annotations from previous sessions.",
+    "motivation": "The v2 schema represents a significant evolution from v1's function-level \"intent/reasoning/constraints\" model to a narrative-first \"decisions/markers/sentiments\" model. The README needed to reflect this change, explain the new features (knowledge store, sentiment capture, stability levels for decisions), and better communicate Chronicle's value proposition for AI coding agents where context persistence across sessions is critical.",
+    "files_changed": [
+      "README.md"
+    ]
+  },
+  "decisions": [
+    {
+      "what": "Position Chronicle as \"capturing what was learned\" rather than \"recording what changed\" or \"recording why\"",
+      "why": "The v2 schema introduces sentiments, rejected alternatives, and decision stability levels — all of which represent knowledge gained through the act of implementation, not just the reasoning that existed beforehand. The tagline \"captures what was learned\" better reflects Chronicle's role as institutional memory and positions it for AI agents where the key value is preventing knowledge loss between sessions, not just documenting intent.",
+      "stability": "permanent",
+      "scope": [
+        "README.md"
+      ]
+    },
+    {
+      "what": "Showcase query commands (contracts, decisions, lookup) before raw read command in examples",
+      "why": "The v1 README led with `git chronicle read`, which returns raw JSON annotation data. V2 introduces purpose-specific query commands that answer specific questions (\"what must I not break?\", \"what was decided and why?\"). Leading with these commands makes Chronicle's value immediately clear and reflects how agents and developers actually use the tool — they query for specific information, not raw dumps.",
+      "stability": "permanent",
+      "scope": [
+        "README.md"
+      ]
+    },
+    {
+      "what": "Position the \"live path\" as primary annotation method over the \"batch path\"",
+      "why": "AI coding agents are the primary use case, and agents already have full context about their reasoning, rejected alternatives, and decisions while making changes. The live path (zero LLM cost, instant) is the natural fit. The batch path (LLM-generated annotations from diffs) is useful for backfilling history but loses fidelity because the LLM has to infer reasoning from code changes rather than capture it directly from the author's context.",
+      "stability": "permanent",
+      "scope": [
+        "README.md"
+      ]
+    }
+  ],
+  "provenance": {
+    "source": "batch"
+  }
+}
