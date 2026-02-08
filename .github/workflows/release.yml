@@ -6,7 +6,7 @@ on:
 
 concurrency:
   group: release
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 env:
   CARGO_TERM_COLOR: always
@@ -15,7 +15,8 @@ jobs:
   release:
     name: Release
     runs-on: ubuntu-latest
-    # Skip release commits to prevent infinite loop
+    # Defense-in-depth: [skip ci] on the release commit is the primary guard;
+    # this condition is a fallback in case the commit message is edited manually.
     if: "!startsWith(github.event.head_commit.message, 'chore(release):')"
     permissions:
       contents: write
@@ -54,7 +55,7 @@ jobs:
       - name: Commit release
         run: |
           git add Cargo.toml Cargo.lock
-          git commit -m "chore(release): ${{ steps.version.outputs.tag }}"
+          git commit -m "chore(release): ${{ steps.version.outputs.tag }} [skip ci]"
 
       - name: Tag release
         run: git tag "${{ steps.version.outputs.tag }}"
