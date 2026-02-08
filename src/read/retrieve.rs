@@ -35,11 +35,7 @@ pub fn retrieve_annotations(
         let filtered_wisdom: Vec<v3::WisdomEntry> = annotation
             .wisdom
             .iter()
-            .filter(|w| {
-                w.file
-                    .as_ref()
-                    .is_none_or(|f| file_matches(f, &query.file))
-            })
+            .filter(|w| w.file.as_ref().is_none_or(|f| file_matches(f, &query.file)))
             .filter(|w| {
                 query.lines.as_ref().is_none_or(|line_range| {
                     // Include entries without lines (file-wide or repo-wide)

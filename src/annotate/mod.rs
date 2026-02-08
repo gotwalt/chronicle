@@ -85,9 +85,7 @@ pub fn run(
                         assumption,
                     } => (
                         v3::WisdomCategory::Insight,
-                        format!(
-                            "Depends on {target_file}:{target_anchor} \u{2014} {assumption}"
-                        ),
+                        format!("Depends on {target_file}:{target_anchor} \u{2014} {assumption}"),
                     ),
                     v2::MarkerKind::Unstable { description, .. } => {
                         (v3::WisdomCategory::UnfinishedThread, description.clone())
@@ -118,9 +116,10 @@ pub fn run(
 
             // Convert decisions to wisdom entries
             for decision in &collected.decisions {
-                let file = decision.scope.first().map(|s| {
-                    s.split(':').next().unwrap_or(s).to_string()
-                });
+                let file = decision
+                    .scope
+                    .first()
+                    .map(|s| s.split(':').next().unwrap_or(s).to_string());
                 wisdom.push(v3::WisdomEntry {
                     category: v3::WisdomCategory::Insight,
                     content: format!("{}: {}", decision.what, decision.why),

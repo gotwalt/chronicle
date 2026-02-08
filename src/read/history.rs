@@ -89,11 +89,7 @@ pub fn build_timeline(git: &dyn GitOps, query: &HistoryQuery) -> Result<HistoryO
             .wisdom
             .iter()
             .filter(|w| w.category == v3::WisdomCategory::Gotcha)
-            .filter(|w| {
-                w.file
-                    .as_ref()
-                    .is_none_or(|f| file_matches(f, &query.file))
-            })
+            .filter(|w| w.file.as_ref().is_none_or(|f| file_matches(f, &query.file)))
             .map(|w| w.content.clone())
             .collect();
 

@@ -48,7 +48,8 @@ cargo install git-chronicle
 This puts the `git-chronicle` binary on your PATH. Git discovers it
 automatically — all commands are available as `git chronicle <command>`.
 
-Requires Rust 1.70+ and git.
+Requires Rust 1.70+ and git. The `web` feature (enabled by default) requires
+Node.js 22+ and npm for building the web viewer assets.
 
 ## Getting started
 

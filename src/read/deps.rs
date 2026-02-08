@@ -78,12 +78,7 @@ pub fn find_dependents(git: &dyn GitOps, query: &DepsQuery) -> Result<DepsOutput
 
             // Parse "Depends on {target_file}:{target_anchor} — {assumption}"
             if let Some(dep) = parse_dependency_content(&w.content) {
-                if dep_matches(
-                    dep.0,
-                    dep.1,
-                    &query.file,
-                    query.anchor.as_deref(),
-                ) {
+                if dep_matches(dep.0, dep.1, &query.file, query.anchor.as_deref()) {
                     let source_file = w.file.clone().unwrap_or_default();
                     dependents.push(DependentEntry {
                         file: source_file,

@@ -1,7 +1,7 @@
 use std::io::Cursor;
 
 #[derive(rust_embed::Embed)]
-#[folder = "web/dist"]
+#[folder = "$WEB_DIST_DIR"]
 struct WebAssets;
 
 fn content_type(path: &str) -> &'static str {
@@ -45,8 +45,7 @@ pub fn handle(url: &str) -> tiny_http::Response<Cursor<Vec<u8>>> {
                         .unwrap(),
                     )
                     .with_status_code(200),
-                None => tiny_http::Response::from_string("Not found")
-                    .with_status_code(404),
+                None => tiny_http::Response::from_string("Not found").with_status_code(404),
             }
         }
     }

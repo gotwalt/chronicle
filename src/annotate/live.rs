@@ -330,9 +330,15 @@ mod tests {
         assert_eq!(input.wisdom[0].category, v3::WisdomCategory::DeadEnd);
         assert_eq!(input.wisdom[1].category, v3::WisdomCategory::Gotcha);
         assert_eq!(input.wisdom[2].category, v3::WisdomCategory::Insight);
-        assert_eq!(input.wisdom[3].category, v3::WisdomCategory::UnfinishedThread);
+        assert_eq!(
+            input.wisdom[3].category,
+            v3::WisdomCategory::UnfinishedThread
+        );
         assert_eq!(input.wisdom[1].file.as_deref(), Some("src/reconnect.rs"));
-        assert_eq!(input.wisdom[2].lines, Some(LineRange { start: 10, end: 20 }));
+        assert_eq!(
+            input.wisdom[2].lines,
+            Some(LineRange { start: 10, end: 20 })
+        );
     }
 
     #[test]
@@ -516,10 +522,8 @@ mod tests {
         let input: LiveInput = serde_json::from_str(json).unwrap();
         assert_eq!(input.wisdom.len(), 4);
 
-        let mock = MockGitOps::new("abc123").with_diffs(vec![
-            test_diff("src/input.rs"),
-            test_diff("src/cache.rs"),
-        ]);
+        let mock = MockGitOps::new("abc123")
+            .with_diffs(vec![test_diff("src/input.rs"), test_diff("src/cache.rs")]);
 
         let result = handle_annotate_v3(&mock, input).unwrap();
         assert!(result.success);
