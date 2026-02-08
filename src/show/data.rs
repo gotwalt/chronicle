@@ -4,9 +4,8 @@ use crate::read::{self, MatchedAnnotation, ReadQuery};
 use crate::schema::common::{AstAnchor, LineRange};
 use crate::schema::v1::{
     Constraint, ConstraintSource, ContextLevel, Provenance, ProvenanceOperation, RegionAnnotation,
-    SemanticDependency,
 };
-use crate::schema::v2;
+use crate::schema::v3;
 
 /// A region annotation with its commit-level metadata.
 #[derive(Debug, Clone)]
@@ -110,7 +109,7 @@ pub fn build_show_data(
     };
     let read_result = read::execute(git_ops, &query)?;
 
-    // Convert v2 MatchedAnnotations to v1-style RegionRefs for the show TUI
+    // Convert v3 MatchedAnnotations to v1-style RegionRefs for the show TUI
     let regions = convert_to_region_refs(read_result.annotations, file_path);
 
     let annotation_map = LineAnnotationMap::build(&regions, total_lines);
@@ -124,19 +123,18 @@ pub fn build_show_data(
     })
 }
 
-/// Convert v2 MatchedAnnotations into v1-style RegionRefs for the show TUI.
+/// Convert v3 MatchedAnnotations into v1-style RegionRefs for the show TUI.
 ///
-/// Each v2 marker with matching file becomes a RegionRef. Annotations without
-/// markers but with the file in files_changed get a synthetic region.
+/// Each v3 wisdom entry with a file reference becomes a RegionRef.
+/// Annotations without file-scoped wisdom get a synthetic commit-level region.
 fn convert_to_region_refs(annotations: Vec<MatchedAnnotation>, file_path: &str) -> Vec<RegionRef> {
     use std::collections::HashMap;
 
     let mut best: HashMap<String, RegionRef> = HashMap::new();
 
     for ann in annotations {
-        if ann.markers.is_empty() {
-            // Annotation has no markers for this file but file is in files_changed.
-            // Create a synthetic region covering line 1 with the summary as intent.
+        if ann.wisdom.is_empty() {
+            // No wisdom entries — create a synthetic commit-level region.
             let key = format!("{}:{}", file_path, "__commit_level__");
             let region_ref = RegionRef {
                 region: RegionAnnotation {
@@ -148,7 +146,7 @@ fn convert_to_region_refs(annotations: Vec<MatchedAnnotation>, file_path: &str) 
                     },
                     lines: LineRange { start: 1, end: 1 },
                     intent: ann.summary.clone(),
-                    reasoning: ann.motivation.clone(),
+                    reasoning: None,
                     constraints: vec![],
                     semantic_dependencies: vec![],
                     related_annotations: vec![],
@@ -174,28 +172,21 @@ fn convert_to_region_refs(annotations: Vec<MatchedAnnotation>, file_path: &str) 
             continue;
         }
 
-        // Group markers by anchor name
-        let mut markers_by_anchor: HashMap<String, Vec<&v2::CodeMarker>> = HashMap::new();
-        for marker in &ann.markers {
-            let anchor_name = marker
-                .anchor
-                .as_ref()
-                .map(|a| a.name.clone())
-                .unwrap_or_default();
-            markers_by_anchor
-                .entry(anchor_name)
-                .or_default()
-                .push(marker);
+        // Group wisdom entries by file
+        let mut wisdom_by_file: HashMap<String, Vec<&v3::WisdomEntry>> = HashMap::new();
+        for w in &ann.wisdom {
+            let f = w.file.clone().unwrap_or_else(|| file_path.to_string());
+            wisdom_by_file.entry(f).or_default().push(w);
         }
 
-        for (anchor_name, markers) in markers_by_anchor {
-            let key = format!("{}:{}", file_path, anchor_name);
+        for (wf, entries) in wisdom_by_file {
+            let key = format!("{}:{}", file_path, wf);
 
-            // Determine line range from markers
+            // Determine line range from wisdom entries
             let mut line_start = u32::MAX;
             let mut line_end = 0u32;
-            for m in &markers {
-                if let Some(ref lines) = m.lines {
+            for w in &entries {
+                if let Some(ref lines) = w.lines {
                     line_start = line_start.min(lines.start);
                     line_end = line_end.max(lines.end);
                 }
@@ -205,82 +196,40 @@ fn convert_to_region_refs(annotations: Vec<MatchedAnnotation>, file_path: &str) 
                 line_end = 1;
             }
 
-            // Extract constraints, dependencies, risk notes from markers
+            // Map wisdom categories to v1-style fields
             let mut constraints = Vec::new();
-            let mut deps = Vec::new();
             let mut risk_notes = Vec::new();
 
-            for m in &markers {
-                match &m.kind {
-                    v2::MarkerKind::Contract {
-                        description,
-                        source,
-                    } => {
-                        let cs = match source {
-                            v2::ContractSource::Author => ConstraintSource::Author,
-                            v2::ContractSource::Inferred => ConstraintSource::Inferred,
-                        };
+            for w in &entries {
+                match w.category {
+                    v3::WisdomCategory::Gotcha => {
                         constraints.push(Constraint {
-                            text: description.clone(),
-                            source: cs,
+                            text: w.content.clone(),
+                            source: ConstraintSource::Inferred,
                         });
                     }
-                    v2::MarkerKind::Hazard { description } => {
-                        risk_notes.push(description.clone());
-                    }
-                    v2::MarkerKind::Dependency {
-                        target_file,
-                        target_anchor,
-                        assumption,
-                    } => {
-                        deps.push(SemanticDependency {
-                            file: target_file.clone(),
-                            anchor: target_anchor.clone(),
-                            nature: assumption.clone(),
-                        });
-                    }
-                    v2::MarkerKind::Unstable { description, .. } => {
-                        risk_notes.push(format!("[unstable] {}", description));
-                    }
-                    v2::MarkerKind::Security { description } => {
-                        risk_notes.push(format!("[security] {}", description));
-                    }
-                    v2::MarkerKind::Performance { description } => {
-                        risk_notes.push(format!("[performance] {}", description));
-                    }
-                    v2::MarkerKind::Deprecated { description, .. } => {
-                        risk_notes.push(format!("[deprecated] {}", description));
-                    }
-                    v2::MarkerKind::TechDebt { description } => {
-                        risk_notes.push(format!("[tech_debt] {}", description));
-                    }
-                    v2::MarkerKind::TestCoverage { description } => {
-                        risk_notes.push(format!("[test_coverage] {}", description));
+                    _ => {
+                        risk_notes.push(w.content.clone());
                     }
                 }
             }
 
-            let ast_anchor = markers
-                .first()
-                .and_then(|m| m.anchor.clone())
-                .unwrap_or(AstAnchor {
-                    unit_type: "unknown".to_string(),
-                    name: anchor_name.clone(),
-                    signature: None,
-                });
-
             let region_ref = RegionRef {
                 region: RegionAnnotation {
                     file: file_path.to_string(),
-                    ast_anchor,
+                    ast_anchor: AstAnchor {
+                        unit_type: "file".to_string(),
+                        name: wf.clone(),
+                        signature: None,
+                    },
                     lines: LineRange {
                         start: line_start,
                         end: line_end,
                     },
                     intent: ann.summary.clone(),
-                    reasoning: ann.motivation.clone(),
+                    reasoning: None,
                     constraints,
-                    semantic_dependencies: deps,
+                    semantic_dependencies: vec![],
                     related_annotations: vec![],
                     tags: vec![],
                     risk_notes: if risk_notes.is_empty() {

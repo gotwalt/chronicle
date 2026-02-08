@@ -13,7 +13,7 @@ pub struct AstAnchor {
 
 /// A range of line numbers in a file.
 /// Shared across all schema versions.
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct LineRange {
     pub start: u32,
     pub end: u32,

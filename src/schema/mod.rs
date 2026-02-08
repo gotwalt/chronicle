@@ -4,6 +4,7 @@ pub mod knowledge;
 pub mod migrate;
 pub mod v1;
 pub mod v2;
+pub mod v3;
 
 // Re-export shared types used across all versions.
 pub use common::{AstAnchor, LineRange};
@@ -12,8 +13,8 @@ pub use common::{AstAnchor, LineRange};
 pub use correction::*;
 
 // The canonical annotation type is always the latest version.
-pub use v2::Annotation;
-pub use v2::*;
+pub use v3::Annotation;
+pub use v3::*;
 
 /// Parse an annotation from JSON, detecting the schema version and migrating
 /// to the canonical (latest) type.
@@ -21,18 +22,24 @@ pub use v2::*;
 /// This is the single deserialization chokepoint. All code that reads
 /// annotations from git notes should call this instead of using
 /// `serde_json::from_str` directly.
-pub fn parse_annotation(json: &str) -> Result<v2::Annotation, ParseAnnotationError> {
+pub fn parse_annotation(json: &str) -> Result<v3::Annotation, ParseAnnotationError> {
     // Peek at the schema field to determine version.
     let peek: SchemaVersion =
         serde_json::from_str(json).map_err(|e| ParseAnnotationError::InvalidJson { source: e })?;
 
     match peek.schema.as_str() {
-        "chronicle/v2" => serde_json::from_str::<v2::Annotation>(json)
+        "chronicle/v3" => serde_json::from_str::<v3::Annotation>(json)
             .map_err(|e| ParseAnnotationError::InvalidJson { source: e }),
+        "chronicle/v2" => {
+            let v2_ann: v2::Annotation = serde_json::from_str(json)
+                .map_err(|e| ParseAnnotationError::InvalidJson { source: e })?;
+            Ok(migrate::v2_to_v3(v2_ann))
+        }
         "chronicle/v1" => {
             let v1_ann: v1::Annotation = serde_json::from_str(json)
                 .map_err(|e| ParseAnnotationError::InvalidJson { source: e })?;
-            Ok(migrate::v1_to_v2(v1_ann))
+            let v2_ann = migrate::v1_to_v2(v1_ann);
+            Ok(migrate::v2_to_v3(v2_ann))
         }
         other => Err(ParseAnnotationError::UnknownVersion {
             version: other.to_string(),
@@ -96,9 +103,10 @@ mod tests {
         }"#;
 
         let ann = parse_annotation(json).unwrap();
-        assert_eq!(ann.schema, "chronicle/v2");
+        // v1 -> v2 -> v3
+        assert_eq!(ann.schema, "chronicle/v3");
         assert_eq!(ann.commit, "abc123");
-        assert_eq!(ann.narrative.summary, "Test commit");
+        assert_eq!(ann.summary, "Test commit");
         assert_eq!(ann.provenance.source, ProvenanceSource::MigratedV1);
     }
 
@@ -117,9 +125,29 @@ mod tests {
         }"#;
 
         let ann = parse_annotation(json).unwrap();
-        assert_eq!(ann.schema, "chronicle/v2");
+        // v2 -> v3
+        assert_eq!(ann.schema, "chronicle/v3");
         assert_eq!(ann.commit, "def456");
-        assert_eq!(ann.narrative.summary, "Direct v2 annotation");
+        assert_eq!(ann.summary, "Direct v2 annotation");
+        assert_eq!(ann.provenance.source, ProvenanceSource::Live);
+    }
+
+    #[test]
+    fn test_parse_v3_annotation() {
+        let json = r#"{
+            "schema": "chronicle/v3",
+            "commit": "ghi789",
+            "timestamp": "2025-06-01T00:00:00Z",
+            "summary": "Native v3 annotation",
+            "provenance": {
+                "source": "live"
+            }
+        }"#;
+
+        let ann = parse_annotation(json).unwrap();
+        assert_eq!(ann.schema, "chronicle/v3");
+        assert_eq!(ann.commit, "ghi789");
+        assert_eq!(ann.summary, "Native v3 annotation");
         assert_eq!(ann.provenance.source, ProvenanceSource::Live);
     }
 
@@ -173,31 +201,35 @@ mod tests {
         }"#;
 
         let ann = parse_annotation(json).unwrap();
-        assert_eq!(ann.schema, "chronicle/v2");
-        assert_eq!(ann.narrative.summary, "Test commit");
-        assert_eq!(ann.narrative.files_changed, vec!["src/foo.rs"]);
+        assert_eq!(ann.schema, "chronicle/v3");
+        assert_eq!(ann.summary, "Test commit");
 
-        // Constraint -> Contract marker
-        assert!(ann.markers.iter().any(|m| matches!(
-            &m.kind,
-            MarkerKind::Contract { description, .. } if description == "Must not allocate"
-        )));
+        // v1 constraint -> v2 Contract marker -> v3 gotcha wisdom
+        assert!(ann
+            .wisdom
+            .iter()
+            .any(|w| w.category == WisdomCategory::Gotcha
+                && w.content == "Must not allocate"));
 
-        // risk_notes -> Hazard marker
-        assert!(ann.markers.iter().any(|m| matches!(
-            &m.kind,
-            MarkerKind::Hazard { description } if description.contains("panic")
-        )));
+        // v1 risk_notes -> v2 Hazard -> v3 gotcha wisdom
+        assert!(ann
+            .wisdom
+            .iter()
+            .any(|w| w.category == WisdomCategory::Gotcha
+                && w.content.contains("panic")));
 
-        // semantic_dependencies -> Dependency marker
-        assert!(ann.markers.iter().any(|m| matches!(
-            &m.kind,
-            MarkerKind::Dependency { target_file, target_anchor, .. }
-                if target_file == "src/bar.rs" && target_anchor == "bar"
-        )));
+        // v1 semantic_dependencies -> v2 Dependency -> v3 insight wisdom
+        assert!(ann
+            .wisdom
+            .iter()
+            .any(|w| w.category == WisdomCategory::Insight
+                && w.content.contains("src/bar.rs")));
 
-        // Cross-cutting -> Decision
-        assert_eq!(ann.decisions.len(), 1);
-        assert_eq!(ann.decisions[0].what, "All paths validate input");
+        // v1 cross-cutting -> v2 Decision -> v3 insight wisdom
+        assert!(ann
+            .wisdom
+            .iter()
+            .any(|w| w.category == WisdomCategory::Insight
+                && w.content.contains("All paths validate input")));
     }
 }

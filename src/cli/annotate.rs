@@ -45,16 +45,10 @@ pub fn run(args: AnnotateArgs) -> Result<()> {
         let input = crate::annotate::live::LiveInput {
             commit,
             summary: summary_text,
-            motivation: None,
-            rejected_alternatives: vec![],
-            follow_up: None,
-            decisions: vec![],
-            markers: vec![],
-            effort: None,
-            sentiments: vec![],
+            wisdom: vec![],
             staged_notes: staged_notes_text.clone(),
         };
-        let result = crate::annotate::live::handle_annotate_v2(&git_ops, input)?;
+        let result = crate::annotate::live::handle_annotate_v3(&git_ops, input)?;
         let _ = crate::annotate::staging::clear_staged(&git_dir);
         let json = serde_json::to_string_pretty(&result).context(JsonSnafu)?;
         println!("{json}");
@@ -66,7 +60,7 @@ pub fn run(args: AnnotateArgs) -> Result<()> {
         let mut input: crate::annotate::live::LiveInput =
             serde_json::from_str(&json_str).context(JsonSnafu)?;
         input.staged_notes = staged_notes_text.clone();
-        let result = crate::annotate::live::handle_annotate_v2(&git_ops, input)?;
+        let result = crate::annotate::live::handle_annotate_v3(&git_ops, input)?;
         let _ = crate::annotate::staging::clear_staged(&git_dir);
         let json = serde_json::to_string_pretty(&result).context(JsonSnafu)?;
         println!("{json}");
@@ -80,16 +74,10 @@ pub fn run(args: AnnotateArgs) -> Result<()> {
         let input = crate::annotate::live::LiveInput {
             commit,
             summary: commit_info.message,
-            motivation: None,
-            rejected_alternatives: vec![],
-            follow_up: None,
-            decisions: vec![],
-            markers: vec![],
-            effort: None,
-            sentiments: vec![],
+            wisdom: vec![],
             staged_notes: staged_notes_text.clone(),
         };
-        let result = crate::annotate::live::handle_annotate_v2(&git_ops, input)?;
+        let result = crate::annotate::live::handle_annotate_v3(&git_ops, input)?;
         let _ = crate::annotate::staging::clear_staged(&git_dir);
         let json = serde_json::to_string_pretty(&result).context(JsonSnafu)?;
         println!("{json}");
@@ -229,7 +217,7 @@ fn run_amend_migration(git_ops: &CliOps, commit: &str, old_sha: &str) -> Result<
     Ok(())
 }
 
-/// Live annotation path: read v2 JSON from stdin, write annotation. Zero LLM cost.
+/// Live annotation path: read v3 JSON from stdin, write annotation. Zero LLM cost.
 fn run_live(git_ops: &CliOps) -> Result<()> {
     let stdin = std::io::read_to_string(std::io::stdin()).map_err(|e| {
         crate::error::ChronicleError::Io {
@@ -246,7 +234,7 @@ fn run_live(git_ops: &CliOps) -> Result<()> {
 
     if value.get("regions").is_some() {
         return Err(crate::error::ChronicleError::Validation {
-            message: "v1 annotation format is no longer supported for writing; use v2 format"
+            message: "v1 annotation format is no longer supported for writing; use v3 format"
                 .to_string(),
             location: snafu::Location::default(),
         });
@@ -258,7 +246,7 @@ fn run_live(git_ops: &CliOps) -> Result<()> {
             location: snafu::Location::default(),
         })?;
 
-    let result = crate::annotate::live::handle_annotate_v2(git_ops, input)?;
+    let result = crate::annotate::live::handle_annotate_v3(git_ops, input)?;
     let json =
         serde_json::to_string_pretty(&result).map_err(|e| crate::error::ChronicleError::Json {
             source: e,

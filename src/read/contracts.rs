@@ -1,6 +1,6 @@
 use crate::error::GitError;
 use crate::git::GitOps;
-use crate::schema::{self, v2};
+use crate::schema::{self, v3};
 
 /// Query parameters: "What must I not break?" for a file/anchor.
 #[derive(Debug, Clone)]
@@ -16,7 +16,7 @@ pub struct ContractsQueryEcho {
     pub anchor: Option<String>,
 }
 
-/// A contract entry extracted from a v2 `Contract` marker.
+/// A contract entry extracted from gotcha wisdom entries.
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct ContractEntry {
     pub file: String,
@@ -27,7 +27,7 @@ pub struct ContractEntry {
     pub timestamp: String,
 }
 
-/// A dependency entry extracted from a v2 `Dependency` marker.
+/// A dependency entry extracted from insight wisdom entries with dependency content.
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct DependencyEntry {
     pub file: String,
@@ -50,9 +50,13 @@ pub struct ContractsOutput {
 
 /// Build a contracts-and-dependencies view for a file (or file+anchor).
 ///
+/// In v3, contracts come from `gotcha` wisdom entries and dependencies
+/// from `insight` wisdom entries whose content matches the dependency pattern
+/// ("Depends on <file>:<anchor> — <assumption>").
+///
 /// 1. Get commits that touched the file via `log_for_file`
-/// 2. For each commit, parse annotation (v1 or v2) via `parse_annotation`
-/// 3. Filter markers to matching Contract and Dependency kinds
+/// 2. For each commit, parse annotation via `parse_annotation`
+/// 3. Filter wisdom entries matching the query file
 /// 4. Deduplicate by keeping the most recent entry per unique key
 pub fn query_contracts(
     git: &dyn GitOps,
@@ -60,10 +64,10 @@ pub fn query_contracts(
 ) -> Result<ContractsOutput, GitError> {
     let shas = git.log_for_file(&query.file)?;
 
-    // Key: (file, anchor_name, description) -> ContractEntry
+    // Key: (file, description) -> ContractEntry
     let mut best_contracts: std::collections::HashMap<String, ContractEntry> =
         std::collections::HashMap::new();
-    // Key: (file, anchor_name, target_file, target_anchor) -> DependencyEntry
+    // Key: (file, target_file, target_anchor) -> DependencyEntry
     let mut best_deps: std::collections::HashMap<String, DependencyEntry> =
         std::collections::HashMap::new();
 
@@ -73,7 +77,7 @@ pub fn query_contracts(
             None => continue,
         };
 
-        let annotation: v2::Annotation = match schema::parse_annotation(&note) {
+        let annotation = match schema::parse_annotation(&note) {
             Ok(a) => a,
             Err(e) => {
                 tracing::debug!("skipping malformed annotation for {sha}: {e}");
@@ -81,80 +85,43 @@ pub fn query_contracts(
             }
         };
 
-        for marker in &annotation.markers {
-            if !file_matches(&marker.file, &query.file) {
+        for w in &annotation.wisdom {
+            // Only consider wisdom entries that match the queried file
+            let entry_file = match &w.file {
+                Some(f) => f,
+                None => continue,
+            };
+            if !file_matches(entry_file, &query.file) {
                 continue;
             }
-            if let Some(ref query_anchor) = query.anchor {
-                if !marker_anchor_matches(marker, query_anchor) {
-                    continue;
-                }
-            }
 
-            let anchor_name = marker.anchor.as_ref().map(|a| a.name.clone());
-
-            match &marker.kind {
-                v2::MarkerKind::Contract {
-                    description,
-                    source,
-                } => {
-                    let source_str = match source {
-                        v2::ContractSource::Author => "author",
-                        v2::ContractSource::Inferred => "inferred",
-                    };
-                    let key = format!(
-                        "{}:{}:{}",
-                        marker.file,
-                        anchor_name.as_deref().unwrap_or(""),
-                        description
-                    );
-                    // First match wins (newest commit first from git log)
+            match w.category {
+                v3::WisdomCategory::Gotcha => {
+                    let key = format!("{}:{}", entry_file, w.content);
                     best_contracts.entry(key).or_insert_with(|| ContractEntry {
-                        file: marker.file.clone(),
-                        anchor: anchor_name.clone(),
-                        description: description.clone(),
-                        source: source_str.to_string(),
-                        commit: annotation.commit.clone(),
-                        timestamp: annotation.timestamp.clone(),
-                    });
-                }
-                v2::MarkerKind::Dependency {
-                    target_file,
-                    target_anchor,
-                    assumption,
-                } => {
-                    let key = format!(
-                        "{}:{}:{}:{}",
-                        marker.file,
-                        anchor_name.as_deref().unwrap_or(""),
-                        target_file,
-                        target_anchor
-                    );
-                    best_deps.entry(key).or_insert_with(|| DependencyEntry {
-                        file: marker.file.clone(),
-                        anchor: anchor_name.clone(),
-                        target_file: target_file.clone(),
-                        target_anchor: target_anchor.clone(),
-                        assumption: assumption.clone(),
-                        commit: annotation.commit.clone(),
-                        timestamp: annotation.timestamp.clone(),
-                    });
-                }
-                v2::MarkerKind::Security { description } => {
-                    let key = format!(
-                        "security:{}:{}:{}",
-                        marker.file,
-                        anchor_name.as_deref().unwrap_or(""),
-                        description
-                    );
-                    best_contracts.entry(key).or_insert_with(|| ContractEntry {
-                        file: marker.file.clone(),
-                        anchor: anchor_name.clone(),
-                        description: format!("[security] {}", description),
+                        file: entry_file.clone(),
+                        anchor: None,
+                        description: w.content.clone(),
                         source: "author".to_string(),
                         commit: annotation.commit.clone(),
                         timestamp: annotation.timestamp.clone(),
                     });
+                }
+                v3::WisdomCategory::Insight => {
+                    // Check if this insight is a dependency entry
+                    // Migration produces: "Depends on {target_file}:{target_anchor} — {assumption}"
+                    if let Some(dep) = parse_dependency_content(&w.content) {
+                        let key = format!("{}:{}:{}", entry_file, dep.0, dep.1);
+                        best_deps.entry(key).or_insert_with(|| DependencyEntry {
+                            file: entry_file.clone(),
+                            anchor: None,
+                            target_file: dep.0.to_string(),
+                            target_anchor: dep.1.to_string(),
+                            assumption: dep.2.to_string(),
+                            commit: annotation.commit.clone(),
+                            timestamp: annotation.timestamp.clone(),
+                        });
+                    }
                 }
                 _ => {}
             }
@@ -183,13 +150,16 @@ pub fn query_contracts(
     })
 }
 
-use super::matching::{anchor_matches, file_matches};
+use super::matching::file_matches;
 
-fn marker_anchor_matches(marker: &v2::CodeMarker, query_anchor: &str) -> bool {
-    match &marker.anchor {
-        Some(anchor) => anchor_matches(&anchor.name, query_anchor),
-        None => false,
-    }
+/// Parse dependency content from the migration format:
+/// "Depends on {file}:{anchor} — {assumption}"
+/// Returns (target_file, target_anchor, assumption) if matched.
+fn parse_dependency_content(content: &str) -> Option<(&str, &str, &str)> {
+    let rest = content.strip_prefix("Depends on ")?;
+    let (target, assumption) = rest.split_once(" — ")?;
+    let (target_file, target_anchor) = target.split_once(':')?;
+    Some((target_file, target_anchor, assumption))
 }
 
 #[cfg(test)]
@@ -254,7 +224,7 @@ mod tests {
     }
 
     /// Build a v1 annotation (serialized as JSON). parse_annotation() will
-    /// migrate it to v2, exercising the migration path in the test.
+    /// migrate it to v3, exercising the migration path in the test.
     fn make_v1_annotation(commit: &str, timestamp: &str, regions: Vec<RegionAnnotation>) -> String {
         let ann = crate::schema::v1::Annotation {
             schema: "chronicle/v1".to_string(),
@@ -363,7 +333,7 @@ mod tests {
         assert_eq!(result.contracts[0].description, "must not panic");
         assert_eq!(result.contracts[0].source, "author");
         assert_eq!(result.contracts[0].file, "src/main.rs");
-        assert_eq!(result.contracts[0].anchor.as_deref(), Some("main"));
+        assert_eq!(result.contracts[0].anchor, None); // v3 wisdom entries lose named anchors after migration
         assert_eq!(result.contracts[0].commit, "commit1");
     }
 
@@ -429,9 +399,8 @@ mod tests {
         };
 
         let result = query_contracts(&git, &query).unwrap();
-        assert_eq!(result.contracts.len(), 1);
-        assert_eq!(result.contracts[0].description, "must not panic");
-        assert_eq!(result.contracts[0].anchor.as_deref(), Some("main"));
+        // v3 has no anchor-level filtering; both contracts for the file are returned
+        assert_eq!(result.contracts.len(), 2);
     }
 
     #[test]

@@ -1,6 +1,6 @@
 use crate::error::GitError;
 use crate::git::GitOps;
-use crate::schema::{self, v2};
+use crate::schema::{self, v3};
 
 /// Query parameters for dependency inversion.
 #[derive(Debug, Clone)]
@@ -48,8 +48,9 @@ pub struct QueryEcho {
 
 /// Execute a dependency inversion query via linear scan.
 ///
-/// Scans annotated commits and finds markers whose `Dependency` kind
-/// references the queried file+anchor.
+/// In v3, dependency information lives in `insight` wisdom entries
+/// with the pattern "Depends on {file}:{anchor} — {assumption}".
+/// This scans annotated commits for wisdom entries referencing the queried file+anchor.
 pub fn find_dependents(git: &dyn GitOps, query: &DepsQuery) -> Result<DepsOutput, GitError> {
     let annotated = git.list_annotated_commits(query.scan_limit)?;
     let commits_scanned = annotated.len() as u32;
@@ -70,28 +71,24 @@ pub fn find_dependents(git: &dyn GitOps, query: &DepsQuery) -> Result<DepsOutput
             }
         };
 
-        for marker in &annotation.markers {
-            if let v2::MarkerKind::Dependency {
-                target_file,
-                target_anchor,
-                assumption,
-            } = &marker.kind
-            {
+        for w in &annotation.wisdom {
+            if w.category != v3::WisdomCategory::Insight {
+                continue;
+            }
+
+            // Parse "Depends on {target_file}:{target_anchor} — {assumption}"
+            if let Some(dep) = parse_dependency_content(&w.content) {
                 if dep_matches(
-                    target_file,
-                    target_anchor,
+                    dep.0,
+                    dep.1,
                     &query.file,
                     query.anchor.as_deref(),
                 ) {
-                    let anchor_name = marker
-                        .anchor
-                        .as_ref()
-                        .map(|a| a.name.clone())
-                        .unwrap_or_default();
+                    let source_file = w.file.clone().unwrap_or_default();
                     dependents.push(DependentEntry {
-                        file: marker.file.clone(),
-                        anchor: anchor_name,
-                        nature: assumption.clone(),
+                        file: source_file,
+                        anchor: String::new(),
+                        nature: dep.2.to_string(),
                         commit: sha.clone(),
                         timestamp: annotation.timestamp.clone(),
                         context_level: annotation.provenance.source.to_string(),
@@ -124,8 +121,16 @@ pub fn find_dependents(git: &dyn GitOps, query: &DepsQuery) -> Result<DepsOutput
     })
 }
 
-/// Check if a dependency marker's target matches the queried file+anchor.
-/// Supports unqualified matching: "max_sessions" matches "TlsSessionCache::max_sessions".
+/// Parse dependency content from the migration format:
+/// "Depends on {file}:{anchor} — {assumption}"
+fn parse_dependency_content(content: &str) -> Option<(&str, &str, &str)> {
+    let rest = content.strip_prefix("Depends on ")?;
+    let (target, assumption) = rest.split_once(" — ")?;
+    let (target_file, target_anchor) = target.split_once(':')?;
+    Some((target_file, target_anchor, assumption))
+}
+
+/// Check if a dependency's target matches the queried file+anchor.
 fn dep_matches(
     target_file: &str,
     target_anchor: &str,
@@ -157,6 +162,7 @@ fn deduplicate(dependents: &mut Vec<DependentEntry>) {
 mod tests {
     use super::*;
     use crate::schema::common::AstAnchor;
+    use crate::schema::v2;
 
     struct MockGitOps {
         annotated_commits: Vec<String>,
@@ -296,7 +302,7 @@ mod tests {
         let result = find_dependents(&git, &query).unwrap();
         assert_eq!(result.dependents.len(), 1);
         assert_eq!(result.dependents[0].file, "src/mqtt/reconnect.rs");
-        assert_eq!(result.dependents[0].anchor, "ReconnectHandler::attempt");
+        assert_eq!(result.dependents[0].anchor, ""); // v3 reader sets anchor to empty string
         assert_eq!(result.dependents[0].nature, "assumes max_sessions is 4");
     }
 

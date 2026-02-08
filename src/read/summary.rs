@@ -1,7 +1,7 @@
 use crate::error::GitError;
 use crate::git::GitOps;
 use crate::schema::common::LineRange;
-use crate::schema::{self, v2};
+use crate::schema::{self, v3};
 
 /// Query parameters for a condensed summary.
 #[derive(Debug, Clone)]
@@ -68,17 +68,14 @@ struct AnchorAccumulator {
 
 /// Build a condensed summary for a file (or file+anchor).
 ///
-/// Handles both v1 (migrated) and native v2 annotations:
-/// - Markers with anchors produce per-anchor units (contracts, hazards, deps)
-/// - Annotations touching the file contribute their narrative as file-level context
-/// - For each unique anchor, the most recent commit wins
+/// In v3, all metadata is in wisdom entries. This function groups wisdom
+/// by file and produces summary units with gotcha entries as constraints.
 pub fn build_summary(git: &dyn GitOps, query: &SummaryQuery) -> Result<SummaryOutput, GitError> {
     let shas = git.log_for_file(&query.file)?;
     let commits_examined = shas.len() as u32;
 
-    // Key: anchor name -> AnchorAccumulator
-    // Within a single commit, markers for the same anchor are merged.
-    // Across commits, the first (newest) commit for each anchor wins.
+    // Key: file -> AnchorAccumulator
+    // In v3 there are no named anchors in wisdom, so we group by file.
     let mut best: std::collections::HashMap<String, AnchorAccumulator> =
         std::collections::HashMap::new();
 
@@ -88,7 +85,7 @@ pub fn build_summary(git: &dyn GitOps, query: &SummaryQuery) -> Result<SummaryOu
             None => continue,
         };
 
-        let annotation: v2::Annotation = match schema::parse_annotation(&note) {
+        let annotation = match schema::parse_annotation(&note) {
             Ok(a) => a,
             Err(e) => {
                 tracing::debug!("skipping malformed annotation for {sha}: {e}");
@@ -96,124 +93,52 @@ pub fn build_summary(git: &dyn GitOps, query: &SummaryQuery) -> Result<SummaryOu
             }
         };
 
-        // Collect markers from this commit, grouped by anchor name
-        let mut commit_anchors: std::collections::HashMap<String, AnchorAccumulator> =
+        // Group wisdom entries from this commit by file
+        let mut commit_groups: std::collections::HashMap<String, AnchorAccumulator> =
             std::collections::HashMap::new();
 
-        for marker in &annotation.markers {
-            if !file_matches(&marker.file, &query.file) {
+        for w in &annotation.wisdom {
+            let entry_file = match &w.file {
+                Some(f) => f,
+                None => continue,
+            };
+            if !file_matches(entry_file, &query.file) {
                 continue;
             }
 
-            let anchor_name = marker
-                .anchor
-                .as_ref()
-                .map(|a| a.name.as_str())
-                .unwrap_or("");
+            let key = entry_file.clone();
 
-            if let Some(ref query_anchor) = query.anchor {
-                if !anchor_matches(anchor_name, query_anchor) {
-                    continue;
-                }
-            }
-
-            let key = anchor_name.to_string();
-
-            // Skip if we already have a newer entry for this anchor
+            // Skip if we already have a newer entry for this file key
             if best.contains_key(&key) {
                 continue;
             }
 
-            let (anchor_info, lines) = match &marker.anchor {
-                Some(anchor) => (
-                    SummaryAnchor {
-                        unit_type: anchor.unit_type.clone(),
-                        name: anchor.name.clone(),
-                        signature: anchor.signature.clone(),
-                    },
-                    marker.lines.unwrap_or(LineRange { start: 0, end: 0 }),
-                ),
-                None => (
-                    SummaryAnchor {
-                        unit_type: "file".to_string(),
-                        name: marker.file.clone(),
-                        signature: None,
-                    },
-                    marker.lines.unwrap_or(LineRange { start: 0, end: 0 }),
-                ),
-            };
+            let lines = w.lines.unwrap_or(LineRange { start: 0, end: 0 });
 
-            // Merge markers within the same commit for the same anchor
-            let acc = commit_anchors
+            let acc = commit_groups
                 .entry(key)
                 .or_insert_with(|| AnchorAccumulator {
-                    anchor: anchor_info,
+                    anchor: SummaryAnchor {
+                        unit_type: "file".to_string(),
+                        name: entry_file.clone(),
+                        signature: None,
+                    },
                     lines,
-                    intent: annotation.narrative.summary.clone(),
+                    intent: annotation.summary.clone(),
                     constraints: vec![],
                     risk_notes: None,
                     timestamp: annotation.timestamp.clone(),
                 });
 
-            match &marker.kind {
-                v2::MarkerKind::Contract { description, .. } => {
-                    if !acc.constraints.contains(description) {
-                        acc.constraints.push(description.clone());
+            match w.category {
+                v3::WisdomCategory::Gotcha => {
+                    if !acc.constraints.contains(&w.content) {
+                        acc.constraints.push(w.content.clone());
                     }
                 }
-                v2::MarkerKind::Hazard { description } => {
-                    acc.risk_notes = Some(description.clone());
-                }
-                v2::MarkerKind::Dependency {
-                    assumption,
-                    target_file,
-                    target_anchor,
-                    ..
-                } => {
-                    let dep_note =
-                        format!("depends on {target_file}:{target_anchor}: {assumption}");
-                    acc.risk_notes = Some(match acc.risk_notes.take() {
-                        Some(existing) => format!("{existing}; {dep_note}"),
-                        None => dep_note,
-                    });
-                }
-                v2::MarkerKind::Unstable { description, .. } => {
-                    let unstable_note = format!("UNSTABLE: {description}");
-                    acc.risk_notes = Some(match acc.risk_notes.take() {
-                        Some(existing) => format!("{existing}; {unstable_note}"),
-                        None => unstable_note,
-                    });
-                }
-                v2::MarkerKind::Security { description } => {
-                    let note = format!("SECURITY: {description}");
-                    acc.risk_notes = Some(match acc.risk_notes.take() {
-                        Some(existing) => format!("{existing}; {note}"),
-                        None => note,
-                    });
-                }
-                v2::MarkerKind::Performance { description } => {
-                    let note = format!("PERF: {description}");
-                    acc.risk_notes = Some(match acc.risk_notes.take() {
-                        Some(existing) => format!("{existing}; {note}"),
-                        None => note,
-                    });
-                }
-                v2::MarkerKind::Deprecated { description, .. } => {
-                    let note = format!("DEPRECATED: {description}");
-                    acc.risk_notes = Some(match acc.risk_notes.take() {
-                        Some(existing) => format!("{existing}; {note}"),
-                        None => note,
-                    });
-                }
-                v2::MarkerKind::TechDebt { description } => {
-                    let note = format!("TECH_DEBT: {description}");
-                    acc.risk_notes = Some(match acc.risk_notes.take() {
-                        Some(existing) => format!("{existing}; {note}"),
-                        None => note,
-                    });
-                }
-                v2::MarkerKind::TestCoverage { description } => {
-                    let note = format!("TEST_COVERAGE: {description}");
+                _ => {
+                    // Other wisdom categories contribute to risk_notes
+                    let note = w.content.clone();
                     acc.risk_notes = Some(match acc.risk_notes.take() {
                         Some(existing) => format!("{existing}; {note}"),
                         None => note,
@@ -222,8 +147,7 @@ pub fn build_summary(git: &dyn GitOps, query: &SummaryQuery) -> Result<SummaryOu
             }
         }
 
-        // Only insert anchors from this commit that we haven't seen yet
-        for (key, acc) in commit_anchors {
+        for (key, acc) in commit_groups {
             best.entry(key).or_insert(acc);
         }
     }
@@ -258,7 +182,7 @@ pub fn build_summary(git: &dyn GitOps, query: &SummaryQuery) -> Result<SummaryOu
     })
 }
 
-use super::matching::{anchor_matches, file_matches};
+use super::matching::file_matches;
 
 #[cfg(test)]
 mod tests {
@@ -268,6 +192,7 @@ mod tests {
         self, Constraint, ConstraintSource, ContextLevel, Provenance, ProvenanceOperation,
         RegionAnnotation,
     };
+    use crate::schema::v2;
     type Annotation = v1::Annotation;
 
     struct MockGitOps {
@@ -410,12 +335,14 @@ mod tests {
         let result = build_summary(&git, &query).unwrap();
         // The "main" anchor should have both contract and hazard markers aggregated
         assert_eq!(result.units.len(), 1);
-        assert_eq!(result.units[0].anchor.name, "main");
-        assert_eq!(result.units[0].constraints, vec!["must not panic"]);
+        assert_eq!(result.units[0].anchor.name, "src/main.rs"); // v3 groups by file, not anchor
+        // Both v1 constraints and risk_notes become Gotcha wisdom entries (constraints)
         assert_eq!(
-            result.units[0].risk_notes,
-            Some("error handling is fragile".to_string())
+            result.units[0].constraints,
+            vec!["must not panic", "error handling is fragile"]
         );
+        // No separate risk_notes since both are gotcha category in v3
+        assert_eq!(result.units[0].risk_notes, None);
     }
 
     #[test]
@@ -579,14 +506,16 @@ mod tests {
         };
 
         let result = build_summary(&git, &query).unwrap();
+        // v3 file-level grouping collapses both anchors into one unit for src/main.rs
         assert_eq!(result.units.len(), 1);
-        assert_eq!(result.units[0].anchor.name, "main");
-        assert_eq!(result.units[0].constraints, vec!["must not panic"]);
+        assert_eq!(result.units[0].anchor.name, "src/main.rs");
+        // Both anchors' constraints merged into the file-level unit
+        assert_eq!(result.units[0].constraints, vec!["must not panic", "must be pure"]);
     }
 
     #[test]
     fn test_summary_native_v2_annotation() {
-        // Test with a native v2 annotation (not migrated from v1)
+        // Test with a native v2 annotation (migrated to v3 at parse time)
         let v2_ann = v2::Annotation {
             schema: "chronicle/v2".to_string(),
             commit: "commit1".to_string(),
@@ -652,16 +581,17 @@ mod tests {
 
         let result = build_summary(&git, &query).unwrap();
         assert_eq!(result.units.len(), 1);
-        assert_eq!(result.units[0].anchor.name, "Cache::get");
+        assert_eq!(result.units[0].anchor.name, "src/cache.rs"); // v3 groups by file, not anchor
         assert_eq!(result.units[0].intent, "Add caching layer");
+        // Both Contract and Hazard become Gotcha wisdom entries (constraints) in v3
         assert_eq!(
             result.units[0].constraints,
-            vec!["Must return None for expired entries"]
+            vec![
+                "Must return None for expired entries",
+                "Not thread-safe without external locking"
+            ]
         );
-        assert_eq!(
-            result.units[0].risk_notes,
-            Some("Not thread-safe without external locking".to_string())
-        );
+        assert_eq!(result.units[0].risk_notes, None);
     }
 
     #[test]

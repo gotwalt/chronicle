@@ -107,11 +107,14 @@ fn collect_follow_ups(git: &dyn GitOps, file: &str) -> Result<Vec<FollowUpEntry>
                 continue;
             }
         };
-        if let Some(fu) = &annotation.narrative.follow_up {
-            follow_ups.push(FollowUpEntry {
-                commit: sha.clone(),
-                follow_up: fu.clone(),
-            });
+        // In v3, follow-ups are unfinished_thread wisdom entries.
+        for w in &annotation.wisdom {
+            if w.category == crate::schema::v3::WisdomCategory::UnfinishedThread {
+                follow_ups.push(FollowUpEntry {
+                    commit: sha.clone(),
+                    follow_up: w.content.clone(),
+                });
+            }
         }
     }
 

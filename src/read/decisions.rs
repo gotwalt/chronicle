@@ -1,6 +1,8 @@
 use crate::error::GitError;
 use crate::git::GitOps;
-use crate::schema::{self, v2};
+use crate::schema::{self, v3};
+
+use super::matching::file_matches;
 
 /// Query parameters: "What was decided and what was tried?"
 #[derive(Debug, Clone)]
@@ -8,7 +10,7 @@ pub struct DecisionsQuery {
     pub file: Option<String>,
 }
 
-/// A decision entry extracted from a v2 `Decision`.
+/// A decision entry extracted from insight wisdom entries.
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct DecisionEntry {
     pub what: String,
@@ -20,7 +22,7 @@ pub struct DecisionEntry {
     pub timestamp: String,
 }
 
-/// A rejected alternative extracted from a v2 `Narrative.rejected_alternatives`.
+/// A rejected alternative extracted from dead_end wisdom entries.
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct RejectedAlternativeEntry {
     pub approach: String,
@@ -39,13 +41,16 @@ pub struct DecisionsOutput {
 
 /// Collect decisions and rejected alternatives from annotations.
 ///
-/// 1. Determine which commits to examine:
-///    - If a file is specified, use `log_for_file` to get commits touching that file
-///    - Otherwise, use `list_annotated_commits` to scan all annotated commits
-/// 2. For each commit, parse annotation via `parse_annotation` (handles v1 migration)
-/// 3. Collect decisions and rejected alternatives
-/// 4. When a file is given, filter decisions to those whose scope includes the file
-/// 5. Deduplicate decisions by `what` field, keeping the most recent
+/// In v3, decisions come from `insight` wisdom entries whose content
+/// matches the "{what}: {why}" pattern (from v2 decision migration),
+/// and rejected alternatives come from `dead_end` wisdom entries whose
+/// content matches the "{approach}: {reason}" pattern.
+///
+/// 1. Determine which commits to examine
+/// 2. For each commit, parse annotation via `parse_annotation`
+/// 3. Collect insight entries as decisions, dead_end entries as rejected alternatives
+/// 4. When a file is given, filter by wisdom entry file scope
+/// 5. Deduplicate by content, keeping the most recent
 pub fn query_decisions(
     git: &dyn GitOps,
     query: &DecisionsQuery,
@@ -55,10 +60,10 @@ pub fn query_decisions(
         None => git.list_annotated_commits(1000)?,
     };
 
-    // Key: decision.what -> DecisionEntry (first match wins, newest first)
+    // Key: content -> DecisionEntry (first match wins, newest first)
     let mut best_decisions: std::collections::HashMap<String, DecisionEntry> =
         std::collections::HashMap::new();
-    // Key: (approach, reason) -> RejectedAlternativeEntry
+    // Key: content -> RejectedAlternativeEntry
     let mut best_rejected: std::collections::HashMap<String, RejectedAlternativeEntry> =
         std::collections::HashMap::new();
 
@@ -68,7 +73,7 @@ pub fn query_decisions(
             None => continue,
         };
 
-        let annotation: v2::Annotation = match schema::parse_annotation(&note) {
+        let annotation = match schema::parse_annotation(&note) {
             Ok(a) => a,
             Err(e) => {
                 tracing::debug!("skipping malformed annotation for {sha}: {e}");
@@ -76,42 +81,60 @@ pub fn query_decisions(
             }
         };
 
-        // Collect decisions, optionally filtered by scope
-        for decision in &annotation.decisions {
+        for w in &annotation.wisdom {
+            // If filtering by file, check scope
             if let Some(ref file) = query.file {
-                if !decision_scope_matches(decision, file) {
-                    continue;
+                if let Some(ref wf) = w.file {
+                    if !file_matches(wf, file) && !file.starts_with(wf.as_str()) {
+                        continue;
+                    }
                 }
+                // Wisdom with no file scope is repo-wide, include it
             }
 
-            let stability_str = stability_to_string(&decision.stability);
+            match w.category {
+                v3::WisdomCategory::Insight => {
+                    // Parse "{what}: {why}" format from v2 decision migration
+                    let (what, why) = if let Some((w_str, y_str)) = w.content.split_once(": ") {
+                        (w_str.to_string(), y_str.to_string())
+                    } else {
+                        (w.content.clone(), String::new())
+                    };
 
-            let key = decision.what.clone();
-            best_decisions.entry(key).or_insert_with(|| DecisionEntry {
-                what: decision.what.clone(),
-                why: decision.why.clone(),
-                stability: stability_str,
-                revisit_when: decision.revisit_when.clone(),
-                scope: decision.scope.clone(),
-                commit: annotation.commit.clone(),
-                timestamp: annotation.timestamp.clone(),
-            });
-        }
+                    let scope = w.file.as_ref().map(|f| vec![f.clone()]).unwrap_or_default();
 
-        // Collect rejected alternatives from narrative
-        for rejected in &annotation.narrative.rejected_alternatives {
-            // When filtering by file, only include rejected alternatives from
-            // commits that touched the file (which is already the case since
-            // we used log_for_file). For the no-file case, include all.
-            let key = format!("{}:{}", rejected.approach, rejected.reason);
-            best_rejected
-                .entry(key)
-                .or_insert_with(|| RejectedAlternativeEntry {
-                    approach: rejected.approach.clone(),
-                    reason: rejected.reason.clone(),
-                    commit: annotation.commit.clone(),
-                    timestamp: annotation.timestamp.clone(),
-                });
+                    let key = w.content.clone();
+                    best_decisions.entry(key).or_insert_with(|| DecisionEntry {
+                        what,
+                        why,
+                        stability: "permanent".to_string(),
+                        revisit_when: None,
+                        scope,
+                        commit: annotation.commit.clone(),
+                        timestamp: annotation.timestamp.clone(),
+                    });
+                }
+                v3::WisdomCategory::DeadEnd => {
+                    // Parse "{approach}: {reason}" format from v2 rejected_alternatives migration
+                    let (approach, reason) =
+                        if let Some((a_str, r_str)) = w.content.split_once(": ") {
+                            (a_str.to_string(), r_str.to_string())
+                        } else {
+                            (w.content.clone(), String::new())
+                        };
+
+                    let key = w.content.clone();
+                    best_rejected
+                        .entry(key)
+                        .or_insert_with(|| RejectedAlternativeEntry {
+                            approach,
+                            reason,
+                            commit: annotation.commit.clone(),
+                            timestamp: annotation.timestamp.clone(),
+                        });
+                }
+                _ => {}
+            }
         }
     }
 
@@ -127,32 +150,6 @@ pub fn query_decisions(
         decisions,
         rejected_alternatives,
     })
-}
-
-/// Check if a decision's scope matches the queried file.
-///
-/// A decision matches if:
-/// - Its scope is empty (applies globally)
-/// - Any scope entry starts with the file path or contains the file name
-fn decision_scope_matches(decision: &v2::Decision, file: &str) -> bool {
-    if decision.scope.is_empty() {
-        return true;
-    }
-    let norm_file = file.strip_prefix("./").unwrap_or(file);
-    decision.scope.iter().any(|s| {
-        let norm_scope = s.strip_prefix("./").unwrap_or(s);
-        // Scope entry could be "src/foo.rs:bar_fn" (file:anchor) or just "src/foo.rs"
-        let scope_file = norm_scope.split(':').next().unwrap_or(norm_scope);
-        scope_file == norm_file || norm_file.starts_with(scope_file)
-    })
-}
-
-fn stability_to_string(stability: &v2::Stability) -> String {
-    match stability {
-        v2::Stability::Permanent => "permanent".to_string(),
-        v2::Stability::Provisional => "provisional".to_string(),
-        v2::Stability::Experimental => "experimental".to_string(),
-    }
 }
 
 #[cfg(test)]
@@ -218,7 +215,7 @@ mod tests {
     }
 
     /// Build a v1 annotation JSON string. parse_annotation() will migrate
-    /// it to v2, so cross_cutting concerns become v2 decisions.
+    /// it to v3, so cross_cutting concerns become insight wisdom entries.
     fn make_v1_annotation_with_cross_cutting(
         commit: &str,
         timestamp: &str,
@@ -266,7 +263,7 @@ mod tests {
 
     #[test]
     fn test_decisions_from_v1_cross_cutting() {
-        // v1 cross-cutting concerns migrate to v2 decisions
+        // v1 cross-cutting concerns migrate to insight wisdom entries
         let note = make_v1_annotation_with_cross_cutting(
             "commit1",
             "2025-01-01T00:00:00Z",
@@ -440,7 +437,12 @@ mod tests {
 
     #[test]
     fn test_decisions_with_native_v2_rejected_alternatives() {
-        // Build a native v2 annotation with rejected_alternatives in the narrative
+        // Build a native v2 annotation. parse_annotation() migrates it to v3.
+        // parse_annotation() will migrate it to v3, where:
+        //   - decisions become insight wisdom: "Use HashMap for the cache: O(1) lookups..."
+        //   - rejected_alternatives become dead_end wisdom: "BTreeMap for ordered iteration: Lookup..."
+        use crate::schema::v2;
+
         let v2_ann = v2::Annotation {
             schema: "chronicle/v2".to_string(),
             commit: "commit1".to_string(),
@@ -489,14 +491,15 @@ mod tests {
 
         let result = query_decisions(&git, &query).unwrap();
 
+        // v2 decision migrates to insight wisdom with "{what}: {why}" format
         assert_eq!(result.decisions.len(), 1);
         assert_eq!(result.decisions[0].what, "Use HashMap for the cache");
-        assert_eq!(result.decisions[0].stability, "provisional");
         assert_eq!(
-            result.decisions[0].revisit_when.as_deref(),
-            Some("If we need sorted keys")
+            result.decisions[0].why,
+            "O(1) lookups are critical for the hot path"
         );
 
+        // v2 rejected_alternative migrates to dead_end wisdom with "{approach}: {reason}" format
         assert_eq!(result.rejected_alternatives.len(), 1);
         assert_eq!(
             result.rejected_alternatives[0].approach,
@@ -533,33 +536,5 @@ mod tests {
         assert!(json.contains("chronicle-decisions/v1"));
         assert!(json.contains("Use HashMap"));
         assert!(json.contains("BTreeMap"));
-    }
-
-    #[test]
-    fn test_decision_scope_matches_helper() {
-        let decision = v2::Decision {
-            what: "test".to_string(),
-            why: "test".to_string(),
-            stability: v2::Stability::Permanent,
-            revisit_when: None,
-            scope: vec!["src/main.rs:main".to_string()],
-        };
-
-        assert!(decision_scope_matches(&decision, "src/main.rs"));
-        assert!(!decision_scope_matches(&decision, "src/other.rs"));
-    }
-
-    #[test]
-    fn test_decision_empty_scope_matches_any_file() {
-        let decision = v2::Decision {
-            what: "test".to_string(),
-            why: "test".to_string(),
-            stability: v2::Stability::Permanent,
-            revisit_when: None,
-            scope: vec![],
-        };
-
-        assert!(decision_scope_matches(&decision, "src/main.rs"));
-        assert!(decision_scope_matches(&decision, "src/anything.rs"));
     }
 }

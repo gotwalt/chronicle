@@ -88,7 +88,16 @@ pub fn scan_staleness(git: &dyn GitOps, limit: u32) -> Result<StalenessReport, G
 
         total_annotations += 1;
 
-        for file in &annotation.narrative.files_changed {
+        // In v3, files come from wisdom entries (no narrative.files_changed).
+        let files: Vec<String> = annotation
+            .wisdom
+            .iter()
+            .filter_map(|w| w.file.clone())
+            .collect::<std::collections::HashSet<_>>()
+            .into_iter()
+            .collect();
+
+        for file in &files {
             if let Some(info) = compute_staleness(git, file, &annotation.commit)? {
                 if info.stale {
                     stale_count += 1;

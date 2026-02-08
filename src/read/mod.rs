@@ -12,7 +12,7 @@ pub mod summary;
 use crate::error::{ChronicleError, Result};
 use crate::git::GitOps;
 use crate::schema::common::LineRange;
-use crate::schema::v2;
+use crate::schema::v3;
 
 /// Query parameters for reading annotations.
 #[derive(Debug, Clone)]
@@ -29,20 +29,14 @@ pub struct ReadResult {
     pub annotations: Vec<MatchedAnnotation>,
 }
 
-/// A v2-native annotation matched to a specific commit.
+/// A v3-native annotation matched to a specific commit.
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct MatchedAnnotation {
     pub commit: String,
     pub timestamp: String,
     pub summary: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub motivation: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub markers: Vec<v2::CodeMarker>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub decisions: Vec<v2::Decision>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub follow_up: Option<String>,
+    pub wisdom: Vec<v3::WisdomEntry>,
     pub provenance: String,
 }
 

@@ -8,7 +8,7 @@ pub struct SentimentsQuery {
     pub file: Option<String>,
 }
 
-/// A sentiment entry extracted from a v2 `Narrative.sentiments`.
+/// A sentiment entry extracted from wisdom entries.
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct SentimentEntry {
     pub feeling: String,
@@ -27,11 +27,14 @@ pub struct SentimentsOutput {
 
 /// Collect sentiments from annotations across the repository.
 ///
-/// 1. Determine which commits to examine:
-///    - If a file is specified, use `log_for_file` to get commits touching that file
-///    - Otherwise, use `list_annotated_commits` to scan all annotated commits
-/// 2. For each commit, parse annotation via `parse_annotation` (handles v1 migration)
-/// 3. Collect sentiments from `annotation.narrative.sentiments`
+/// In v3, sentiments are migrated into wisdom entries (gotcha for worry/unease,
+/// unfinished_thread for uncertainty/doubt, insight for others). This function
+/// reconstructs sentiment-like entries from wisdom entries by inferring the
+/// feeling from the category.
+///
+/// 1. Determine which commits to examine
+/// 2. For each commit, parse annotation via `parse_annotation`
+/// 3. Map wisdom entries back to sentiment-like entries
 /// 4. Return newest-first
 pub fn query_sentiments(
     git: &dyn GitOps,
@@ -58,13 +61,21 @@ pub fn query_sentiments(
             }
         };
 
-        for sentiment in &annotation.narrative.sentiments {
+        // In v3, sentiments were migrated into wisdom entries.
+        // Map wisdom categories back to feeling-like labels for display.
+        for w in &annotation.wisdom {
+            let feeling = match w.category {
+                crate::schema::v3::WisdomCategory::Gotcha => "worry",
+                crate::schema::v3::WisdomCategory::UnfinishedThread => "uncertainty",
+                crate::schema::v3::WisdomCategory::Insight => "confidence",
+                crate::schema::v3::WisdomCategory::DeadEnd => "frustration",
+            };
             sentiments.push(SentimentEntry {
-                feeling: sentiment.feeling.clone(),
-                detail: sentiment.detail.clone(),
+                feeling: feeling.to_string(),
+                detail: w.content.clone(),
                 commit: annotation.commit.clone(),
                 timestamp: annotation.timestamp.clone(),
-                summary: annotation.narrative.summary.clone(),
+                summary: annotation.summary.clone(),
             });
         }
     }
@@ -228,7 +239,7 @@ mod tests {
         )
         .unwrap();
         assert_eq!(result.sentiments.len(), 1);
-        assert_eq!(result.sentiments[0].feeling, "curiosity");
+        assert_eq!(result.sentiments[0].feeling, "confidence"); // v2 "curiosity" -> migration -> Insight (default) -> reader -> "confidence"
     }
 
     #[test]
@@ -282,7 +293,7 @@ mod tests {
         assert_eq!(result.sentiments.len(), 2);
         assert_eq!(result.sentiments[0].feeling, "confidence");
         assert_eq!(result.sentiments[0].timestamp, "2025-01-02T00:00:00Z");
-        assert_eq!(result.sentiments[1].feeling, "doubt");
+        assert_eq!(result.sentiments[1].feeling, "uncertainty"); // v2 "doubt" -> migration -> UnfinishedThread -> reader -> "uncertainty"
     }
 
     #[test]

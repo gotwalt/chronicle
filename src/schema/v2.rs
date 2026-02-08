@@ -228,7 +228,7 @@ pub enum EffortPhase {
 // Provenance
 // ---------------------------------------------------------------------------
 
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct Provenance {
     pub source: ProvenanceSource,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -248,6 +248,7 @@ pub enum ProvenanceSource {
     Squash,
     Amend,
     MigratedV1,
+    MigratedV2,
 }
 
 impl std::fmt::Display for ProvenanceSource {
@@ -259,6 +260,7 @@ impl std::fmt::Display for ProvenanceSource {
             Self::Squash => write!(f, "squash"),
             Self::Amend => write!(f, "amend"),
             Self::MigratedV1 => write!(f, "migrated_v1"),
+            Self::MigratedV2 => write!(f, "migrated_v2"),
         }
     }
 }

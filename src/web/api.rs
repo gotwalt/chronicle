@@ -63,11 +63,11 @@ fn handle_tree(git_ops: &CliOps) -> crate::error::Result<Response> {
     for sha in &annotated {
         if let Ok(Some(note)) = git_ops.note_read(sha) {
             if let Ok(ann) = crate::schema::parse_annotation(&note) {
-                for f in &ann.narrative.files_changed {
-                    *annotation_counts.entry(f.clone()).or_insert(0) += 1;
-                }
-                for m in &ann.markers {
-                    annotation_counts.entry(m.file.clone()).or_insert(0);
+                // In v3, file references come from wisdom entries.
+                for w in &ann.wisdom {
+                    if let Some(f) = &w.file {
+                        *annotation_counts.entry(f.clone()).or_insert(0) += 1;
+                    }
                 }
             }
         }

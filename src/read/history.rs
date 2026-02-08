@@ -1,6 +1,6 @@
 use crate::error::GitError;
 use crate::git::GitOps;
-use crate::schema::{self, v2};
+use crate::schema::{self, v3};
 
 /// Query parameters for timeline reconstruction.
 #[derive(Debug, Clone)]
@@ -81,83 +81,24 @@ pub fn build_timeline(git: &dyn GitOps, query: &HistoryQuery) -> Result<HistoryO
             .map(|ci| ci.message.clone())
             .unwrap_or_default();
 
-        // Check if this annotation is relevant to the queried file
-        let file_in_files_changed = annotation
-            .narrative
-            .files_changed
-            .iter()
-            .any(|f| file_matches(f, &query.file));
-        let file_in_markers = annotation
-            .markers
-            .iter()
-            .any(|m| file_matches(&m.file, &query.file));
+        // The commit is already in log_for_file results, so it touched this file.
+        // Always include annotated commits — the git log is the relevance signal.
 
-        if !file_in_files_changed && !file_in_markers {
-            continue;
-        }
-
-        // If anchor is specified, check if any marker has matching anchor
-        if let Some(ref anchor_name) = query.anchor {
-            let has_matching_anchor = annotation.markers.iter().any(|m| {
-                file_matches(&m.file, &query.file)
-                    && m.anchor
-                        .as_ref()
-                        .map(|a| anchor_matches(&a.name, anchor_name))
-                        .unwrap_or(false)
-            });
-            if !has_matching_anchor && !file_in_files_changed {
-                continue;
-            }
-        }
-
-        // Extract constraints from Contract markers matching the file
+        // Extract gotcha wisdom entries as constraints
         let constraints: Vec<String> = annotation
-            .markers
+            .wisdom
             .iter()
-            .filter(|m| file_matches(&m.file, &query.file))
-            .filter(|m| {
-                query.anchor.as_ref().is_none_or(|qa| {
-                    m.anchor
-                        .as_ref()
-                        .is_some_and(|a| anchor_matches(&a.name, qa))
-                })
+            .filter(|w| w.category == v3::WisdomCategory::Gotcha)
+            .filter(|w| {
+                w.file
+                    .as_ref()
+                    .is_none_or(|f| file_matches(f, &query.file))
             })
-            .filter_map(|m| {
-                if let v2::MarkerKind::Contract { description, .. } = &m.kind {
-                    Some(description.clone())
-                } else {
-                    None
-                }
-            })
+            .map(|w| w.content.clone())
             .collect();
 
-        // Extract risk notes from Hazard markers matching the file
-        let risk_notes: Option<String> = {
-            let hazards: Vec<String> = annotation
-                .markers
-                .iter()
-                .filter(|m| file_matches(&m.file, &query.file))
-                .filter(|m| {
-                    query.anchor.as_ref().is_none_or(|qa| {
-                        m.anchor
-                            .as_ref()
-                            .is_some_and(|a| anchor_matches(&a.name, qa))
-                    })
-                })
-                .filter_map(|m| {
-                    if let v2::MarkerKind::Hazard { description } = &m.kind {
-                        Some(description.clone())
-                    } else {
-                        None
-                    }
-                })
-                .collect();
-            if hazards.is_empty() {
-                None
-            } else {
-                Some(hazards.join("; "))
-            }
-        };
+        // No direct equivalent for risk_notes in v3 — leave as None
+        let risk_notes: Option<String> = None;
 
         let context_level = annotation.provenance.source.to_string();
 
@@ -167,8 +108,8 @@ pub fn build_timeline(git: &dyn GitOps, query: &HistoryQuery) -> Result<HistoryO
             commit_message: commit_msg,
             context_level: context_level.clone(),
             provenance: context_level,
-            intent: annotation.narrative.summary.clone(),
-            reasoning: annotation.narrative.motivation.clone(),
+            intent: annotation.summary.clone(),
+            reasoning: None,
             constraints,
             risk_notes,
         });
@@ -199,12 +140,13 @@ pub fn build_timeline(git: &dyn GitOps, query: &HistoryQuery) -> Result<HistoryO
     })
 }
 
-use super::matching::{anchor_matches, file_matches};
+use super::matching::file_matches;
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::schema::common::AstAnchor;
+    use crate::schema::v2;
 
     struct MockGitOps {
         file_log: Vec<String>,
