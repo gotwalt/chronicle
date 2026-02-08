@@ -1,0 +1,42 @@
+{
+  "schema": "chronicle/v3",
+  "commit": "d4edd5cfb456d86e71e938ec3c94d2c159fbec09",
+  "timestamp": "2026-02-08T14:33:45-08:00",
+  "summary": "This commit replaces the dtolnay/rust-toolchain GitHub Action with a simpler `rustup show` command for installing the Rust toolchain in CI/CD workflows. The change is motivated by the fact that GitHub Actions runners already have rustup preinstalled, and `rustup show` automatically reads the project's `rust-toolchain.toml` file to install the correct toolchain version (1.93.0) and components (rustfmt, clippy).\n\nThe new approach is simpler and more direct: instead of using an external action with an empty toolchain parameter that delegates to rust-toolchain.toml, we directly invoke the rustup command that accomplishes the same goal. The `rustup show` command both displays and ensures the toolchain specified in rust-toolchain.toml is installed, making it a perfect fit for CI environments.\n\nAdditionally, the release workflow gains an explicit Node.js setup step (v22) via `actions/setup-node@v4`, which was likely previously handled implicitly or missing altogether.",
+  "wisdom": [
+    {
+      "category": "insight",
+      "content": "Depends on rust-toolchain.toml:toolchain configuration — Depends on rust-toolchain.toml existing in the repository root and specifying a valid toolchain configuration. If that file is missing or malformed, rustup show will fail or use the default toolchain.",
+      "file": ".github/workflows/ci.yml",
+      "lines": {
+        "start": 19,
+        "end": 19
+      }
+    },
+    {
+      "category": "insight",
+      "content": "Depends on rust-toolchain.toml:toolchain configuration — Depends on rust-toolchain.toml existing in the repository root and specifying a valid toolchain configuration. If that file is missing or malformed, rustup show will fail or use the default toolchain.",
+      "file": ".github/workflows/release.yml",
+      "lines": {
+        "start": 30,
+        "end": 30
+      }
+    },
+    {
+      "category": "insight",
+      "content": "Use rustup show instead of third-party GitHub Actions for Rust toolchain installation: GitHub Actions runners come with rustup preinstalled, and rustup show automatically reads rust-toolchain.toml to install the correct version and components. This reduces external dependencies, eliminates the indirection of the dtolnay action with empty parameters, and makes the CI setup more transparent and maintainable. The toolchain configuration remains centralized in rust-toolchain.toml.",
+      "file": ".github/workflows/ci.yml"
+    },
+    {
+      "category": "dead_end",
+      "content": "Keep dtolnay/rust-toolchain action with explicit toolchain version: Would duplicate the version specification already in rust-toolchain.toml, violating DRY principle and creating a maintenance burden"
+    },
+    {
+      "category": "dead_end",
+      "content": "Use rustup toolchain install with explicit version: rustup show is simpler and automatically respects rust-toolchain.toml without needing to specify version/components inline"
+    }
+  ],
+  "provenance": {
+    "source": "batch"
+  }
+}
