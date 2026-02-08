@@ -1,0 +1,10 @@
+{
+  "schema": "chronicle/v3",
+  "commit": "b77c2ef7a0cf3183e184e91bba9c71e9cf4099d1",
+  "timestamp": "2026-02-08T14:16:44-08:00",
+  "summary": "Exclude web/node_modules and web/dist from crate package",
+  "provenance": {
+    "source": "batch",
+    "notes": "Trivial: trivial change (2 lines changed)"
+  }
+}
