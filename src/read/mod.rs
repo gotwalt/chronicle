@@ -5,6 +5,7 @@ pub mod history;
 pub mod lookup;
 pub(crate) mod matching;
 pub mod retrieve;
+pub mod sentiments;
 pub mod staleness;
 pub mod summary;
 

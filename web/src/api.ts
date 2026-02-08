@@ -3,6 +3,7 @@ import type {
   FileViewResponse,
   StatusOutput,
   DecisionsOutput,
+  SentimentsOutput,
   KnowledgeStore,
 } from "./types";
 
@@ -31,6 +32,14 @@ export async function fetchDecisions(path?: string): Promise<DecisionsOutput> {
   const res = await fetch(`${BASE}/decisions${params}`);
   if (!res.ok)
     throw new Error(`Failed to fetch decisions: ${res.statusText}`);
+  return res.json();
+}
+
+export async function fetchSentiments(path?: string): Promise<SentimentsOutput> {
+  const params = path ? `?path=${encodeURIComponent(path)}` : "";
+  const res = await fetch(`${BASE}/sentiments${params}`);
+  if (!res.ok)
+    throw new Error(`Failed to fetch sentiments: ${res.statusText}`);
   return res.json();
 }
 

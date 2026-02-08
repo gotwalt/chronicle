@@ -5,7 +5,7 @@ use crate::cli::status::build_status;
 use crate::error::{ChronicleError, GitError};
 use crate::git::{CliOps, GitOps};
 use crate::knowledge;
-use crate::read::{decisions, history, lookup, summary};
+use crate::read::{decisions, history, lookup, sentiments, summary};
 
 type Response = tiny_http::Response<Cursor<Vec<u8>>>;
 
@@ -17,6 +17,7 @@ pub fn handle(git_ops: &CliOps, url: &str) -> crate::error::Result<Response> {
         "/api/status" => handle_status(git_ops),
         "/api/tree" => handle_tree(git_ops),
         "/api/decisions" => handle_decisions(git_ops, query),
+        "/api/sentiments" => handle_sentiments(git_ops, query),
         "/api/knowledge" => handle_knowledge(git_ops),
         _ if path.starts_with("/api/file-view/") => {
             let file_path = &path["/api/file-view/".len()..];
@@ -208,6 +209,18 @@ fn handle_decisions(git_ops: &CliOps, query: &str) -> crate::error::Result<Respo
             location: snafu::Location::default(),
         },
     )?;
+    Ok(json_response(200, &result))
+}
+
+fn handle_sentiments(git_ops: &CliOps, query: &str) -> crate::error::Result<Response> {
+    let file = parse_query_param(query, "path");
+    let result =
+        sentiments::query_sentiments(git_ops, &sentiments::SentimentsQuery { file }).map_err(
+            |e| ChronicleError::Git {
+                source: e,
+                location: snafu::Location::default(),
+            },
+        )?;
     Ok(json_response(200, &result))
 }
 

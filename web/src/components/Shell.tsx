@@ -7,6 +7,7 @@ import { FileViewer } from "./FileViewer";
 import { OverviewPage } from "./OverviewPage";
 import { DecisionsPage } from "./DecisionsPage";
 import { KnowledgePage } from "./KnowledgePage";
+import { SentimentsPage } from "./SentimentsPage";
 
 function extractFilePath(pathname: string): string | null {
   const prefix = "/file/";
@@ -16,12 +17,13 @@ function extractFilePath(pathname: string): string | null {
   return null;
 }
 
-type Page = "overview" | "file" | "decisions" | "knowledge";
+type Page = "overview" | "file" | "decisions" | "knowledge" | "sentiments";
 
 function getPage(pathname: string): Page {
   if (pathname.startsWith("/file/")) return "file";
   if (pathname === "/decisions") return "decisions";
   if (pathname === "/knowledge") return "knowledge";
+  if (pathname === "/sentiments") return "sentiments";
   return "overview";
 }
 
@@ -99,6 +101,11 @@ export function Shell() {
               active={page === "knowledge"}
               onClick={() => navigate("/knowledge")}
             />
+            <NavButton
+              label="Sentiments"
+              active={page === "sentiments"}
+              onClick={() => navigate("/sentiments")}
+            />
           </nav>
         </div>
         {selectedPath && (
@@ -149,6 +156,7 @@ export function Shell() {
 
           {page === "decisions" && !error && <DecisionsPage />}
           {page === "knowledge" && !error && <KnowledgePage />}
+          {page === "sentiments" && !error && <SentimentsPage />}
         </main>
       </div>
 

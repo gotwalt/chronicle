@@ -156,6 +156,21 @@ export interface SummaryUnit {
   last_modified: string;
 }
 
+// --- Sentiments ---
+
+export interface SentimentEntry {
+  feeling: string;
+  detail: string;
+  commit: string;
+  timestamp: string;
+  summary: string;
+}
+
+export interface SentimentsOutput {
+  schema: string;
+  sentiments: SentimentEntry[];
+}
+
 // --- Decisions (repo-wide) ---
 
 export interface DecisionsOutput {
