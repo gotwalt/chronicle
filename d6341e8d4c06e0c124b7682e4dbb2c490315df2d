@@ -1,0 +1,42 @@
+{
+  "schema": "chronicle/v2",
+  "commit": "d6341e8d4c06e0c124b7682e4dbb2c490315df2d",
+  "timestamp": "2026-02-07T16:49:18-08:00",
+  "narrative": {
+    "summary": "Run `cargo fmt` to apply uniform Rust formatting across the codebase. This is a pure formatting change with no functional modifications - it reformats long strings, method chains, and match expressions to conform to rustfmt's default style guide. The changes improve consistency and readability by standardizing line breaks, indentation, and whitespace usage throughout 20+ files.",
+    "motivation": "Maintaining consistent code formatting across a Rust project. This appears to be routine maintenance to ensure all code follows the same style conventions, likely triggered by either a pre-commit check, CI failure, or preparation for a release/PR.",
+    "files_changed": [
+      "src/agent/tools.rs",
+      "src/annotate/live.rs",
+      "src/annotate/mod.rs",
+      "src/annotate/squash.rs",
+      "src/cli/annotate.rs",
+      "src/cli/context.rs",
+      "src/cli/contracts.rs",
+      "src/cli/correct.rs",
+      "src/cli/doctor.rs",
+      "src/cli/flag.rs",
+      "src/cli/init.rs",
+      "src/cli/knowledge.rs",
+      "src/cli/lookup.rs",
+      "src/cli/schema.rs",
+      "src/cli/status.rs",
+      "src/export.rs",
+      "src/knowledge/mod.rs",
+      "src/read/contracts.rs",
+      "src/read/decisions.rs",
+      "src/read/deps.rs",
+      "src/read/history.rs",
+      "src/read/retrieve.rs",
+      "src/read/staleness.rs",
+      "src/read/summary.rs",
+      "src/schema/knowledge.rs",
+      "src/schema/mod.rs",
+      "src/show/plain.rs",
+      "src/sync/push_fetch.rs"
+    ]
+  },
+  "provenance": {
+    "source": "batch"
+  }
+}
