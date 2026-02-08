@@ -44,20 +44,6 @@ pub fn tool_definitions() -> Vec<ToolDefinition> {
             }),
         },
         ToolDefinition {
-            name: "get_ast_outline".to_string(),
-            description: "Get a tree-sitter AST outline of semantic units in a file.".to_string(),
-            input_schema: serde_json::json!({
-                "type": "object",
-                "properties": {
-                    "path": {
-                        "type": "string",
-                        "description": "Path of the file to analyze"
-                    }
-                },
-                "required": ["path"]
-            }),
-        },
-        ToolDefinition {
             name: "get_commit_info".to_string(),
             description: "Get commit metadata: SHA, message, author, timestamp.".to_string(),
             input_schema: serde_json::json!({
@@ -194,7 +180,6 @@ pub fn dispatch_tool(
     match name {
         "get_diff" => dispatch_get_diff(context),
         "get_file_content" => dispatch_get_file_content(input, git_ops, context),
-        "get_ast_outline" => dispatch_get_ast_outline(input, git_ops, context),
         "get_commit_info" => dispatch_get_commit_info(context),
         "emit_narrative" => dispatch_emit_narrative(input, collected),
         "emit_decision" => dispatch_emit_decision(input, collected),
@@ -253,45 +238,6 @@ fn dispatch_get_file_content(
         .file_at_commit(Path::new(path), &context.commit_sha)
         .context(GitSnafu)?;
     Ok(content)
-}
-
-fn dispatch_get_ast_outline(
-    input: &serde_json::Value,
-    git_ops: &dyn GitOps,
-    context: &AnnotationContext,
-) -> Result<String, AgentError> {
-    let path = input.get("path").and_then(|v| v.as_str()).ok_or_else(|| {
-        AgentError::InvalidAnnotation {
-            message: "get_ast_outline requires 'path' parameter".to_string(),
-            location: snafu::Location::default(),
-        }
-    })?;
-
-    let source = git_ops
-        .file_at_commit(Path::new(path), &context.commit_sha)
-        .context(GitSnafu)?;
-
-    let language = crate::ast::Language::from_path(path);
-    match crate::ast::extract_outline(&source, language) {
-        Ok(entries) => {
-            let mut out = String::new();
-            for entry in &entries {
-                out.push_str(&format!(
-                    "{} {} (lines {}-{})",
-                    entry.kind.as_str(),
-                    entry.name,
-                    entry.lines.start,
-                    entry.lines.end,
-                ));
-                if let Some(sig) = &entry.signature {
-                    out.push_str(&format!(" sig: {sig}"));
-                }
-                out.push('\n');
-            }
-            Ok(out)
-        }
-        Err(e) => Ok(format!("AST outline not available: {e}")),
-    }
 }
 
 fn dispatch_get_commit_info(context: &AnnotationContext) -> Result<String, AgentError> {

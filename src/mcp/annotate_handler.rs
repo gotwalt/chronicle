@@ -4,7 +4,6 @@ use serde::de::{SeqAccess, Visitor};
 use serde::{Deserialize, Deserializer, Serialize};
 use snafu::ResultExt;
 
-use crate::ast::{self, AnchorMatch, Language};
 use crate::error::{chronicle_error, Result};
 use crate::git::GitOps;
 use crate::schema::common::{AstAnchor, LineRange};
@@ -270,103 +269,19 @@ pub fn handle_annotate(git_ops: &dyn GitOps, input: AnnotateInput) -> Result<Ann
 /// Resolve a single region's anchor against the AST outline and build the
 /// final `RegionAnnotation`.
 fn resolve_and_build_region(
-    git_ops: &dyn GitOps,
-    commit: &str,
+    _git_ops: &dyn GitOps,
+    _commit: &str,
     input: &RegionInput,
 ) -> Result<(RegionAnnotation, AnchorResolution)> {
-    let file_path = Path::new(&input.file);
-    let lang = Language::from_path(&input.file);
     let anchor = input.effective_anchor();
 
-    // Try to load the file and resolve the anchor via AST
-    let (ast_anchor, lines, resolution_kind) = match lang {
-        Language::Unsupported => {
-            // No AST support — use the input as-is
-            (
-                AstAnchor {
-                    unit_type: anchor.unit_type.clone(),
-                    name: anchor.name.clone(),
-                    signature: None,
-                },
-                input.lines,
-                AnchorResolutionKind::Unresolved,
-            )
-        }
-        _ => {
-            match git_ops.file_at_commit(file_path, commit) {
-                Ok(source) => {
-                    match ast::extract_outline(&source, lang) {
-                        Ok(outline) => {
-                            match ast::resolve_anchor(&outline, &anchor.unit_type, &anchor.name) {
-                                Some(anchor_match) => {
-                                    let entry = anchor_match.entry();
-                                    let corrected_lines = anchor_match.lines();
-                                    let resolution_kind = match &anchor_match {
-                                        AnchorMatch::Exact(_) => AnchorResolutionKind::Exact,
-                                        AnchorMatch::Qualified(e) => {
-                                            AnchorResolutionKind::Qualified {
-                                                resolved_name: e.name.clone(),
-                                            }
-                                        }
-                                        AnchorMatch::Fuzzy(e, d) => AnchorResolutionKind::Fuzzy {
-                                            resolved_name: e.name.clone(),
-                                            distance: *d,
-                                        },
-                                    };
-
-                                    (
-                                        AstAnchor {
-                                            unit_type: entry.kind.as_str().to_string(),
-                                            name: entry.name.clone(),
-                                            signature: entry.signature.clone(),
-                                        },
-                                        corrected_lines,
-                                        resolution_kind,
-                                    )
-                                }
-                                None => {
-                                    // No match — use input as-is
-                                    (
-                                        AstAnchor {
-                                            unit_type: anchor.unit_type.clone(),
-                                            name: anchor.name.clone(),
-                                            signature: None,
-                                        },
-                                        input.lines,
-                                        AnchorResolutionKind::Unresolved,
-                                    )
-                                }
-                            }
-                        }
-                        Err(_) => {
-                            // Outline extraction failed — use input as-is
-                            (
-                                AstAnchor {
-                                    unit_type: anchor.unit_type.clone(),
-                                    name: anchor.name.clone(),
-                                    signature: None,
-                                },
-                                input.lines,
-                                AnchorResolutionKind::Unresolved,
-                            )
-                        }
-                    }
-                }
-                Err(_) => {
-                    // File not available at commit — use input as-is
-                    (
-                        AstAnchor {
-                            unit_type: anchor.unit_type.clone(),
-                            name: anchor.name.clone(),
-                            signature: None,
-                        },
-                        input.lines,
-                        AnchorResolutionKind::Unresolved,
-                    )
-                }
-            }
-        }
+    let ast_anchor = AstAnchor {
+        unit_type: anchor.unit_type.clone(),
+        name: anchor.name.clone(),
+        signature: None,
     };
+    let lines = input.lines;
+    let resolution_kind = AnchorResolutionKind::Unresolved;
 
     let constraints: Vec<Constraint> = input
         .constraints
@@ -587,15 +502,15 @@ impl Config {
         // Verify the anchor was resolved
         assert!(!result.anchor_resolutions.is_empty());
 
-        // hello_world should resolve exactly
+        // Anchor is passed through as-is (unresolved)
         assert!(matches!(
             result.anchor_resolutions[0].resolution,
-            AnchorResolutionKind::Exact
+            AnchorResolutionKind::Unresolved
         ));
     }
 
     #[test]
-    fn test_anchor_resolution_corrects_lines() {
+    fn test_anchor_passes_through_lines() {
         let mock = MockGitOps::new("abc123").with_file("src/lib.rs", sample_rust_source());
 
         let input = make_basic_input();
@@ -605,12 +520,12 @@ impl Config {
         let notes = mock.written_notes();
         let annotation: Annotation = serde_json::from_str(&notes[0].1).unwrap();
 
-        // The AST should correct the line range to the actual function location
+        // Lines are passed through from input as-is
         let region = &annotation.regions[0];
-        assert!(region.lines.start > 0);
-        assert!(region.lines.end >= region.lines.start);
-        // Signature should be filled in by AST
-        assert!(region.ast_anchor.signature.is_some());
+        assert_eq!(region.lines.start, 2);
+        assert_eq!(region.lines.end, 4);
+        // Signature is not filled (no AST resolution)
+        assert!(region.ast_anchor.signature.is_none());
     }
 
     #[test]

@@ -84,7 +84,6 @@ mod tests {
             file_path: "src/main.rs".to_string(),
             commit: "abc1234567890".to_string(),
             source_lines: vec!["fn main() {}".to_string()],
-            outline: vec![],
             regions: vec![RegionRef {
                 region: RegionAnnotation {
                     file: "src/main.rs".to_string(),
@@ -167,7 +166,6 @@ mod tests {
             file_path: "src/empty.rs".to_string(),
             commit: "abc1234".to_string(),
             source_lines: vec![],
-            outline: vec![],
             regions: vec![],
             annotation_map: crate::show::data::LineAnnotationMap::build_from_regions(&[], 0),
         };

@@ -1,4 +1,3 @@
-use crate::ast::outline::OutlineEntry;
 use crate::error::{ChronicleError, Result};
 use crate::git::GitOps;
 use crate::read::{self, MatchedAnnotation, ReadQuery};
@@ -81,7 +80,6 @@ pub struct ShowData {
     pub file_path: String,
     pub commit: String,
     pub source_lines: Vec<String>,
-    pub outline: Vec<OutlineEntry>,
     pub regions: Vec<RegionRef>,
     pub annotation_map: LineAnnotationMap,
 }
@@ -104,10 +102,6 @@ pub fn build_show_data(
     let source_lines: Vec<String> = source.lines().map(String::from).collect();
     let total_lines = source_lines.len();
 
-    // Parse AST outline (best-effort, non-fatal)
-    let lang = crate::ast::Language::from_path(file_path);
-    let outline = crate::ast::extract_outline(&source, lang).unwrap_or_default();
-
     // Fetch annotations via the read pipeline
     let query = ReadQuery {
         file: file_path.to_string(),
@@ -125,7 +119,6 @@ pub fn build_show_data(
         file_path: file_path.to_string(),
         commit: commit.to_string(),
         source_lines,
-        outline,
         regions,
         annotation_map,
     })

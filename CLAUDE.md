@@ -28,8 +28,6 @@ cargo clippy         # lint
 
 - v1 `RegionAnnotation` has a `corrections: Vec<Correction>` field. When constructing v1 types in tests, always include `corrections: vec![]`.
 - Git notes use `-F tempfile` pattern in `note_write` to avoid shell escaping. Do not pass note content as command-line args.
-- AST anchor resolution: `src/ast/anchor.rs` resolves anchors with exact/qualified/fuzzy matching via Levenshtein distance.
-- Tree-sitter supports Rust, TypeScript, Python, Go, Java, C, C++, and Ruby via optional feature flags.
 - The `annotate_live` integration test requires a real `.git` directory (not a worktree gitlink). It will fail in git worktrees.
 
 ## Module map
@@ -38,7 +36,6 @@ cargo clippy         # lint
 |--------|---------|
 | `cli/` | Clap CLI commands (includes `schema.rs` for self-documenting CLI) |
 | `git/` | `GitOps` trait + `CliOps` |
-| `ast/` | Tree-sitter outline extraction + anchor resolution |
 | `schema/` | v1 types (`v1.rs`), v2 canonical types (`v2.rs`), shared types (`common.rs`), migration (`migrate.rs`), `parse_annotation()` |
 | `annotate/` | Batch annotation agent + live handler (`live.rs`) + squash synthesis |
 | `read/` | Read pipeline: `retrieve`, `contracts`, `decisions`, `deps`, `history`, `summary` |

@@ -1,11 +1,8 @@
-use std::path::Path;
-
 use schemars::JsonSchema;
 use serde::de::{SeqAccess, Visitor};
 use serde::{Deserialize, Deserializer, Serialize};
 use snafu::ResultExt;
 
-use crate::ast::{self, AnchorMatch, Language};
 use crate::error::{chronicle_error, Result};
 use crate::git::GitOps;
 use crate::schema::common::{AstAnchor, LineRange};
@@ -422,10 +419,10 @@ pub fn handle_annotate_v2(git_ops: &dyn GitOps, input: LiveInput) -> Result<Live
     })
 }
 
-/// Resolve a marker's anchor against the AST outline and build the final `CodeMarker`.
+/// Build a `CodeMarker` from input, passing through anchor as-is.
 fn resolve_and_build_marker(
-    git_ops: &dyn GitOps,
-    commit: &str,
+    _git_ops: &dyn GitOps,
+    _commit: &str,
     input: &MarkerInput,
 ) -> Result<(v2::CodeMarker, Option<AnchorResolution>)> {
     let anchor_input = match &input.anchor {
@@ -442,91 +439,23 @@ fn resolve_and_build_marker(
         }
     };
 
-    let file_path = Path::new(&input.file);
-    let lang = Language::from_path(&input.file);
-
-    let (ast_anchor, lines, resolution_kind) = match lang {
-        Language::Unsupported => (
-            AstAnchor {
-                unit_type: anchor_input.unit_type.clone(),
-                name: anchor_input.name.clone(),
-                signature: None,
-            },
-            input.lines,
-            AnchorResolutionKind::Unresolved,
-        ),
-        _ => match git_ops.file_at_commit(file_path, commit) {
-            Ok(source) => match ast::extract_outline(&source, lang) {
-                Ok(outline) => {
-                    match ast::resolve_anchor(&outline, &anchor_input.unit_type, &anchor_input.name)
-                    {
-                        Some(anchor_match) => {
-                            let entry = anchor_match.entry();
-                            let corrected_lines = anchor_match.lines();
-                            let res_kind = match &anchor_match {
-                                AnchorMatch::Exact(_) => AnchorResolutionKind::Exact,
-                                AnchorMatch::Qualified(e) => AnchorResolutionKind::Qualified {
-                                    resolved_name: e.name.clone(),
-                                },
-                                AnchorMatch::Fuzzy(e, d) => AnchorResolutionKind::Fuzzy {
-                                    resolved_name: e.name.clone(),
-                                    distance: *d,
-                                },
-                            };
-                            (
-                                AstAnchor {
-                                    unit_type: entry.kind.as_str().to_string(),
-                                    name: entry.name.clone(),
-                                    signature: entry.signature.clone(),
-                                },
-                                Some(corrected_lines),
-                                res_kind,
-                            )
-                        }
-                        None => (
-                            AstAnchor {
-                                unit_type: anchor_input.unit_type.clone(),
-                                name: anchor_input.name.clone(),
-                                signature: None,
-                            },
-                            input.lines,
-                            AnchorResolutionKind::Unresolved,
-                        ),
-                    }
-                }
-                Err(_) => (
-                    AstAnchor {
-                        unit_type: anchor_input.unit_type.clone(),
-                        name: anchor_input.name.clone(),
-                        signature: None,
-                    },
-                    input.lines,
-                    AnchorResolutionKind::Unresolved,
-                ),
-            },
-            Err(_) => (
-                AstAnchor {
-                    unit_type: anchor_input.unit_type.clone(),
-                    name: anchor_input.name.clone(),
-                    signature: None,
-                },
-                input.lines,
-                AnchorResolutionKind::Unresolved,
-            ),
-        },
+    let ast_anchor = AstAnchor {
+        unit_type: anchor_input.unit_type.clone(),
+        name: anchor_input.name.clone(),
+        signature: None,
     };
 
     let marker = v2::CodeMarker {
         file: input.file.clone(),
         anchor: Some(ast_anchor),
-        lines,
+        lines: input.lines,
         kind: convert_marker_kind(&input.kind),
     };
 
     let resolution = AnchorResolution {
         file: input.file.clone(),
         requested_name: anchor_input.name.clone(),
-        resolution: resolution_kind,
+        resolution: AnchorResolutionKind::Unresolved,
     };
 
     Ok((marker, Some(resolution)))
@@ -590,6 +519,7 @@ mod tests {
     use crate::git::diff::{DiffStatus, FileDiff};
     use crate::git::CommitInfo;
     use std::collections::HashMap;
+    use std::path::Path;
     use std::sync::Mutex;
 
     fn test_diff(path: &str) -> FileDiff {
@@ -835,18 +765,17 @@ impl Config {
         assert!(result.success);
         assert_eq!(result.markers_written, 1);
 
-        // Should have resolved anchor
+        // Anchor is passed through as-is (unresolved)
         assert!(!result.anchor_resolutions.is_empty());
         assert!(matches!(
             result.anchor_resolutions[0].resolution,
-            AnchorResolutionKind::Exact
+            AnchorResolutionKind::Unresolved
         ));
 
         let notes = mock.written_notes();
         let annotation: v2::Annotation = serde_json::from_str(&notes[0].1).unwrap();
         assert_eq!(annotation.markers.len(), 1);
         assert!(annotation.markers[0].anchor.is_some());
-        assert!(annotation.markers[0].anchor.as_ref().unwrap().signature.is_some());
     }
 
     #[test]

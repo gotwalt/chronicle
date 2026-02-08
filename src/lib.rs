@@ -2,7 +2,6 @@
 
 pub mod agent;
 pub mod annotate;
-pub mod ast;
 pub mod cli;
 pub mod config;
 pub mod doctor;

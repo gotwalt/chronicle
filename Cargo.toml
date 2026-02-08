@@ -20,17 +20,6 @@ clap = { version = "4", features = ["derive"] }
 ureq = { version = "2", features = ["json", "tls"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-tree-sitter = "0.25"
-tree-sitter-rust = { version = "0.24", optional = true }
-tree-sitter-typescript = { version = "0.23", optional = true }
-tree-sitter-python = { version = "0.25", optional = true }
-tree-sitter-go = { version = "0.25", optional = true }
-tree-sitter-java = { version = "0.23", optional = true }
-tree-sitter-c = { version = "0.24", optional = true }
-tree-sitter-cpp = { version = "0.23", optional = true }
-tree-sitter-ruby = { version = "0.23", optional = true }
-tree-sitter-objc = { version = "3", optional = true }
-tree-sitter-swift = { version = "0.7", optional = true }
 chrono = { version = "0.4", features = ["serde"] }
 snafu = "0.8"
 tracing = "0.1"
@@ -42,18 +31,8 @@ crossterm = { version = "0.28", optional = true }
 schemars = { version = "1.2.1", features = ["derive"] }
 
 [features]
-default = ["tui", "lang-rust", "lang-typescript", "lang-python", "lang-go", "lang-java", "lang-c", "lang-cpp", "lang-ruby", "lang-objc", "lang-swift"]
+default = ["tui"]
 tui = ["ratatui", "crossterm"]
-lang-rust = ["dep:tree-sitter-rust"]
-lang-typescript = ["dep:tree-sitter-typescript"]
-lang-python = ["dep:tree-sitter-python"]
-lang-go = ["dep:tree-sitter-go"]
-lang-java = ["dep:tree-sitter-java"]
-lang-c = ["dep:tree-sitter-c"]
-lang-cpp = ["dep:tree-sitter-cpp"]
-lang-ruby = ["dep:tree-sitter-ruby"]
-lang-objc = ["dep:tree-sitter-objc"]
-lang-swift = ["dep:tree-sitter-swift"]
 
 [dev-dependencies]
 tempfile = "3"

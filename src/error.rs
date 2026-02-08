@@ -38,13 +38,6 @@ pub enum ChronicleError {
         location: snafu::Location,
     },
 
-    #[snafu(display("AST error: {source}"))]
-    Ast {
-        source: AstError,
-        #[snafu(implicit)]
-        location: snafu::Location,
-    },
-
     #[snafu(display("config error: {message}"))]
     Config {
         message: String,
@@ -226,32 +219,6 @@ pub enum AgentError {
     #[snafu(display("JSON error: {source}"))]
     Json {
         source: serde_json::Error,
-        #[snafu(implicit)]
-        location: snafu::Location,
-    },
-}
-
-#[derive(Debug, Snafu)]
-#[snafu(visibility(pub), module(ast_error))]
-pub enum AstError {
-    #[snafu(display("unsupported language: {extension}"))]
-    UnsupportedLanguage {
-        extension: String,
-        #[snafu(implicit)]
-        location: snafu::Location,
-    },
-
-    #[snafu(display("parse failed for {path}: {message}"))]
-    ParseFailed {
-        path: String,
-        message: String,
-        #[snafu(implicit)]
-        location: snafu::Location,
-    },
-
-    #[snafu(display("tree-sitter error: {message}"))]
-    TreeSitter {
-        message: String,
         #[snafu(implicit)]
         location: snafu::Location,
     },

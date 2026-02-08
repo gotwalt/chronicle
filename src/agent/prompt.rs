@@ -71,7 +71,7 @@ pub fn build_system_prompt(context: &AnnotationContext) -> String {
     prompt.push_str(
         "## Instructions\n\n\
          1. Use `get_diff` to examine the full diff\n\
-         2. Use `get_file_content` and `get_ast_outline` to understand the changed files\n\
+         2. Use `get_file_content` to understand the changed files\n\
          3. Use `get_commit_info` if you need additional commit metadata\n\
          4. Call `emit_narrative` ONCE with the commit-level story (required)\n\
          5. Call `emit_decision` for each architectural/design decision (if any)\n\
