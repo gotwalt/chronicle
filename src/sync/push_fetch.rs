@@ -178,9 +178,7 @@ pub fn get_sync_status(repo_dir: &PathBuf, remote: &str) -> Result<SyncStatus> {
     let local_count = count_local_notes(repo_dir).context(GitSnafu)?;
 
     // Try to get remote note count (may fail if remote is unreachable)
-    let remote_count = count_remote_notes(repo_dir, remote)
-        .ok()
-        .flatten();
+    let remote_count = count_remote_notes(repo_dir, remote).ok().flatten();
 
     let unpushed_count = if let Some(rc) = remote_count {
         local_count.saturating_sub(rc)
@@ -223,8 +221,7 @@ fn count_remote_notes(
     repo_dir: &PathBuf,
     remote: &str,
 ) -> std::result::Result<Option<usize>, GitError> {
-    let (success, stdout, _) =
-        run_git_raw(repo_dir, &["ls-remote", remote, NOTES_REF])?;
+    let (success, stdout, _) = run_git_raw(repo_dir, &["ls-remote", remote, NOTES_REF])?;
     if !success || stdout.trim().is_empty() {
         // Remote ref doesn't exist — zero remote notes
         Ok(Some(0))

@@ -38,11 +38,10 @@ pub fn retrieve_annotations(
             .iter()
             .filter(|m| file_matches(&m.file, &query.file))
             .filter(|m| {
-                query.anchor.as_ref().is_none_or(|qa| {
-                    m.anchor
-                        .as_ref()
-                        .is_some_and(|a| a.name == *qa)
-                })
+                query
+                    .anchor
+                    .as_ref()
+                    .is_none_or(|qa| m.anchor.as_ref().is_some_and(|a| a.name == *qa))
             })
             .filter(|m| {
                 query.lines.as_ref().is_none_or(|line_range| {
@@ -264,14 +263,7 @@ mod tests {
         assert_eq!(results.len(), 1);
         // Only the marker for "main" anchor should be included
         assert_eq!(results[0].markers.len(), 1);
-        assert_eq!(
-            results[0].markers[0]
-                .anchor
-                .as_ref()
-                .unwrap()
-                .name,
-            "main"
-        );
+        assert_eq!(results[0].markers[0].anchor.as_ref().unwrap().name, "main");
     }
 
     #[test]
@@ -309,10 +301,7 @@ mod tests {
                         name: "helper".to_string(),
                         signature: None,
                     }),
-                    lines: Some(crate::schema::common::LineRange {
-                        start: 50,
-                        end: 60,
-                    }),
+                    lines: Some(crate::schema::common::LineRange { start: 50, end: 60 }),
                     kind: v2::MarkerKind::Contract {
                         description: "helper fn".to_string(),
                         source: v2::ContractSource::Author,
@@ -343,14 +332,7 @@ mod tests {
         assert_eq!(results.len(), 1);
         // Only the marker overlapping lines 5-15 should be included
         assert_eq!(results[0].markers.len(), 1);
-        assert_eq!(
-            results[0].markers[0]
-                .anchor
-                .as_ref()
-                .unwrap()
-                .name,
-            "main"
-        );
+        assert_eq!(results[0].markers[0].anchor.as_ref().unwrap().name, "main");
     }
 
     #[test]

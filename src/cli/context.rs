@@ -41,4 +41,3 @@ pub fn run(action: ContextAction) -> Result<()> {
 
     Ok(())
 }
-

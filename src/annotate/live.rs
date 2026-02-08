@@ -177,8 +177,7 @@ where
         type Value = Vec<RejectedAlternativeInput>;
 
         fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
-            formatter
-                .write_str("a list of strings or {\"approach\": \"...\", \"reason\": \"...\"}")
+            formatter.write_str("a list of strings or {\"approach\": \"...\", \"reason\": \"...\"}")
         }
 
         fn visit_seq<S>(
@@ -249,9 +248,7 @@ fn check_quality(input: &LiveInput, files_changed: &[String], commit_message: &s
     }
 
     if files_changed.len() > 3 && input.motivation.is_none() {
-        warnings.push(
-            "Multi-file change without motivation — consider adding why".to_string(),
-        );
+        warnings.push("Multi-file change without motivation — consider adding why".to_string());
     }
 
     if input.summary.trim() == commit_message.trim() {
@@ -584,7 +581,8 @@ mod tests {
 
     #[test]
     fn test_minimal_input() {
-        let json = r#"{"commit": "HEAD", "summary": "Switch to exponential backoff for MQTT reconnect"}"#;
+        let json =
+            r#"{"commit": "HEAD", "summary": "Switch to exponential backoff for MQTT reconnect"}"#;
         let input: LiveInput = serde_json::from_str(json).unwrap();
         assert_eq!(input.commit, "HEAD");
         assert!(input.markers.is_empty());
@@ -654,7 +652,10 @@ mod tests {
         assert_eq!(notes.len(), 1);
         let annotation: v2::Annotation = serde_json::from_str(&notes[0].1).unwrap();
         assert_eq!(annotation.schema, "chronicle/v2");
-        assert_eq!(annotation.narrative.summary, "Add hello_world function and Config struct");
+        assert_eq!(
+            annotation.narrative.summary,
+            "Add hello_world function and Config struct"
+        );
         assert_eq!(annotation.narrative.files_changed, vec!["src/lib.rs"]);
         assert_eq!(annotation.provenance.source, v2::ProvenanceSource::Live);
     }
@@ -697,10 +698,8 @@ mod tests {
 
     #[test]
     fn test_files_changed_auto_populated() {
-        let mock = MockGitOps::new("abc123").with_diffs(vec![
-            test_diff("src/lib.rs"),
-            test_diff("src/main.rs"),
-        ]);
+        let mock = MockGitOps::new("abc123")
+            .with_diffs(vec![test_diff("src/lib.rs"), test_diff("src/main.rs")]);
 
         let input = LiveInput {
             commit: "HEAD".to_string(),
@@ -793,7 +792,10 @@ mod tests {
         let result = handle_annotate_v2(&mock, input).unwrap();
         assert!(result.success);
         assert!(
-            result.warnings.iter().any(|w| w.contains("Overwriting existing annotation")),
+            result
+                .warnings
+                .iter()
+                .any(|w| w.contains("Overwriting existing annotation")),
             "Expected overwrite warning, got: {:?}",
             result.warnings
         );
@@ -846,7 +848,10 @@ mod tests {
 
         let result = handle_annotate_v2(&mock, input).unwrap();
         assert!(
-            result.warnings.iter().any(|w| w.contains("Multi-file change without motivation")),
+            result
+                .warnings
+                .iter()
+                .any(|w| w.contains("Multi-file change without motivation")),
             "Expected multi-file motivation warning, got: {:?}",
             result.warnings
         );
@@ -872,7 +877,10 @@ mod tests {
 
         let result = handle_annotate_v2(&mock, input).unwrap();
         assert!(
-            result.warnings.iter().any(|w| w.contains("Summary matches commit message verbatim")),
+            result
+                .warnings
+                .iter()
+                .any(|w| w.contains("Summary matches commit message verbatim")),
             "Expected verbatim summary warning, got: {:?}",
             result.warnings
         );
@@ -903,7 +911,10 @@ mod tests {
 
         let result = handle_annotate_v2(&mock, input).unwrap();
         assert!(
-            result.warnings.iter().any(|w| w.contains("Large change without decisions")),
+            result
+                .warnings
+                .iter()
+                .any(|w| w.contains("Large change without decisions")),
             "Expected large-change decisions warning, got: {:?}",
             result.warnings
         );

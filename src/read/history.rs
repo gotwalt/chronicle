@@ -317,7 +317,11 @@ mod tests {
             "2025-01-01T00:00:00Z",
             "entry point",
             vec!["src/main.rs"],
-            vec![make_contract_marker("src/main.rs", "main", "must not panic")],
+            vec![make_contract_marker(
+                "src/main.rs",
+                "main",
+                "must not panic",
+            )],
         );
 
         let mut notes = std::collections::HashMap::new();

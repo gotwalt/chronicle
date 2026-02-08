@@ -7,8 +7,7 @@ use crate::error::chronicle_error::{IoSnafu, JsonSnafu};
 use crate::error::Result;
 use crate::git::GitOps;
 use crate::schema::v1::{
-    self, ContextLevel, CrossCuttingConcern, Provenance, ProvenanceOperation,
-    RegionAnnotation,
+    self, ContextLevel, CrossCuttingConcern, Provenance, ProvenanceOperation, RegionAnnotation,
 };
 type Annotation = v1::Annotation;
 use snafu::ResultExt;

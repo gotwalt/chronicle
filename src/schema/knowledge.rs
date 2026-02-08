@@ -31,15 +31,13 @@ impl KnowledgeStore {
 
     /// Remove an entry by ID. Returns true if found and removed.
     pub fn remove_by_id(&mut self, id: &str) -> bool {
-        let len_before =
-            self.conventions.len() + self.boundaries.len() + self.anti_patterns.len();
+        let len_before = self.conventions.len() + self.boundaries.len() + self.anti_patterns.len();
 
         self.conventions.retain(|c| c.id != id);
         self.boundaries.retain(|b| b.id != id);
         self.anti_patterns.retain(|a| a.id != id);
 
-        let len_after =
-            self.conventions.len() + self.boundaries.len() + self.anti_patterns.len();
+        let len_after = self.conventions.len() + self.boundaries.len() + self.anti_patterns.len();
         len_after < len_before
     }
 }

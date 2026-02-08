@@ -117,4 +117,3 @@ fn count_unannotated(ops: &dyn GitOps) -> usize {
     }
     unannotated
 }
-

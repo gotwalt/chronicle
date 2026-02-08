@@ -77,7 +77,12 @@ pub fn find_dependents(git: &dyn GitOps, query: &DepsQuery) -> Result<DepsOutput
                 assumption,
             } = &marker.kind
             {
-                if dep_matches(target_file, target_anchor, &query.file, query.anchor.as_deref()) {
+                if dep_matches(
+                    target_file,
+                    target_anchor,
+                    &query.file,
+                    query.anchor.as_deref(),
+                ) {
                     let anchor_name = marker
                         .anchor
                         .as_ref()
@@ -210,11 +215,7 @@ mod tests {
         }
     }
 
-    fn make_v2_annotation(
-        commit: &str,
-        timestamp: &str,
-        markers: Vec<v2::CodeMarker>,
-    ) -> String {
+    fn make_v2_annotation(commit: &str, timestamp: &str, markers: Vec<v2::CodeMarker>) -> String {
         let ann = v2::Annotation {
             schema: "chronicle/v2".to_string(),
             commit: commit.to_string(),
@@ -489,27 +490,9 @@ mod tests {
             "commit1",
             "2025-01-01T00:00:00Z",
             vec![
-                make_dep_marker(
-                    "src/a.rs",
-                    "fn_a",
-                    "src/shared.rs",
-                    "shared_fn",
-                    "dep 1",
-                ),
-                make_dep_marker(
-                    "src/b.rs",
-                    "fn_b",
-                    "src/shared.rs",
-                    "shared_fn",
-                    "dep 2",
-                ),
-                make_dep_marker(
-                    "src/c.rs",
-                    "fn_c",
-                    "src/shared.rs",
-                    "shared_fn",
-                    "dep 3",
-                ),
+                make_dep_marker("src/a.rs", "fn_a", "src/shared.rs", "shared_fn", "dep 1"),
+                make_dep_marker("src/b.rs", "fn_b", "src/shared.rs", "shared_fn", "dep 2"),
+                make_dep_marker("src/c.rs", "fn_c", "src/shared.rs", "shared_fn", "dep 3"),
             ],
         );
 
@@ -565,5 +548,4 @@ mod tests {
         let result = find_dependents(&git, &query).unwrap();
         assert_eq!(result.dependents.len(), 1);
     }
-
 }

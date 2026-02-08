@@ -14,9 +14,7 @@ pub fn run(json: bool, staleness: bool) -> Result<()> {
 
     if staleness {
         let staleness_check = check_staleness(&git_ops);
-        if staleness_check.status == DoctorStatus::Warn
-            && report.overall == DoctorStatus::Pass
-        {
+        if staleness_check.status == DoctorStatus::Warn && report.overall == DoctorStatus::Pass {
             report.overall = DoctorStatus::Warn;
         }
         report.checks.push(staleness_check);
@@ -96,4 +94,3 @@ fn check_staleness(git_ops: &dyn GitOps) -> DoctorCheck {
         },
     }
 }
-

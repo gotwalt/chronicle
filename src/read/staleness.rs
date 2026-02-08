@@ -66,10 +66,7 @@ pub fn compute_staleness_with_threshold(
 }
 
 /// Scan annotated commits and report staleness across the repo.
-pub fn scan_staleness(
-    git: &dyn GitOps,
-    limit: u32,
-) -> Result<StalenessReport, GitError> {
+pub fn scan_staleness(git: &dyn GitOps, limit: u32) -> Result<StalenessReport, GitError> {
     let annotated = git.list_annotated_commits(limit)?;
     let mut total_annotations = 0usize;
     let mut stale_count = 0usize;
@@ -131,8 +128,8 @@ pub struct StaleFileEntry {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::git::CommitInfo;
     use crate::git::diff::FileDiff;
+    use crate::git::CommitInfo;
 
     struct MockGitOps {
         file_log: Vec<String>,
@@ -281,11 +278,7 @@ mod tests {
     #[test]
     fn test_custom_threshold() {
         let git = MockGitOps {
-            file_log: vec![
-                "c2".to_string(),
-                "c1".to_string(),
-                "c0".to_string(),
-            ],
+            file_log: vec!["c2".to_string(), "c1".to_string(), "c0".to_string()],
             annotated_commits: vec![],
             notes: std::collections::HashMap::new(),
         };

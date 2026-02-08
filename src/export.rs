@@ -22,9 +22,7 @@ pub struct ExportEntry {
 /// Iterates all notes under `refs/notes/chronicle`, and writes one JSON object
 /// per line. Preserves the raw annotation format (v1 or v2).
 pub fn export_annotations<W: Write>(git_ops: &dyn GitOps, writer: &mut W) -> Result<usize> {
-    let note_list = git_ops
-        .list_annotated_commits(u32::MAX)
-        .context(GitSnafu)?;
+    let note_list = git_ops.list_annotated_commits(u32::MAX).context(GitSnafu)?;
     let mut count = 0;
 
     for sha in &note_list {
@@ -66,4 +64,3 @@ pub fn export_annotations<W: Write>(git_ops: &dyn GitOps, writer: &mut W) -> Res
 
     Ok(count)
 }
-

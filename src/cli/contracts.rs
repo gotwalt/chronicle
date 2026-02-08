@@ -9,10 +9,7 @@ pub fn run(path: String, anchor: Option<String>, format: String, compact: bool) 
     })?;
     let git_ops = CliOps::new(repo_dir);
 
-    let query = crate::read::contracts::ContractsQuery {
-        file: path,
-        anchor,
-    };
+    let query = crate::read::contracts::ContractsQuery { file: path, anchor };
 
     let output = crate::read::contracts::query_contracts(&git_ops, &query).map_err(|e| {
         crate::error::ChronicleError::Git {

@@ -19,12 +19,13 @@ pub fn run(format: String) -> Result<()> {
     let git_ops = CliOps::new(repo_dir);
 
     // Get all annotated commits
-    let annotated = git_ops.list_annotated_commits(10000).map_err(|e| {
-        crate::error::ChronicleError::Git {
-            source: e,
-            location: snafu::Location::default(),
-        }
-    })?;
+    let annotated =
+        git_ops
+            .list_annotated_commits(10000)
+            .map_err(|e| crate::error::ChronicleError::Git {
+                source: e,
+                location: snafu::Location::default(),
+            })?;
     let annotated_set: std::collections::HashSet<_> = annotated.iter().collect();
 
     // Get recent commits (last 20 SHAs)
@@ -55,12 +56,11 @@ pub fn run(format: String) -> Result<()> {
         unannotated_commits: unannotated,
     };
 
-    let json = serde_json::to_string_pretty(&output).map_err(|e| {
-        crate::error::ChronicleError::Json {
+    let json =
+        serde_json::to_string_pretty(&output).map_err(|e| crate::error::ChronicleError::Json {
             source: e,
             location: snafu::Location::default(),
-        }
-    })?;
+        })?;
     println!("{json}");
 
     Ok(())

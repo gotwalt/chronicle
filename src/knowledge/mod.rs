@@ -89,8 +89,8 @@ fn scope_matches(scope: &str, file: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::git::CommitInfo;
     use crate::git::diff::FileDiff;
+    use crate::git::CommitInfo;
     use crate::schema::knowledge::{AntiPattern, Convention, ModuleBoundary};
     use crate::schema::v2::Stability;
     use std::collections::HashMap;

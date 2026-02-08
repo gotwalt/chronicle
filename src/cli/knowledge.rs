@@ -18,11 +18,12 @@ pub fn run_list(json: bool) -> Result<()> {
     })?;
 
     if json {
-        let output =
-            serde_json::to_string_pretty(&store).map_err(|e| crate::error::ChronicleError::Json {
+        let output = serde_json::to_string_pretty(&store).map_err(|e| {
+            crate::error::ChronicleError::Json {
                 source: e,
                 location: snafu::Location::default(),
-            })?;
+            }
+        })?;
         println!("{output}");
     } else {
         if store.is_empty() {
@@ -32,21 +33,30 @@ pub fn run_list(json: bool) -> Result<()> {
         if !store.conventions.is_empty() {
             println!("Conventions:");
             for c in &store.conventions {
-                println!("  [{}] scope={} stability={:?}: {}", c.id, c.scope, c.stability, c.rule);
+                println!(
+                    "  [{}] scope={} stability={:?}: {}",
+                    c.id, c.scope, c.stability, c.rule
+                );
             }
             println!();
         }
         if !store.boundaries.is_empty() {
             println!("Module boundaries:");
             for b in &store.boundaries {
-                println!("  [{}] {} — owns: {}, boundary: {}", b.id, b.module, b.owns, b.boundary);
+                println!(
+                    "  [{}] {} — owns: {}, boundary: {}",
+                    b.id, b.module, b.owns, b.boundary
+                );
             }
             println!();
         }
         if !store.anti_patterns.is_empty() {
             println!("Anti-patterns:");
             for a in &store.anti_patterns {
-                println!("  [{}] Don't: {} -> Instead: {}", a.id, a.pattern, a.instead);
+                println!(
+                    "  [{}] Don't: {} -> Instead: {}",
+                    a.id, a.pattern, a.instead
+                );
             }
             println!();
         }

@@ -186,9 +186,9 @@ fn validate_field(region: &crate::schema::v1::RegionAnnotation, field: &str) -> 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::schema::v1::*;
     use crate::schema::common::*;
     use crate::schema::correction::Correction;
+    use crate::schema::v1::*;
 
     fn make_region() -> RegionAnnotation {
         RegionAnnotation {

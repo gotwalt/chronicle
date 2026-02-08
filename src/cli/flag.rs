@@ -136,9 +136,7 @@ fn find_matching_region(
 mod tests {
     use super::*;
     use crate::schema::common::{AstAnchor, LineRange};
-    use crate::schema::v1::{
-        ContextLevel, Provenance, ProvenanceOperation, RegionAnnotation,
-    };
+    use crate::schema::v1::{ContextLevel, Provenance, ProvenanceOperation, RegionAnnotation};
 
     #[test]
     fn test_find_matching_region_by_anchor() {

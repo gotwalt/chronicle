@@ -26,12 +26,11 @@ pub fn run(name: &str) -> Result<()> {
         }
     };
 
-    let json = serde_json::to_string_pretty(&schema).map_err(|e| {
-        crate::error::ChronicleError::Json {
+    let json =
+        serde_json::to_string_pretty(&schema).map_err(|e| crate::error::ChronicleError::Json {
             source: e,
             location: snafu::Location::default(),
-        }
-    })?;
+        })?;
     println!("{json}");
 
     Ok(())

@@ -24,15 +24,11 @@ pub use v2::*;
 pub fn parse_annotation(json: &str) -> Result<v2::Annotation, ParseAnnotationError> {
     // Peek at the schema field to determine version.
     let peek: SchemaVersion =
-        serde_json::from_str(json).map_err(|e| ParseAnnotationError::InvalidJson {
-            source: e,
-        })?;
+        serde_json::from_str(json).map_err(|e| ParseAnnotationError::InvalidJson { source: e })?;
 
     match peek.schema.as_str() {
-        "chronicle/v2" => {
-            serde_json::from_str::<v2::Annotation>(json)
-                .map_err(|e| ParseAnnotationError::InvalidJson { source: e })
-        }
+        "chronicle/v2" => serde_json::from_str::<v2::Annotation>(json)
+            .map_err(|e| ParseAnnotationError::InvalidJson { source: e }),
         "chronicle/v1" => {
             let v1_ann: v1::Annotation = serde_json::from_str(json)
                 .map_err(|e| ParseAnnotationError::InvalidJson { source: e })?;

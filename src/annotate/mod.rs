@@ -86,9 +86,8 @@ pub fn run(
         }
         filter::FilterDecision::Annotate => {
             // Call the agent loop for full LLM annotation
-            let (collected, _summary) =
-                crate::agent::run_agent_loop(provider, git_ops, &context)
-                    .context(chronicle_error::AgentSnafu)?;
+            let (collected, _summary) = crate::agent::run_agent_loop(provider, git_ops, &context)
+                .context(chronicle_error::AgentSnafu)?;
 
             // The narrative is required (agent loop guarantees it's Some)
             let mut narrative = collected.narrative.unwrap();

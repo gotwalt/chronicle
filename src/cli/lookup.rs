@@ -9,12 +9,13 @@ pub fn run(path: String, anchor: Option<String>, format: String, compact: bool) 
     })?;
     let git_ops = CliOps::new(repo_dir);
 
-    let output = crate::read::lookup::build_lookup(&git_ops, &path, anchor.as_deref()).map_err(
-        |e| crate::error::ChronicleError::Git {
-            source: e,
-            location: snafu::Location::default(),
-        },
-    )?;
+    let output =
+        crate::read::lookup::build_lookup(&git_ops, &path, anchor.as_deref()).map_err(|e| {
+            crate::error::ChronicleError::Git {
+                source: e,
+                location: snafu::Location::default(),
+            }
+        })?;
 
     match format.as_str() {
         "json" => {
@@ -87,7 +88,12 @@ pub fn run(path: String, anchor: Option<String>, format: String, compact: bool) 
             if !output.recent_history.is_empty() {
                 println!("Recent history:");
                 for h in &output.recent_history {
-                    println!("  {} {}: {}", &h.commit[..7.min(h.commit.len())], h.timestamp, h.intent);
+                    println!(
+                        "  {} {}: {}",
+                        &h.commit[..7.min(h.commit.len())],
+                        h.timestamp,
+                        h.intent
+                    );
                 }
                 println!();
             }
@@ -125,8 +131,7 @@ pub fn run(path: String, anchor: Option<String>, format: String, compact: bool) 
             }
 
             if !output.staleness.is_empty() {
-                let stale_entries: Vec<_> =
-                    output.staleness.iter().filter(|s| s.stale).collect();
+                let stale_entries: Vec<_> = output.staleness.iter().filter(|s| s.stale).collect();
                 if !stale_entries.is_empty() {
                     println!("Stale annotations:");
                     for s in &stale_entries {

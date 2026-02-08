@@ -160,8 +160,8 @@ mod tests {
     use super::*;
     use crate::schema::common::{AstAnchor, LineRange};
     use crate::schema::v1::{
-        ContextLevel, CrossCuttingConcern, CrossCuttingRegionRef, Provenance,
-        ProvenanceOperation, RegionAnnotation,
+        ContextLevel, CrossCuttingConcern, CrossCuttingRegionRef, Provenance, ProvenanceOperation,
+        RegionAnnotation,
     };
 
     struct MockGitOps {
@@ -349,10 +349,7 @@ mod tests {
         let result = query_decisions(&git, &query).unwrap();
         assert_eq!(result.decisions.len(), 1);
         assert_eq!(result.decisions[0].commit, "commit2");
-        assert_eq!(
-            result.decisions[0].timestamp,
-            "2025-01-02T00:00:00Z"
-        );
+        assert_eq!(result.decisions[0].timestamp, "2025-01-02T00:00:00Z");
     }
 
     #[test]

@@ -144,16 +144,16 @@ pub fn build_summary(git: &dyn GitOps, query: &SummaryQuery) -> Result<SummaryOu
             };
 
             // Merge markers within the same commit for the same anchor
-            let acc = commit_anchors.entry(key).or_insert_with(|| {
-                AnchorAccumulator {
+            let acc = commit_anchors
+                .entry(key)
+                .or_insert_with(|| AnchorAccumulator {
                     anchor: anchor_info,
                     lines,
                     intent: annotation.narrative.summary.clone(),
                     constraints: vec![],
                     risk_notes: None,
                     timestamp: annotation.timestamp.clone(),
-                }
-            });
+                });
 
             match &marker.kind {
                 v2::MarkerKind::Contract { description, .. } => {

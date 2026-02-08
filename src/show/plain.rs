@@ -75,8 +75,8 @@ pub fn run_plain(data: &ShowData, w: &mut dyn Write) -> std::io::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::schema::v1::*;
     use crate::schema::common::*;
+    use crate::schema::v1::*;
     use crate::show::data::RegionRef;
 
     fn make_test_data() -> ShowData {

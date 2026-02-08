@@ -91,10 +91,7 @@ pub fn query_contracts(
                 }
             }
 
-            let anchor_name = marker
-                .anchor
-                .as_ref()
-                .map(|a| a.name.clone());
+            let anchor_name = marker.anchor.as_ref().map(|a| a.name.clone());
 
             match &marker.kind {
                 v2::MarkerKind::Contract {
@@ -258,11 +255,7 @@ mod tests {
 
     /// Build a v1 annotation (serialized as JSON). parse_annotation() will
     /// migrate it to v2, exercising the migration path in the test.
-    fn make_v1_annotation(
-        commit: &str,
-        timestamp: &str,
-        regions: Vec<RegionAnnotation>,
-    ) -> String {
+    fn make_v1_annotation(commit: &str, timestamp: &str, regions: Vec<RegionAnnotation>) -> String {
         let ann = crate::schema::v1::Annotation {
             schema: "chronicle/v1".to_string(),
             commit: commit.to_string(),
@@ -370,10 +363,7 @@ mod tests {
         assert_eq!(result.contracts[0].description, "must not panic");
         assert_eq!(result.contracts[0].source, "author");
         assert_eq!(result.contracts[0].file, "src/main.rs");
-        assert_eq!(
-            result.contracts[0].anchor.as_deref(),
-            Some("main")
-        );
+        assert_eq!(result.contracts[0].anchor.as_deref(), Some("main"));
         assert_eq!(result.contracts[0].commit, "commit1");
     }
 
@@ -441,10 +431,7 @@ mod tests {
         let result = query_contracts(&git, &query).unwrap();
         assert_eq!(result.contracts.len(), 1);
         assert_eq!(result.contracts[0].description, "must not panic");
-        assert_eq!(
-            result.contracts[0].anchor.as_deref(),
-            Some("main")
-        );
+        assert_eq!(result.contracts[0].anchor.as_deref(), Some("main"));
     }
 
     #[test]
@@ -488,10 +475,7 @@ mod tests {
         let result = query_contracts(&git, &query).unwrap();
         assert_eq!(result.contracts.len(), 1);
         assert_eq!(result.contracts[0].commit, "commit2");
-        assert_eq!(
-            result.contracts[0].timestamp,
-            "2025-01-02T00:00:00Z"
-        );
+        assert_eq!(result.contracts[0].timestamp, "2025-01-02T00:00:00Z");
     }
 
     #[test]
@@ -513,11 +497,7 @@ mod tests {
 
     #[test]
     fn test_contracts_mixed_contracts_and_deps() {
-        let region_contract = make_region_with_contract(
-            "src/main.rs",
-            "main",
-            "must not allocate",
-        );
+        let region_contract = make_region_with_contract("src/main.rs", "main", "must not allocate");
         let region_dep = make_region_with_dependency(
             "src/main.rs",
             "main",

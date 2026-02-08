@@ -257,8 +257,8 @@ fn run_live(git_ops: &CliOps) -> Result<()> {
         })?;
 
     let result = crate::annotate::live::handle_annotate_v2(git_ops, input)?;
-    let json = serde_json::to_string_pretty(&result)
-        .map_err(|e| crate::error::ChronicleError::Json {
+    let json =
+        serde_json::to_string_pretty(&result).map_err(|e| crate::error::ChronicleError::Json {
             source: e,
             location: snafu::Location::default(),
         })?;

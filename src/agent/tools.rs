@@ -91,8 +91,7 @@ pub fn tool_definitions() -> Vec<ToolDefinition> {
         },
         ToolDefinition {
             name: "emit_decision".to_string(),
-            description: "Emit a design or architectural decision made in this commit."
-                .to_string(),
+            description: "Emit a design or architectural decision made in this commit.".to_string(),
             input_schema: serde_json::json!({
                 "type": "object",
                 "properties": {
@@ -295,7 +294,10 @@ fn dispatch_emit_marker(
     let anchor = input.get("anchor").and_then(|v| {
         let unit_type = v.get("unit_type")?.as_str()?.to_string();
         let name = v.get("name")?.as_str()?.to_string();
-        let signature = v.get("signature").and_then(|s| s.as_str()).map(String::from);
+        let signature = v
+            .get("signature")
+            .and_then(|s| s.as_str())
+            .map(String::from);
         Some(AstAnchor {
             unit_type,
             name,
