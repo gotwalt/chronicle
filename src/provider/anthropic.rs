@@ -20,10 +20,14 @@ pub struct AnthropicProvider {
 
 impl AnthropicProvider {
     pub fn new(api_key: String, model: Option<String>) -> Self {
+        let agent: ureq::Agent = ureq::Agent::config_builder()
+            .http_status_as_error(false)
+            .build()
+            .into();
         Self {
             api_key,
             model: model.unwrap_or_else(|| "claude-sonnet-4-5-20250929".to_string()),
-            agent: ureq::agent(),
+            agent,
         }
     }
 }
@@ -189,67 +193,74 @@ impl LlmProvider for AnthropicProvider {
             })?;
 
         for attempt in 0..MAX_RETRIES {
-            match self
+            let mut resp = match self
                 .agent
                 .post(API_URL)
-                .set("x-api-key", &self.api_key)
-                .set("anthropic-version", ANTHROPIC_VERSION)
-                .set("content-type", "application/json")
+                .header("x-api-key", &self.api_key)
+                .header("anthropic-version", ANTHROPIC_VERSION)
+                .header("content-type", "application/json")
                 .send_json(&body)
             {
-                Ok(resp) => {
-                    let api_resp: ApiResponse =
-                        resp.into_json().map_err(|e| ProviderError::ParseResponse {
+                Ok(resp) => resp,
+                Err(e) => {
+                    return Err(Box::new(e)).context(HttpSnafu);
+                }
+            };
+
+            let code = resp.status().as_u16();
+
+            if (200..300).contains(&code) {
+                let api_resp: ApiResponse =
+                    resp.body_mut()
+                        .read_json()
+                        .map_err(|e| ProviderError::ParseResponse {
                             message: e.to_string(),
                             location: snafu::Location::default(),
                         })?;
-                    return Ok(CompletionResponse {
-                        content: from_api_content(api_resp.content),
-                        stop_reason: from_api_stop_reason(&api_resp.stop_reason),
-                        usage: TokenUsage {
-                            input_tokens: api_resp.usage.input_tokens,
-                            output_tokens: api_resp.usage.output_tokens,
-                        },
-                    });
-                }
-                Err(ureq::Error::Status(code, resp)) => {
-                    // Retryable: 429 and 5xx
-                    if code == 429 || code >= 500 {
-                        let retry_after = resp
-                            .header("retry-after")
-                            .and_then(|v| v.parse::<u64>().ok())
-                            .unwrap_or_else(|| 2u64.pow(attempt));
-
-                        let error_body = resp.into_string().unwrap_or_default();
-                        tracing::warn!(
-                            attempt = attempt + 1,
-                            status = code,
-                            retry_after,
-                            "retryable API error: {error_body}"
-                        );
-                        std::thread::sleep(std::time::Duration::from_secs(retry_after));
-                        continue;
-                    }
-
-                    if code == 401 {
-                        return Err(ProviderError::AuthFailed {
-                            message: "invalid API key".to_string(),
-                            location: snafu::Location::default(),
-                        });
-                    }
-
-                    // Non-retryable status errors
-                    let error_body = resp.into_string().unwrap_or_default();
-                    let message = serde_json::from_str::<ApiErrorResponse>(&error_body)
-                        .map(|e| e.error.message)
-                        .unwrap_or_else(|_| format!("status {code}: {error_body}"));
-
-                    return ApiSnafu { message }.fail();
-                }
-                Err(ureq::Error::Transport(t)) => {
-                    return Err(Box::new(t)).context(HttpSnafu);
-                }
+                return Ok(CompletionResponse {
+                    content: from_api_content(api_resp.content),
+                    stop_reason: from_api_stop_reason(&api_resp.stop_reason),
+                    usage: TokenUsage {
+                        input_tokens: api_resp.usage.input_tokens,
+                        output_tokens: api_resp.usage.output_tokens,
+                    },
+                });
             }
+
+            // Retryable: 429 and 5xx
+            if code == 429 || code >= 500 {
+                let retry_after = resp
+                    .headers()
+                    .get("retry-after")
+                    .and_then(|v| v.to_str().ok())
+                    .and_then(|v| v.parse::<u64>().ok())
+                    .unwrap_or_else(|| 2u64.pow(attempt));
+
+                let error_body = resp.body_mut().read_to_string().unwrap_or_default();
+                tracing::warn!(
+                    attempt = attempt + 1,
+                    status = code,
+                    retry_after,
+                    "retryable API error: {error_body}"
+                );
+                std::thread::sleep(std::time::Duration::from_secs(retry_after));
+                continue;
+            }
+
+            if code == 401 {
+                return Err(ProviderError::AuthFailed {
+                    message: "invalid API key".to_string(),
+                    location: snafu::Location::default(),
+                });
+            }
+
+            // Non-retryable status errors
+            let error_body = resp.body_mut().read_to_string().unwrap_or_default();
+            let message = serde_json::from_str::<ApiErrorResponse>(&error_body)
+                .map(|e| e.error.message)
+                .unwrap_or_else(|_| format!("status {code}: {error_body}"));
+
+            return ApiSnafu { message }.fail();
         }
 
         RetriesExhaustedSnafu {

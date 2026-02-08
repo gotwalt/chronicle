@@ -166,7 +166,7 @@ pub enum ProviderError {
 
     #[snafu(display("HTTP error: {source}, at {location}"))]
     Http {
-        source: Box<ureq::Transport>,
+        source: Box<ureq::Error>,
         #[snafu(implicit)]
         location: snafu::Location,
     },
