@@ -77,6 +77,22 @@ pub struct Narrative {
     /// Files touched (auto-populated from diff for indexing).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub files_changed: Vec<String>,
+
+    /// Agent intuitions: worries, hunches, confidence, unease.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub sentiments: Vec<Sentiment>,
+}
+
+/// An agent sentiment — an intuition about the work that isn't captured
+/// by facts alone. Feelings resist rigid categorization, so `feeling` is
+/// a free string.
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct Sentiment {
+    /// e.g. "worry", "confidence", "uncertainty", "pride", "unease",
+    /// "curiosity", "frustration", "surprise", "doubt"
+    pub feeling: String,
+    /// What specifically and why.
+    pub detail: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]

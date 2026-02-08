@@ -597,6 +597,7 @@ mod tests {
                 rejected_alternatives: vec![],
                 follow_up: None,
                 files_changed: vec!["src/cache.rs".to_string()],
+                sentiments: vec![],
             },
             decisions: vec![],
             markers: vec![

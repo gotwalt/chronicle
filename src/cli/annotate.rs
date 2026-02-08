@@ -51,6 +51,7 @@ pub fn run(args: AnnotateArgs) -> Result<()> {
             decisions: vec![],
             markers: vec![],
             effort: None,
+            sentiments: vec![],
             staged_notes: staged_notes_text.clone(),
         };
         let result = crate::annotate::live::handle_annotate_v2(&git_ops, input)?;
@@ -85,6 +86,7 @@ pub fn run(args: AnnotateArgs) -> Result<()> {
             decisions: vec![],
             markers: vec![],
             effort: None,
+            sentiments: vec![],
             staged_notes: staged_notes_text.clone(),
         };
         let result = crate::annotate::live::handle_annotate_v2(&git_ops, input)?;

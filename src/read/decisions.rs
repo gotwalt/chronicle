@@ -454,6 +454,7 @@ mod tests {
                 }],
                 follow_up: None,
                 files_changed: vec!["src/store.rs".to_string()],
+                sentiments: vec![],
             },
             decisions: vec![v2::Decision {
                 what: "Use HashMap for the cache".to_string(),

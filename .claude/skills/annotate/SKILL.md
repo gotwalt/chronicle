@@ -55,6 +55,9 @@ git chronicle annotate --live << 'EOF'
       "anchor": {"unit_type": "function", "name": "next_delay"},
       "kind": {"type": "contract", "description": "Return value must not exceed MAX_BACKOFF_SECS; callers sleep on this without validation"}
     }
+  ],
+  "sentiments": [
+    {"feeling": "unease", "detail": "The backoff cap interacts with the broker's rate-limit window in ways that aren't fully tested under multi-client reconnect storms"}
   ]
 }
 EOF
@@ -100,7 +103,11 @@ git chronicle annotate --summary "Pin serde to 1.0.193 — 1.0.194 has a regress
     "id": "ticket-123",                          // REQUIRED in effort
     "description": "...",                        // REQUIRED in effort
     "phase": "in_progress"                       // start | in_progress | complete
-  }
+  },
+  "sentiments": [                                // optional — your intuitions
+    {"feeling": "worry", "detail": "..."},       //   feeling: free string
+    {"feeling": "confidence", "detail": "..."}   //   detail: what specifically and why
+  ]
 }
 ```
 
@@ -109,6 +116,10 @@ Marker `kind.type` values: `contract`, `hazard`, `dependency`, `unstable`,
 
 Decision stability: `permanent` (load-bearing), `provisional` (check
 `revisit_when`), `experimental` (expect replacement).
+
+Suggested sentiment feelings: `worry`, `confidence`, `uncertainty`, `pride`,
+`unease`, `curiosity`, `frustration`, `surprise`, `doubt` — but any string
+works. Feelings resist rigid categorization.
 
 ## Field Guidance
 
@@ -120,6 +131,11 @@ Decision stability: `permanent` (load-bearing), `provisional` (check
   dependencies, security boundaries, performance-critical paths.
 - **decisions**: Choices a future agent might question. Tag stability so
   they know how carefully to tread.
+- **sentiments**: Your intuitions are data. If you felt worried about
+  concurrency, uneasy about a heuristic, or confident in a particular
+  module — say so. The next agent benefits from knowing "the previous
+  agent was worried about the race condition here" just as much as
+  knowing the formal contract.
 
 ## Schema Lookup
 

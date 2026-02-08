@@ -139,6 +139,7 @@ mod tests {
                 rejected_alternatives: vec![],
                 follow_up: None,
                 files_changed: vec!["src/main.rs".to_string(), "src/lib.rs".to_string()],
+                sentiments: vec![],
             },
             decisions: vec![],
             markers: vec![
@@ -209,6 +210,7 @@ mod tests {
                 rejected_alternatives: vec![],
                 follow_up: None,
                 files_changed: vec!["src/main.rs".to_string()],
+                sentiments: vec![],
             },
             decisions: vec![],
             markers: vec![
@@ -278,6 +280,7 @@ mod tests {
                 rejected_alternatives: vec![],
                 follow_up: None,
                 files_changed: vec!["src/main.rs".to_string()],
+                sentiments: vec![],
             },
             decisions: vec![],
             markers: vec![
@@ -364,6 +367,7 @@ mod tests {
                 rejected_alternatives: vec![],
                 follow_up: None,
                 files_changed: vec!["src/main.rs".to_string()],
+                sentiments: vec![],
             },
             decisions: vec![],
             markers: vec![], // no markers, but file is in files_changed

@@ -127,6 +127,7 @@ pub fn run_agent_loop(
             rejected_alternatives: Vec::new(),
             follow_up: None,
             files_changed: Vec::new(),
+            sentiments: Vec::new(),
         });
     }
 

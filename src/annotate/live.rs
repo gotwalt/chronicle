@@ -61,10 +61,21 @@ pub struct LiveInput {
     /// Link to broader effort.
     pub effort: Option<EffortInput>,
 
+    /// Agent sentiments: worries, hunches, confidence, unease.
+    #[serde(default)]
+    pub sentiments: Vec<SentimentInput>,
+
     /// Pre-loaded staged notes text (appended to provenance.notes).
     /// Not part of the user-facing JSON schema; populated by the CLI layer.
     #[serde(skip)]
     pub staged_notes: Option<String>,
+}
+
+/// An agent sentiment — feeling + detail.
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+pub struct SentimentInput {
+    pub feeling: String,
+    pub detail: String,
 }
 
 /// A rejected alternative — accepts either a string or a struct.
@@ -340,6 +351,16 @@ pub fn handle_annotate_v2(git_ops: &dyn GitOps, input: LiveInput) -> Result<Live
         })
         .collect();
 
+    // 8b. Build sentiments
+    let sentiments: Vec<v2::Sentiment> = input
+        .sentiments
+        .iter()
+        .map(|s| v2::Sentiment {
+            feeling: s.feeling.clone(),
+            detail: s.detail.clone(),
+        })
+        .collect();
+
     // 9. Build annotation
     let annotation = v2::Annotation {
         schema: "chronicle/v2".to_string(),
@@ -351,6 +372,7 @@ pub fn handle_annotate_v2(git_ops: &dyn GitOps, input: LiveInput) -> Result<Live
             rejected_alternatives,
             follow_up: input.follow_up.clone(),
             files_changed,
+            sentiments,
         },
         decisions,
         markers,
@@ -640,6 +662,7 @@ mod tests {
             decisions: vec![],
             markers: vec![],
             effort: None,
+            sentiments: vec![],
             staged_notes: None,
         };
 
@@ -683,6 +706,7 @@ mod tests {
                 },
             }],
             effort: None,
+            sentiments: vec![],
             staged_notes: None,
         };
 
@@ -710,6 +734,7 @@ mod tests {
             decisions: vec![],
             markers: vec![],
             effort: None,
+            sentiments: vec![],
             staged_notes: None,
         };
 
@@ -737,6 +762,7 @@ mod tests {
             decisions: vec![],
             markers: vec![],
             effort: None,
+            sentiments: vec![],
             staged_notes: None,
         };
 
@@ -786,6 +812,7 @@ mod tests {
             decisions: vec![],
             markers: vec![],
             effort: None,
+            sentiments: vec![],
             staged_notes: None,
         };
 
@@ -814,6 +841,7 @@ mod tests {
             decisions: vec![],
             markers: vec![],
             effort: None,
+            sentiments: vec![],
             staged_notes: None,
         };
 
@@ -843,6 +871,7 @@ mod tests {
             decisions: vec![],
             markers: vec![],
             effort: None,
+            sentiments: vec![],
             staged_notes: None,
         };
 
@@ -872,6 +901,7 @@ mod tests {
             decisions: vec![],
             markers: vec![],
             effort: None,
+            sentiments: vec![],
             staged_notes: None,
         };
 
@@ -906,6 +936,7 @@ mod tests {
             decisions: vec![],
             markers: vec![],
             effort: None,
+            sentiments: vec![],
             staged_notes: None,
         };
 
@@ -940,6 +971,7 @@ mod tests {
                 },
             }],
             effort: None,
+            sentiments: vec![],
             staged_notes: None,
         };
 
@@ -1026,5 +1058,43 @@ mod tests {
             &annotation.markers[0].kind,
             v2::MarkerKind::Deprecated { replacement, .. } if replacement.is_none()
         ));
+    }
+
+    #[test]
+    fn test_sentiments_roundtrip() {
+        let json = r#"{
+            "commit": "HEAD",
+            "summary": "Refactor connection pool with sentiment tracking test",
+            "sentiments": [
+                {"feeling": "worry", "detail": "The pool size heuristic is fragile under high concurrency"},
+                {"feeling": "confidence", "detail": "The drain logic is well-tested and straightforward"}
+            ]
+        }"#;
+
+        let input: LiveInput = serde_json::from_str(json).unwrap();
+        assert_eq!(input.sentiments.len(), 2);
+        assert_eq!(input.sentiments[0].feeling, "worry");
+
+        let mock = MockGitOps::new("abc123").with_diffs(vec![test_diff("src/pool.rs")]);
+
+        let result = handle_annotate_v2(&mock, input).unwrap();
+        assert!(result.success);
+
+        let notes = mock.written_notes();
+        let annotation: v2::Annotation = serde_json::from_str(&notes[0].1).unwrap();
+        assert_eq!(annotation.narrative.sentiments.len(), 2);
+        assert_eq!(annotation.narrative.sentiments[0].feeling, "worry");
+        assert_eq!(
+            annotation.narrative.sentiments[0].detail,
+            "The pool size heuristic is fragile under high concurrency"
+        );
+        assert_eq!(annotation.narrative.sentiments[1].feeling, "confidence");
+    }
+
+    #[test]
+    fn test_sentiments_default_empty() {
+        let json = r#"{"commit": "HEAD", "summary": "No sentiments provided here at all"}"#;
+        let input: LiveInput = serde_json::from_str(json).unwrap();
+        assert!(input.sentiments.is_empty());
     }
 }

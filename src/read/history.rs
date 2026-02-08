@@ -280,6 +280,7 @@ mod tests {
                 rejected_alternatives: vec![],
                 follow_up: None,
                 files_changed: files_changed.into_iter().map(|s| s.to_string()).collect(),
+                sentiments: vec![],
             },
             decisions: vec![],
             markers,

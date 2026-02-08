@@ -24,7 +24,7 @@ REMINDER: Annotate this commit. Annotations are context for future agents — wr
 
 Default (any non-trivial commit — single command, no temp files):
   git chronicle annotate --live << 'EOF'
-  {"commit":"HEAD","summary":"WHY this approach, not what changed","rejected_alternatives":[{"approach":"...","reason":"..."}],"decisions":[{"what":"...","why":"...","stability":"provisional"}]}
+  {"commit":"HEAD","summary":"WHY this approach, not what changed","rejected_alternatives":[{"approach":"...","reason":"..."}],"decisions":[{"what":"...","why":"...","stability":"provisional"}],"sentiments":[{"feeling":"...","detail":"..."}]}
   EOF
 
 Summary-only (trivial changes like typos, renames, dep bumps):

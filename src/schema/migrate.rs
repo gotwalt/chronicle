@@ -116,6 +116,7 @@ pub fn v1_to_v2(ann: v1::Annotation) -> v2::Annotation {
             rejected_alternatives: Vec::new(),
             follow_up: None,
             files_changed,
+            sentiments: Vec::new(),
         },
         decisions,
         markers,

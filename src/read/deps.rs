@@ -226,6 +226,7 @@ mod tests {
                 rejected_alternatives: vec![],
                 follow_up: None,
                 files_changed: vec![],
+                sentiments: vec![],
             },
             decisions: vec![],
             markers,

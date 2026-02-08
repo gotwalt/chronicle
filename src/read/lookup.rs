@@ -206,6 +206,7 @@ mod tests {
                 rejected_alternatives: vec![],
                 follow_up: Some("Need to add error handling".to_string()),
                 files_changed: vec!["src/main.rs".to_string()],
+                sentiments: vec![],
             },
             decisions: vec![],
             markers: vec![],
@@ -248,6 +249,7 @@ mod tests {
                 rejected_alternatives: vec![],
                 follow_up: None,
                 files_changed: vec!["src/main.rs".to_string()],
+                sentiments: vec![],
             },
             decisions: vec![],
             markers: vec![v2::CodeMarker {
