@@ -46,6 +46,21 @@ git chronicle annotate --summary "WHY, not what."
 See the annotate skill for the full JSON field reference, good/bad summary
 examples, and guidance on when to use each field.
 
+### Knowledge store (repo-level rules)
+
+Chronicle also maintains a knowledge store for conventions, module
+boundaries, and anti-patterns that apply across the repo:
+
+```bash
+# Read repo knowledge before working in unfamiliar areas
+git chronicle knowledge list
+
+# Record a convention after annotating
+git chronicle knowledge add --type convention --scope "src/" --rule "..." --stability permanent
+```
+
+See the annotate skill for when to capture knowledge.
+
 ### Backfilling annotations
 
 To annotate historical commits that lack annotations, see

@@ -143,3 +143,29 @@ works. Feelings resist rigid categorization.
 git chronicle schema annotate-input   # input format
 git chronicle schema annotation       # stored format
 ```
+
+## Knowledge Accumulation
+
+After annotating, ask: did this commit reveal something that applies beyond
+this one commit? If yes, record it in the knowledge store.
+
+### When to add knowledge
+
+| Signal in your annotation | Knowledge type | Command |
+|---------------------------|---------------|---------|
+| A permanent decision that states a general rule for a scope | Convention | `git chronicle knowledge add --type convention --scope "src/" --rule "..." --stability permanent --decided-in "$(git rev-parse HEAD)"` |
+| A rejected alternative whose reason is a general pitfall | Anti-pattern | `git chronicle knowledge add --type anti-pattern --pattern "..." --instead "..." --learned-from "$(git rev-parse HEAD)"` |
+| You enforced or discovered a module ownership boundary | Boundary | `git chronicle knowledge add --type boundary --module "src/git/" --owns "..." --boundary "..."` |
+
+### When NOT to add knowledge
+
+- One-off design choices → keep as annotation decisions
+- Case-specific tradeoffs → keep as rejected_alternatives
+- Anything experimental → wait until it proves stable
+
+### Managing knowledge
+
+```bash
+git chronicle knowledge list              # see all entries
+git chronicle knowledge remove conv-3     # remove by ID
+```

@@ -30,4 +30,12 @@ Default (any non-trivial commit — single command, no temp files):
 Summary-only (trivial changes like typos, renames, dep bumps):
   ./target/debug/git-chronicle annotate --summary "WHY, not what — do not restate the commit message."
 MSG
+    cat << 'KNOWLEDGE'
+
+If this commit established a repo-wide convention, revealed an anti-pattern,
+or enforced a module boundary, also add it to the knowledge store:
+  ./target/debug/git-chronicle knowledge add --type convention --scope "..." --rule "..." --stability permanent
+  ./target/debug/git-chronicle knowledge add --type anti-pattern --pattern "..." --instead "..."
+  ./target/debug/git-chronicle knowledge add --type boundary --module "..." --owns "..." --boundary "..."
+KNOWLEDGE
 fi

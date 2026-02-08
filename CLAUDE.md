@@ -104,6 +104,21 @@ EOF
 See `.claude/skills/annotate/SKILL.md` for the full JSON field reference,
 good/bad summary examples, and guidance on when to use each field.
 
+### Knowledge store (repo-level rules)
+
+Chronicle also maintains a knowledge store for conventions, module
+boundaries, and anti-patterns that apply across the repo:
+
+```bash
+# Read repo knowledge before working in unfamiliar areas
+./target/debug/git-chronicle knowledge list
+
+# Record a convention after annotating
+./target/debug/git-chronicle knowledge add --type convention --scope "src/" --rule "..." --stability permanent
+```
+
+See `.claude/skills/annotate/SKILL.md` for when to capture knowledge.
+
 ### Backfilling annotations
 
 To annotate historical commits that lack annotations, see

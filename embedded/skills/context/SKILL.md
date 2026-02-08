@@ -41,7 +41,26 @@ git chronicle deps src/foo.rs "bar_function"
 
 # How has this code evolved?
 git chronicle history src/foo.rs --anchor "bar_function"
+
+# Check repo-level knowledge
+git chronicle knowledge list
 ```
+
+## Knowledge Store
+
+Beyond per-commit annotations, the knowledge store holds repo-level rules:
+
+- **Conventions** — scoped coding rules (e.g., "All errors must include location")
+- **Module boundaries** — what each module owns and its public interface constraints
+- **Anti-patterns** — things to avoid, with what to do instead
+
+```bash
+# Check repo-level knowledge
+git chronicle knowledge list
+```
+
+Knowledge entries are binding like contracts. If a convention applies to your
+scope, follow it. If you need to change one, update the store.
 
 ## Respecting Contracts
 
