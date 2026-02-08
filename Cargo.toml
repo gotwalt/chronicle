@@ -10,7 +10,7 @@ readme = "README.md"
 keywords = ["git", "annotation", "ai", "commit", "developer-tools"]
 categories = ["command-line-utilities", "development-tools"]
 rust-version = "1.82"
-exclude = [".github/", ".claude/", "features/", "HISTORY.md", "CLAUDE.md"]
+exclude = [".github/", ".claude/", "features/", "HISTORY.md", "CLAUDE.md", "web/node_modules/", "web/dist/"]
 
 [lib]
 name = "chronicle"
