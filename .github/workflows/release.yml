@@ -26,9 +26,8 @@ jobs:
           fetch-depth: 0
           token: ${{ secrets.RELEASE_TOKEN }}
 
-      - uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: "" # uses rust-toolchain.toml
+      - name: Install Rust toolchain
+        run: rustup show
 
       - uses: Swatinem/rust-cache@v2
 
@@ -61,6 +60,10 @@ jobs:
 
       - name: Tag release
         run: git tag "${{ steps.version.outputs.tag }}"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
 
       - name: Build release binary
         run: cargo build --release

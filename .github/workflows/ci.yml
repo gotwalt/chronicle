@@ -16,9 +16,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: "" # uses rust-toolchain.toml
+      - name: Install Rust toolchain
+        run: rustup show
 
       - uses: Swatinem/rust-cache@v2
 
@@ -36,9 +35,8 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: "" # uses rust-toolchain.toml
+      - name: Install Rust toolchain
+        run: rustup show
 
       - uses: Swatinem/rust-cache@v2
 
