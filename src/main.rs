@@ -118,6 +118,7 @@ fn main() {
             format,
             compact,
         } => chronicle::cli::lookup::run(path, anchor, format, compact),
+        Commands::Note { text, list, clear } => chronicle::cli::note::run(text, list, clear),
         Commands::Knowledge { action } => match action {
             KnowledgeAction::List { json } => chronicle::cli::knowledge::run_list(json),
             KnowledgeAction::Add {

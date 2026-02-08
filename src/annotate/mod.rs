@@ -2,6 +2,7 @@ pub mod filter;
 pub mod gather;
 pub mod live;
 pub mod squash;
+pub mod staging;
 
 use crate::error::{chronicle_error, Result};
 use crate::git::GitOps;

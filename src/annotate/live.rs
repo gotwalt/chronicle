@@ -63,6 +63,11 @@ pub struct LiveInput {
 
     /// Link to broader effort.
     pub effort: Option<EffortInput>,
+
+    /// Pre-loaded staged notes text (appended to provenance.notes).
+    /// Not part of the user-facing JSON schema; populated by the CLI layer.
+    #[serde(skip)]
+    pub staged_notes: Option<String>,
 }
 
 /// A rejected alternative — accepts either a string or a struct.
@@ -388,7 +393,7 @@ pub fn handle_annotate_v2(git_ops: &dyn GitOps, input: LiveInput) -> Result<Live
                 .flatten()
                 .or_else(|| git_ops.config_get("user.name").ok().flatten()),
             derived_from: Vec::new(),
-            notes: None,
+            notes: input.staged_notes.clone(),
         },
     };
 
@@ -781,6 +786,7 @@ impl Config {
             decisions: vec![],
             markers: vec![],
             effort: None,
+            staged_notes: None,
         };
 
         let result = handle_annotate_v2(&mock, input).unwrap();
@@ -822,6 +828,7 @@ impl Config {
                 },
             }],
             effort: None,
+            staged_notes: None,
         };
 
         let result = handle_annotate_v2(&mock, input).unwrap();
@@ -858,6 +865,7 @@ impl Config {
             decisions: vec![],
             markers: vec![],
             effort: None,
+            staged_notes: None,
         };
 
         let result = handle_annotate_v2(&mock, input).unwrap();
@@ -884,6 +892,7 @@ impl Config {
             decisions: vec![],
             markers: vec![],
             effort: None,
+            staged_notes: None,
         };
 
         let result = handle_annotate_v2(&mock, input);
@@ -932,6 +941,7 @@ impl Config {
             decisions: vec![],
             markers: vec![],
             effort: None,
+            staged_notes: None,
         };
 
         let result = handle_annotate_v2(&mock, input).unwrap();
@@ -956,6 +966,7 @@ impl Config {
             decisions: vec![],
             markers: vec![],
             effort: None,
+            staged_notes: None,
         };
 
         let result = handle_annotate_v2(&mock, input).unwrap();
@@ -984,6 +995,7 @@ impl Config {
             decisions: vec![],
             markers: vec![],
             effort: None,
+            staged_notes: None,
         };
 
         let result = handle_annotate_v2(&mock, input).unwrap();
@@ -1009,6 +1021,7 @@ impl Config {
             decisions: vec![],
             markers: vec![],
             effort: None,
+            staged_notes: None,
         };
 
         let result = handle_annotate_v2(&mock, input).unwrap();
@@ -1039,6 +1052,7 @@ impl Config {
             decisions: vec![],
             markers: vec![],
             effort: None,
+            staged_notes: None,
         };
 
         let result = handle_annotate_v2(&mock, input).unwrap();
@@ -1069,6 +1083,7 @@ impl Config {
                 },
             }],
             effort: None,
+            staged_notes: None,
         };
 
         let result = handle_annotate_v2(&mock, input).unwrap();

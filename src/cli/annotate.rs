@@ -22,7 +22,14 @@ pub fn run(
         source: e,
         location: snafu::Location::default(),
     })?;
-    let git_ops = CliOps::new(repo_dir);
+    let git_ops = CliOps::new(repo_dir.clone());
+
+    // Read staged notes (best-effort, don't fail annotation if staging is broken)
+    let git_dir = repo_dir.join(".git");
+    let staged_notes_text = crate::annotate::staging::read_staged(&git_dir)
+        .ok()
+        .filter(|notes| !notes.is_empty())
+        .map(|notes| crate::annotate::staging::format_for_provenance(&notes));
 
     // --summary: quick annotation with just a summary string
     if let Some(summary_text) = summary {
@@ -35,8 +42,10 @@ pub fn run(
             decisions: vec![],
             markers: vec![],
             effort: None,
+            staged_notes: staged_notes_text.clone(),
         };
         let result = crate::annotate::live::handle_annotate_v2(&git_ops, input)?;
+        let _ = crate::annotate::staging::clear_staged(&git_dir);
         let json = serde_json::to_string_pretty(&result).context(JsonSnafu)?;
         println!("{json}");
         return Ok(());
@@ -44,9 +53,11 @@ pub fn run(
 
     // --json: full annotation JSON on command line
     if let Some(json_str) = json_input {
-        let input: crate::annotate::live::LiveInput =
+        let mut input: crate::annotate::live::LiveInput =
             serde_json::from_str(&json_str).context(JsonSnafu)?;
+        input.staged_notes = staged_notes_text.clone();
         let result = crate::annotate::live::handle_annotate_v2(&git_ops, input)?;
+        let _ = crate::annotate::staging::clear_staged(&git_dir);
         let json = serde_json::to_string_pretty(&result).context(JsonSnafu)?;
         println!("{json}");
         return Ok(());
@@ -65,8 +76,10 @@ pub fn run(
             decisions: vec![],
             markers: vec![],
             effort: None,
+            staged_notes: staged_notes_text.clone(),
         };
         let result = crate::annotate::live::handle_annotate_v2(&git_ops, input)?;
+        let _ = crate::annotate::staging::clear_staged(&git_dir);
         let json = serde_json::to_string_pretty(&result).context(JsonSnafu)?;
         println!("{json}");
         return Ok(());

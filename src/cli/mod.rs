@@ -13,6 +13,7 @@ pub mod import;
 pub mod init;
 pub mod knowledge;
 pub mod lookup;
+pub mod note;
 pub mod read;
 pub mod reconfigure;
 pub mod schema;
@@ -371,6 +372,20 @@ pub enum Commands {
         /// Output format
         #[arg(long, default_value = "json")]
         format: String,
+    },
+
+    /// Stage a note for the next annotation (captured context during work)
+    Note {
+        /// The note text to stage (omit to list or clear)
+        text: Option<String>,
+
+        /// List current staged notes
+        #[arg(long)]
+        list: bool,
+
+        /// Clear all staged notes
+        #[arg(long)]
+        clear: bool,
     },
 
     /// Manage repo-level knowledge (conventions, boundaries, anti-patterns)
