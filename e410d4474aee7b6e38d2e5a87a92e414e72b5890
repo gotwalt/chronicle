@@ -1,0 +1,42 @@
+{
+  "schema": "chronicle/v3",
+  "commit": "e410d4474aee7b6e38d2e5a87a92e414e72b5890",
+  "timestamp": "2026-02-08T14:21:57-08:00",
+  "summary": "This commit fixes the build system to write web assets to Cargo's OUT_DIR instead of the source tree's web/dist directory, enabling proper builds in scenarios where the source tree is read-only or when following Cargo conventions. The build.rs script now creates a web-dist subdirectory within OUT_DIR, passes this location to vite via the --outDir flag, and uses rust-embed's interpolate-folder-path feature to resolve the $WEB_DIST_DIR environment variable at compile time. This approach keeps build artifacts out of version control, aligns with Cargo's build philosophy, and supports packaged builds like cargo install from git. Additionally, the commit applies rustfmt formatting fixes across several modules and adds documentation noting that Node.js 22+ is required for the web feature.",
+  "wisdom": [
+    {
+      "category": "insight",
+      "content": "Depends on src/web/assets.rs:#[folder = \\\"$WEB_DIST_DIR\\\"] — The WEB_DIST_DIR environment variable set here must be available when rust-embed's proc macro expands in src/web/assets.rs. This works because build.rs runs before compilation, and rustc-env values are passed to the compiler.",
+      "file": "build.rs",
+      "lines": {
+        "start": 17,
+        "end": 17
+      }
+    },
+    {
+      "category": "gotcha",
+      "content": "The dist_dir is always set from OUT_DIR (even when web feature is disabled), ensuring rust-embed always has a valid path. If npm build fails, write_placeholder creates a minimal index.html so the binary still compiles successfully with degraded functionality rather than failing.",
+      "file": "build.rs",
+      "lines": {
+        "start": 7,
+        "end": 17
+      }
+    },
+    {
+      "category": "insight",
+      "content": "Use rust-embed's interpolate-folder-path feature with environment variable set by build.rs to resolve OUT_DIR at compile time: rust-embed's folder attribute is resolved at proc-macro expansion time, not runtime. The interpolate-folder-path feature allows environment variables to be expanded, enabling dynamic resolution of paths computed during build.rs execution. This is the only way to make rust-embed work with Cargo's OUT_DIR pattern.",
+      "file": "Cargo.toml"
+    },
+    {
+      "category": "dead_end",
+      "content": "Keep building to web/dist and copy to OUT_DIR: Would require additional I/O operations and maintain the problematic pattern of writing to the source tree during build"
+    },
+    {
+      "category": "dead_end",
+      "content": "Use a hardcoded path relative to OUT_DIR: rust-embed's folder attribute is resolved at compile time before environment variables are available, requiring the interpolate-folder-path feature to dynamically resolve paths"
+    }
+  ],
+  "provenance": {
+    "source": "batch"
+  }
+}
