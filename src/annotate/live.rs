@@ -235,24 +235,6 @@ pub struct LiveResult {
     pub commit: String,
     pub markers_written: usize,
     pub warnings: Vec<String>,
-    pub anchor_resolutions: Vec<AnchorResolution>,
-}
-
-/// How an anchor was resolved during annotation.
-#[derive(Debug, Clone, Serialize)]
-pub struct AnchorResolution {
-    pub file: String,
-    pub requested_name: String,
-    pub resolution: AnchorResolutionKind,
-}
-
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "snake_case", tag = "kind")]
-pub enum AnchorResolutionKind {
-    Exact,
-    Qualified { resolved_name: String },
-    Fuzzy { resolved_name: String, distance: u32 },
-    Unresolved,
 }
 
 // ---------------------------------------------------------------------------
@@ -292,8 +274,8 @@ fn check_quality(input: &LiveInput, files_changed: &[String], commit_message: &s
 // Handler
 // ---------------------------------------------------------------------------
 
-/// Core v2 handler: validates input, resolves marker anchors via AST,
-/// auto-populates files_changed from diff, builds and writes a v2 annotation.
+/// Core v2 handler: validates input, auto-populates files_changed from diff,
+/// builds and writes a v2 annotation.
 pub fn handle_annotate_v2(git_ops: &dyn GitOps, input: LiveInput) -> Result<LiveResult> {
     // 1. Resolve commit ref to full SHA
     let full_sha = git_ops
@@ -325,16 +307,10 @@ pub fn handle_annotate_v2(git_ops: &dyn GitOps, input: LiveInput) -> Result<Live
         .message;
     warnings.extend(check_quality(&input, &files_changed, &commit_message));
 
-    // 5. Resolve marker anchors and build markers
+    // 5. Build markers
     let mut markers = Vec::new();
-    let mut anchor_resolutions = Vec::new();
-
     for marker_input in &input.markers {
-        let (marker, resolution) = resolve_and_build_marker(git_ops, &full_sha, marker_input)?;
-        markers.push(marker);
-        if let Some(res) = resolution {
-            anchor_resolutions.push(res);
-        }
+        markers.push(build_marker(marker_input));
     }
 
     // 6. Build decisions
@@ -415,50 +391,23 @@ pub fn handle_annotate_v2(git_ops: &dyn GitOps, input: LiveInput) -> Result<Live
         commit: full_sha,
         markers_written,
         warnings,
-        anchor_resolutions,
     })
 }
 
 /// Build a `CodeMarker` from input, passing through anchor as-is.
-fn resolve_and_build_marker(
-    _git_ops: &dyn GitOps,
-    _commit: &str,
-    input: &MarkerInput,
-) -> Result<(v2::CodeMarker, Option<AnchorResolution>)> {
-    let anchor_input = match &input.anchor {
-        Some(a) => a,
-        None => {
-            // No anchor — file-level marker, no resolution needed
-            let marker = v2::CodeMarker {
-                file: input.file.clone(),
-                anchor: None,
-                lines: input.lines,
-                kind: convert_marker_kind(&input.kind),
-            };
-            return Ok((marker, None));
-        }
-    };
-
-    let ast_anchor = AstAnchor {
-        unit_type: anchor_input.unit_type.clone(),
-        name: anchor_input.name.clone(),
+fn build_marker(input: &MarkerInput) -> v2::CodeMarker {
+    let anchor = input.anchor.as_ref().map(|a| AstAnchor {
+        unit_type: a.unit_type.clone(),
+        name: a.name.clone(),
         signature: None,
-    };
+    });
 
-    let marker = v2::CodeMarker {
+    v2::CodeMarker {
         file: input.file.clone(),
-        anchor: Some(ast_anchor),
+        anchor,
         lines: input.lines,
         kind: convert_marker_kind(&input.kind),
-    };
-
-    let resolution = AnchorResolution {
-        file: input.file.clone(),
-        requested_name: anchor_input.name.clone(),
-        resolution: AnchorResolutionKind::Unresolved,
-    };
-
-    Ok((marker, Some(resolution)))
+    }
 }
 
 fn convert_marker_kind(input: &MarkerKindInput) -> v2::MarkerKind {
@@ -552,11 +501,6 @@ mod tests {
             }
         }
 
-        fn with_file(mut self, path: &str, content: &str) -> Self {
-            self.files.insert(path.to_string(), content.to_string());
-            self
-        }
-
         fn with_diffs(mut self, diffs: Vec<FileDiff>) -> Self {
             self.diffs = diffs;
             self
@@ -638,24 +582,6 @@ mod tests {
         }
     }
 
-    fn sample_rust_source() -> &'static str {
-        r#"
-pub fn hello_world() {
-    println!("Hello, world!");
-}
-
-pub struct Config {
-    pub name: String,
-}
-
-impl Config {
-    pub fn new(name: String) -> Self {
-        Self { name }
-    }
-}
-"#
-    }
-
     #[test]
     fn test_minimal_input() {
         let json = r#"{"commit": "HEAD", "summary": "Switch to exponential backoff for MQTT reconnect"}"#;
@@ -735,9 +661,7 @@ impl Config {
 
     #[test]
     fn test_handle_annotate_v2_with_markers() {
-        let mock = MockGitOps::new("abc123")
-            .with_file("src/lib.rs", sample_rust_source())
-            .with_diffs(vec![test_diff("src/lib.rs")]);
+        let mock = MockGitOps::new("abc123").with_diffs(vec![test_diff("src/lib.rs")]);
 
         let input = LiveInput {
             commit: "HEAD".to_string(),
@@ -764,13 +688,6 @@ impl Config {
         let result = handle_annotate_v2(&mock, input).unwrap();
         assert!(result.success);
         assert_eq!(result.markers_written, 1);
-
-        // Anchor is passed through as-is (unresolved)
-        assert!(!result.anchor_resolutions.is_empty());
-        assert!(matches!(
-            result.anchor_resolutions[0].resolution,
-            AnchorResolutionKind::Unresolved
-        ));
 
         let notes = mock.written_notes();
         let annotation: v2::Annotation = serde_json::from_str(&notes[0].1).unwrap();
@@ -1018,7 +935,6 @@ impl Config {
         let result = handle_annotate_v2(&mock, input).unwrap();
         assert!(result.success);
         assert_eq!(result.markers_written, 1);
-        assert!(result.anchor_resolutions.is_empty());
     }
 
     #[test]

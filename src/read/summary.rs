@@ -90,7 +90,10 @@ pub fn build_summary(git: &dyn GitOps, query: &SummaryQuery) -> Result<SummaryOu
 
         let annotation: v2::Annotation = match schema::parse_annotation(&note) {
             Ok(a) => a,
-            Err(_) => continue,
+            Err(e) => {
+                tracing::debug!("skipping malformed annotation for {sha}: {e}");
+                continue;
+            }
         };
 
         // Collect markers from this commit, grouped by anchor name
@@ -255,21 +258,7 @@ pub fn build_summary(git: &dyn GitOps, query: &SummaryQuery) -> Result<SummaryOu
     })
 }
 
-fn file_matches(a: &str, b: &str) -> bool {
-    fn norm(s: &str) -> &str {
-        s.strip_prefix("./").unwrap_or(s)
-    }
-    norm(a) == norm(b)
-}
-
-fn anchor_matches(region_anchor: &str, query_anchor: &str) -> bool {
-    if region_anchor == query_anchor {
-        return true;
-    }
-    let region_short = region_anchor.rsplit("::").next().unwrap_or(region_anchor);
-    let query_short = query_anchor.rsplit("::").next().unwrap_or(query_anchor);
-    region_short == query_anchor || region_anchor == query_short || region_short == query_short
-}
+use super::matching::{anchor_matches, file_matches};
 
 #[cfg(test)]
 mod tests {

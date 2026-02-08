@@ -26,7 +26,10 @@ pub fn retrieve_annotations(
 
         let annotation = match schema::parse_annotation(&note) {
             Ok(a) => a,
-            Err(_) => continue, // skip malformed notes
+            Err(e) => {
+                tracing::debug!("skipping malformed annotation for {sha}: {e}");
+                continue;
+            }
         };
 
         // Filter markers by file/anchor/lines
@@ -79,21 +82,14 @@ pub fn retrieve_annotations(
             markers: filtered_markers,
             decisions: filtered_decisions,
             follow_up: annotation.narrative.follow_up.clone(),
-            provenance: format!("{:?}", annotation.provenance.source).to_lowercase(),
+            provenance: annotation.provenance.source.to_string(),
         });
     }
 
     Ok(matched)
 }
 
-/// Check if two file paths refer to the same file.
-/// Normalizes by stripping leading "./" if present.
-fn file_matches(region_file: &str, query_file: &str) -> bool {
-    fn norm(s: &str) -> &str {
-        s.strip_prefix("./").unwrap_or(s)
-    }
-    norm(region_file) == norm(query_file)
-}
+use super::matching::file_matches;
 
 /// Check if two line ranges overlap.
 fn ranges_overlap(a_start: u32, a_end: u32, b_start: u32, b_end: u32) -> bool {
@@ -117,22 +113,6 @@ fn decision_scope_matches(decision: &v2::Decision, file: &str) -> bool {
 mod tests {
     use super::*;
     use crate::schema::common::AstAnchor;
-
-    #[test]
-    fn test_file_matches_exact() {
-        assert!(file_matches("src/main.rs", "src/main.rs"));
-    }
-
-    #[test]
-    fn test_file_matches_dot_slash() {
-        assert!(file_matches("./src/main.rs", "src/main.rs"));
-        assert!(file_matches("src/main.rs", "./src/main.rs"));
-    }
-
-    #[test]
-    fn test_file_no_match() {
-        assert!(!file_matches("src/lib.rs", "src/main.rs"));
-    }
 
     #[test]
     fn test_ranges_overlap() {

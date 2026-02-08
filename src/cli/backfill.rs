@@ -99,7 +99,7 @@ pub fn run(limit: usize, dry_run: bool) -> Result<()> {
                             std::process::exit(1);
                         }
                     };
-                    match crate::annotate::run(&ops, provider.as_ref(), sha, false) {
+                    match crate::annotate::run(&ops, provider.as_ref(), sha) {
                         Ok(_) => eprintln!(" done"),
                         Err(e) => eprintln!(" error: {e}"),
                     }

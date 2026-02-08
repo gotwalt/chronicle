@@ -64,7 +64,10 @@ pub fn find_dependents(git: &dyn GitOps, query: &DepsQuery) -> Result<DepsOutput
 
         let annotation = match schema::parse_annotation(&note) {
             Ok(a) => a,
-            Err(_) => continue,
+            Err(e) => {
+                tracing::debug!("skipping malformed annotation for {sha}: {e}");
+                continue;
+            }
         };
 
         for marker in &annotation.markers {
@@ -86,7 +89,7 @@ pub fn find_dependents(git: &dyn GitOps, query: &DepsQuery) -> Result<DepsOutput
                         nature: assumption.clone(),
                         commit: sha.clone(),
                         timestamp: annotation.timestamp.clone(),
-                        context_level: format!("{:?}", annotation.provenance.source).to_lowercase(),
+                        context_level: annotation.provenance.source.to_string(),
                     });
                 }
             }
@@ -133,25 +136,7 @@ fn dep_matches(
     }
 }
 
-fn file_matches(a: &str, b: &str) -> bool {
-    fn norm(s: &str) -> &str {
-        s.strip_prefix("./").unwrap_or(s)
-    }
-    norm(a) == norm(b)
-}
-
-/// Check if a dependency anchor matches the query anchor.
-/// Supports unqualified matching: "max_sessions" matches "TlsSessionCache::max_sessions"
-/// and vice versa.
-fn anchor_matches(dep_anchor: &str, query_anchor: &str) -> bool {
-    if dep_anchor == query_anchor {
-        return true;
-    }
-    // Unqualified match: check if one is a suffix of the other after "::"
-    let dep_short = dep_anchor.rsplit("::").next().unwrap_or(dep_anchor);
-    let query_short = query_anchor.rsplit("::").next().unwrap_or(query_anchor);
-    dep_short == query_anchor || dep_anchor == query_short || dep_short == query_short
-}
+use super::matching::{anchor_matches, file_matches};
 
 /// Deduplicate dependents by (file, anchor), keeping the first occurrence
 /// (which is the most recent since we scan newest-first from list_annotated_commits).
@@ -581,29 +566,4 @@ mod tests {
         assert_eq!(result.dependents.len(), 1);
     }
 
-    #[test]
-    fn test_anchor_matches_exact() {
-        assert!(anchor_matches("max_sessions", "max_sessions"));
-    }
-
-    #[test]
-    fn test_anchor_matches_unqualified_dep() {
-        assert!(anchor_matches(
-            "max_sessions",
-            "TlsSessionCache::max_sessions"
-        ));
-    }
-
-    #[test]
-    fn test_anchor_matches_unqualified_query() {
-        assert!(anchor_matches(
-            "TlsSessionCache::max_sessions",
-            "max_sessions"
-        ));
-    }
-
-    #[test]
-    fn test_anchor_no_match() {
-        assert!(!anchor_matches("other_fn", "max_sessions"));
-    }
 }

@@ -6,7 +6,6 @@ pub fn run(
     path: String,
     anchor: Option<String>,
     limit: u32,
-    follow_related: bool,
     format: String,
     compact: bool,
 ) -> Result<()> {
@@ -20,7 +19,6 @@ pub fn run(
         file: path,
         anchor,
         limit,
-        follow_related,
     };
 
     let result =

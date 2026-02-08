@@ -75,7 +75,10 @@ pub fn query_contracts(
 
         let annotation: v2::Annotation = match schema::parse_annotation(&note) {
             Ok(a) => a,
-            Err(_) => continue,
+            Err(e) => {
+                tracing::debug!("skipping malformed annotation for {sha}: {e}");
+                continue;
+            }
         };
 
         for marker in &annotation.markers {
@@ -183,27 +186,13 @@ pub fn query_contracts(
     })
 }
 
-fn file_matches(a: &str, b: &str) -> bool {
-    fn norm(s: &str) -> &str {
-        s.strip_prefix("./").unwrap_or(s)
-    }
-    norm(a) == norm(b)
-}
+use super::matching::{anchor_matches, file_matches};
 
 fn marker_anchor_matches(marker: &v2::CodeMarker, query_anchor: &str) -> bool {
     match &marker.anchor {
         Some(anchor) => anchor_matches(&anchor.name, query_anchor),
         None => false,
     }
-}
-
-fn anchor_matches(region_anchor: &str, query_anchor: &str) -> bool {
-    if region_anchor == query_anchor {
-        return true;
-    }
-    let region_short = region_anchor.rsplit("::").next().unwrap_or(region_anchor);
-    let query_short = query_anchor.rsplit("::").next().unwrap_or(query_anchor);
-    region_short == query_anchor || region_anchor == query_short || region_short == query_short
 }
 
 #[cfg(test)]

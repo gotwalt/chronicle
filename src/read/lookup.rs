@@ -58,7 +58,6 @@ pub fn build_lookup(
             file: file.to_string(),
             anchor: anchor.map(|s| s.to_string()),
             limit: 3,
-            follow_related: false,
         },
     )?;
 
@@ -103,7 +102,10 @@ fn collect_follow_ups(git: &dyn GitOps, file: &str) -> Result<Vec<FollowUpEntry>
         };
         let annotation = match schema::parse_annotation(&note) {
             Ok(a) => a,
-            Err(_) => continue,
+            Err(e) => {
+                tracing::debug!("skipping malformed annotation for {sha}: {e}");
+                continue;
+            }
         };
         if let Some(fu) = &annotation.narrative.follow_up {
             follow_ups.push(FollowUpEntry {

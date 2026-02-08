@@ -70,7 +70,10 @@ pub fn query_decisions(
 
         let annotation: v2::Annotation = match schema::parse_annotation(&note) {
             Ok(a) => a,
-            Err(_) => continue,
+            Err(e) => {
+                tracing::debug!("skipping malformed annotation for {sha}: {e}");
+                continue;
+            }
         };
 
         // Collect decisions, optionally filtered by scope

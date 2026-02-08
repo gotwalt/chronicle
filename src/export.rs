@@ -22,7 +22,9 @@ pub struct ExportEntry {
 /// Iterates all notes under `refs/notes/chronicle`, and writes one JSON object
 /// per line. Preserves the raw annotation format (v1 or v2).
 pub fn export_annotations<W: Write>(git_ops: &dyn GitOps, writer: &mut W) -> Result<usize> {
-    let note_list = list_annotated_commits(git_ops)?;
+    let note_list = git_ops
+        .list_annotated_commits(u32::MAX)
+        .context(GitSnafu)?;
     let mut count = 0;
 
     for sha in &note_list {
@@ -65,37 +67,3 @@ pub fn export_annotations<W: Write>(git_ops: &dyn GitOps, writer: &mut W) -> Res
     Ok(count)
 }
 
-/// List all commit SHAs that have chronicle notes.
-fn list_annotated_commits(_git_ops: &dyn GitOps) -> Result<Vec<String>> {
-    // git notes --ref=refs/notes/chronicle list outputs: <note-sha> <commit-sha>
-    // We use the CliOps internals indirectly — iterate by using a known set.
-    // Since GitOps doesn't expose `notes list`, we shell out directly.
-    let output = std::process::Command::new("git")
-        .args(["notes", "--ref", "refs/notes/chronicle", "list"])
-        .output()
-        .map_err(|e| crate::error::ChronicleError::Io {
-            source: e,
-            location: snafu::Location::default(),
-        })?;
-
-    if !output.status.success() {
-        // No notes ref yet — return empty
-        return Ok(Vec::new());
-    }
-
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    let shas: Vec<String> = stdout
-        .lines()
-        .filter_map(|line| {
-            // Format: <note-object-sha> <commit-sha>
-            let parts: Vec<&str> = line.split_whitespace().collect();
-            if parts.len() >= 2 {
-                Some(parts[1].to_string())
-            } else {
-                None
-            }
-        })
-        .collect();
-
-    Ok(shas)
-}

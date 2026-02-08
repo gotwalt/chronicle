@@ -8,7 +8,6 @@ pub struct HistoryQuery {
     pub file: String,
     pub anchor: Option<String>,
     pub limit: u32,
-    pub follow_related: bool,
 }
 
 /// A single timeline entry.
@@ -26,18 +25,6 @@ pub struct TimelineEntry {
     pub constraints: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub risk_notes: Option<String>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub related_context: Vec<RelatedContext>,
-}
-
-/// Related annotation context included in timeline entries.
-#[derive(Debug, Clone, serde::Serialize)]
-pub struct RelatedContext {
-    pub commit: String,
-    pub anchor: String,
-    pub relationship: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub intent: Option<String>,
 }
 
 /// Statistics about the history query.
@@ -45,7 +32,6 @@ pub struct RelatedContext {
 pub struct HistoryStats {
     pub commits_in_log: u32,
     pub annotations_found: u32,
-    pub related_followed: u32,
 }
 
 /// Output of a history query.
@@ -69,14 +55,12 @@ pub struct QueryEcho {
 /// 1. Get commits that touched the file via `log_for_file`
 /// 2. For each commit, fetch annotation and check relevance
 /// 3. Sort chronologically (oldest first)
-/// 4. Optionally follow related dependencies
-/// 5. Apply limit
+/// 4. Apply limit
 pub fn build_timeline(git: &dyn GitOps, query: &HistoryQuery) -> Result<HistoryOutput, GitError> {
     let shas = git.log_for_file(&query.file)?;
     let commits_in_log = shas.len() as u32;
 
     let mut entries: Vec<TimelineEntry> = Vec::new();
-    let mut related_followed: u32 = 0;
 
     for sha in &shas {
         let note = match git.note_read(sha)? {
@@ -86,7 +70,10 @@ pub fn build_timeline(git: &dyn GitOps, query: &HistoryQuery) -> Result<HistoryO
 
         let annotation = match schema::parse_annotation(&note) {
             Ok(a) => a,
-            Err(_) => continue,
+            Err(e) => {
+                tracing::debug!("skipping malformed annotation for {sha}: {e}");
+                continue;
+            }
         };
 
         let commit_msg = git
@@ -172,39 +159,7 @@ pub fn build_timeline(git: &dyn GitOps, query: &HistoryQuery) -> Result<HistoryO
             }
         };
 
-        // Follow related: derive from Dependency markers
-        let mut related_context = Vec::new();
-        if query.follow_related {
-            for marker in &annotation.markers {
-                if let v2::MarkerKind::Dependency {
-                    target_file,
-                    target_anchor,
-                    assumption,
-                } = &marker.kind
-                {
-                    // Try to read the target commit's annotation for intent
-                    let rel_intent = if let Ok(Some(rel_note)) = git.note_read(sha) {
-                        if let Ok(rel_ann) = schema::parse_annotation(&rel_note) {
-                            Some(rel_ann.narrative.summary.clone())
-                        } else {
-                            None
-                        }
-                    } else {
-                        None
-                    };
-
-                    related_context.push(RelatedContext {
-                        commit: sha.clone(),
-                        anchor: format!("{}:{}", target_file, target_anchor),
-                        relationship: assumption.clone(),
-                        intent: rel_intent,
-                    });
-                    related_followed += 1;
-                }
-            }
-        }
-
-        let context_level = format!("{:?}", annotation.provenance.source).to_lowercase();
+        let context_level = annotation.provenance.source.to_string();
 
         entries.push(TimelineEntry {
             commit: sha.clone(),
@@ -216,7 +171,6 @@ pub fn build_timeline(git: &dyn GitOps, query: &HistoryQuery) -> Result<HistoryO
             reasoning: annotation.narrative.motivation.clone(),
             constraints,
             risk_notes,
-            related_context,
         });
     }
 
@@ -241,26 +195,11 @@ pub fn build_timeline(git: &dyn GitOps, query: &HistoryQuery) -> Result<HistoryO
         stats: HistoryStats {
             commits_in_log,
             annotations_found,
-            related_followed,
         },
     })
 }
 
-fn file_matches(a: &str, b: &str) -> bool {
-    fn norm(s: &str) -> &str {
-        s.strip_prefix("./").unwrap_or(s)
-    }
-    norm(a) == norm(b)
-}
-
-fn anchor_matches(region_anchor: &str, query_anchor: &str) -> bool {
-    if region_anchor == query_anchor {
-        return true;
-    }
-    let region_short = region_anchor.rsplit("::").next().unwrap_or(region_anchor);
-    let query_short = query_anchor.rsplit("::").next().unwrap_or(query_anchor);
-    region_short == query_anchor || region_anchor == query_short || region_short == query_short
-}
+use super::matching::{anchor_matches, file_matches};
 
 #[cfg(test)]
 mod tests {
@@ -371,29 +310,6 @@ mod tests {
         }
     }
 
-    fn make_dep_marker(
-        file: &str,
-        anchor: &str,
-        target_file: &str,
-        target_anchor: &str,
-        assumption: &str,
-    ) -> v2::CodeMarker {
-        v2::CodeMarker {
-            file: file.to_string(),
-            anchor: Some(AstAnchor {
-                unit_type: "fn".to_string(),
-                name: anchor.to_string(),
-                signature: None,
-            }),
-            lines: None,
-            kind: v2::MarkerKind::Dependency {
-                target_file: target_file.to_string(),
-                target_anchor: target_anchor.to_string(),
-                assumption: assumption.to_string(),
-            },
-        }
-    }
-
     #[test]
     fn test_single_commit_history() {
         let note = make_v2_annotation_with_intent(
@@ -419,7 +335,6 @@ mod tests {
             file: "src/main.rs".to_string(),
             anchor: Some("main".to_string()),
             limit: 10,
-            follow_related: true,
         };
 
         let result = build_timeline(&git, &query).unwrap();
@@ -472,7 +387,6 @@ mod tests {
             file: "src/main.rs".to_string(),
             anchor: None,
             limit: 10,
-            follow_related: false,
         };
 
         let result = build_timeline(&git, &query).unwrap();
@@ -526,7 +440,6 @@ mod tests {
             file: "src/main.rs".to_string(),
             anchor: None,
             limit: 2,
-            follow_related: false,
         };
 
         let result = build_timeline(&git, &query).unwrap();
@@ -535,90 +448,6 @@ mod tests {
         assert_eq!(result.timeline[0].intent, "v2");
         assert_eq!(result.timeline[1].intent, "v3");
         assert_eq!(result.stats.annotations_found, 3);
-    }
-
-    #[test]
-    fn test_follow_related() {
-        let note = make_v2_annotation_with_intent(
-            "commit1",
-            "2025-01-02T00:00:00Z",
-            "entry point",
-            vec!["src/main.rs"],
-            vec![make_dep_marker(
-                "src/main.rs",
-                "main",
-                "src/tls.rs",
-                "TlsSessionCache::new",
-                "depends on session cache",
-            )],
-        );
-
-        let mut notes = std::collections::HashMap::new();
-        notes.insert("commit1".to_string(), note);
-
-        let git = MockGitOps {
-            file_log: vec!["commit1".to_string()],
-            notes,
-            commit_messages: std::collections::HashMap::new(),
-        };
-
-        let query = HistoryQuery {
-            file: "src/main.rs".to_string(),
-            anchor: Some("main".to_string()),
-            limit: 10,
-            follow_related: true,
-        };
-
-        let result = build_timeline(&git, &query).unwrap();
-        assert_eq!(result.timeline.len(), 1);
-        assert_eq!(result.timeline[0].related_context.len(), 1);
-        assert_eq!(
-            result.timeline[0].related_context[0].anchor,
-            "src/tls.rs:TlsSessionCache::new"
-        );
-        assert_eq!(
-            result.timeline[0].related_context[0].relationship,
-            "depends on session cache"
-        );
-        assert_eq!(result.stats.related_followed, 1);
-    }
-
-    #[test]
-    fn test_follow_related_disabled() {
-        let note = make_v2_annotation_with_intent(
-            "commit1",
-            "2025-01-02T00:00:00Z",
-            "entry point",
-            vec!["src/main.rs"],
-            vec![make_dep_marker(
-                "src/main.rs",
-                "main",
-                "src/tls.rs",
-                "TlsSessionCache::new",
-                "depends on session cache",
-            )],
-        );
-
-        let mut notes = std::collections::HashMap::new();
-        notes.insert("commit1".to_string(), note);
-
-        let git = MockGitOps {
-            file_log: vec!["commit1".to_string()],
-            notes,
-            commit_messages: std::collections::HashMap::new(),
-        };
-
-        let query = HistoryQuery {
-            file: "src/main.rs".to_string(),
-            anchor: Some("main".to_string()),
-            limit: 10,
-            follow_related: false,
-        };
-
-        let result = build_timeline(&git, &query).unwrap();
-        assert_eq!(result.timeline.len(), 1);
-        assert!(result.timeline[0].related_context.is_empty());
-        assert_eq!(result.stats.related_followed, 0);
     }
 
     #[test]
@@ -645,7 +474,6 @@ mod tests {
             file: "src/main.rs".to_string(),
             anchor: None,
             limit: 10,
-            follow_related: false,
         };
 
         let result = build_timeline(&git, &query).unwrap();

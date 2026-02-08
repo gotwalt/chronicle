@@ -83,7 +83,10 @@ pub fn scan_staleness(
 
         let annotation = match crate::schema::parse_annotation(&note) {
             Ok(a) => a,
-            Err(_) => continue,
+            Err(e) => {
+                tracing::debug!("skipping malformed annotation for {sha}: {e}");
+                continue;
+            }
         };
 
         total_annotations += 1;

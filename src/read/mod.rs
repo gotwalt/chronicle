@@ -3,6 +3,7 @@ pub mod decisions;
 pub mod deps;
 pub mod history;
 pub mod lookup;
+pub(crate) mod matching;
 pub mod retrieve;
 pub mod staleness;
 pub mod summary;

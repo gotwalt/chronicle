@@ -47,11 +47,10 @@ pub fn run(path: String, anchor: Option<String>, reason: String) -> Result<()> {
         })?;
 
         // Find the matching region
-        let region_idx = find_matching_region(&annotation, &path, anchor.as_deref());
-        if region_idx.is_none() {
-            continue;
-        }
-        let region_idx = region_idx.unwrap();
+        let region_idx = match find_matching_region(&annotation, &path, anchor.as_deref()) {
+            Some(idx) => idx,
+            None => continue,
+        };
 
         let author = resolve_author(&git_ops);
         let timestamp = chrono::Utc::now().to_rfc3339();

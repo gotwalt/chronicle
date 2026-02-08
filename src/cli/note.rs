@@ -1,5 +1,3 @@
-use std::path::PathBuf;
-
 use crate::annotate::staging;
 use crate::error::Result;
 
@@ -35,33 +33,4 @@ pub fn run(text: Option<String>, list: bool, clear: bool) -> Result<()> {
     Ok(())
 }
 
-/// Find the .git directory.
-fn find_git_dir() -> Result<PathBuf> {
-    let output = std::process::Command::new("git")
-        .args(["rev-parse", "--git-dir"])
-        .output()
-        .map_err(|e| crate::error::ChronicleError::Io {
-            source: e,
-            location: snafu::Location::default(),
-        })?;
-
-    if output.status.success() {
-        let dir = String::from_utf8_lossy(&output.stdout).trim().to_string();
-        let path = PathBuf::from(&dir);
-        if path.is_relative() {
-            let cwd = std::env::current_dir().map_err(|e| crate::error::ChronicleError::Io {
-                source: e,
-                location: snafu::Location::default(),
-            })?;
-            Ok(cwd.join(path))
-        } else {
-            Ok(path)
-        }
-    } else {
-        let cwd = std::env::current_dir().map_err(|e| crate::error::ChronicleError::Io {
-            source: e,
-            location: snafu::Location::default(),
-        })?;
-        Err(crate::error::chronicle_error::NotARepositorySnafu { path: cwd }.build())
-    }
-}
+use super::util::find_git_dir;

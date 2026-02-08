@@ -18,7 +18,6 @@ pub fn run(
     git_ops: &dyn GitOps,
     provider: &dyn LlmProvider,
     commit: &str,
-    _sync: bool,
 ) -> Result<v2::Annotation> {
     // 1. Gather context
     let context = gather::build_context(git_ops, commit)?;

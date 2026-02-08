@@ -233,3 +233,16 @@ pub enum ProvenanceSource {
     Amend,
     MigratedV1,
 }
+
+impl std::fmt::Display for ProvenanceSource {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Live => write!(f, "live"),
+            Self::Batch => write!(f, "batch"),
+            Self::Backfill => write!(f, "backfill"),
+            Self::Squash => write!(f, "squash"),
+            Self::Amend => write!(f, "amend"),
+            Self::MigratedV1 => write!(f, "migrated_v1"),
+        }
+    }
+}

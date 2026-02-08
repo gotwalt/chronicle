@@ -22,6 +22,7 @@ pub mod show;
 pub mod status;
 pub mod summary;
 pub mod sync;
+pub(crate) mod util;
 
 use clap::{Parser, Subcommand};
 
@@ -123,10 +124,6 @@ pub enum Commands {
         /// Commit to annotate (default: HEAD)
         #[arg(long, default_value = "HEAD")]
         commit: String,
-
-        /// Run synchronously
-        #[arg(long)]
-        sync: bool,
 
         /// Read AnnotateInput JSON from stdin (live annotation path, zero LLM cost)
         #[arg(long)]
@@ -266,10 +263,6 @@ pub enum Commands {
         /// Output format (json or pretty)
         #[arg(long, default_value = "json")]
         format: String,
-
-        /// Follow related annotation links
-        #[arg(long, default_value = "true")]
-        follow_related: bool,
 
         /// Omit metadata (schema, query echo, stats) from JSON output
         #[arg(long)]

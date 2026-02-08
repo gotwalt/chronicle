@@ -1,12 +1,14 @@
 use std::path::PathBuf;
 
-use crate::error::chronicle_error::{GitSnafu, IoSnafu, NotARepositorySnafu};
+use crate::error::chronicle_error::{GitSnafu, IoSnafu};
 use crate::error::Result;
 use crate::git::CliOps;
 use crate::git::GitOps;
 use crate::hooks::install_hooks;
 use crate::sync::enable_sync;
 use snafu::ResultExt;
+
+use super::util::find_git_dir;
 
 pub fn run(
     no_sync: bool,
@@ -116,25 +118,3 @@ fn count_unannotated(ops: &dyn GitOps) -> usize {
     unannotated
 }
 
-/// Find the .git directory by running `git rev-parse --git-dir` or walking up.
-fn find_git_dir() -> Result<PathBuf> {
-    let output = std::process::Command::new("git")
-        .args(["rev-parse", "--git-dir"])
-        .output()
-        .context(IoSnafu)?;
-
-    if output.status.success() {
-        let dir = String::from_utf8_lossy(&output.stdout).trim().to_string();
-        let path = PathBuf::from(&dir);
-        // Make absolute if relative
-        if path.is_relative() {
-            let cwd = std::env::current_dir().context(IoSnafu)?;
-            Ok(cwd.join(path))
-        } else {
-            Ok(path)
-        }
-    } else {
-        let cwd = std::env::current_dir().context(IoSnafu)?;
-        Err(NotARepositorySnafu { path: cwd }.build())
-    }
-}

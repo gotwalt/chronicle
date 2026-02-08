@@ -36,7 +36,10 @@ fn print_report(report: &SetupReport, dry_run: bool) {
     if !report.skills_installed.is_empty() {
         eprintln!(
             "  Skills:      {}",
-            report.skills_installed[0].parent().unwrap().display()
+            report.skills_installed[0]
+                .parent()
+                .expect("skill path always has parent")
+                .display()
         );
     }
 

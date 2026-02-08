@@ -1,12 +1,10 @@
-use std::path::PathBuf;
-
 use crate::cli::ContextAction;
-use crate::error::chronicle_error::IoSnafu;
 use crate::error::Result;
 use crate::hooks::{
     delete_pending_context, read_pending_context, write_pending_context, PendingContext,
 };
-use snafu::ResultExt;
+
+use super::util::find_git_dir;
 
 pub fn run(action: ContextAction) -> Result<()> {
     let git_dir = find_git_dir()?;
@@ -44,24 +42,3 @@ pub fn run(action: ContextAction) -> Result<()> {
     Ok(())
 }
 
-/// Find the .git directory by running `git rev-parse --git-dir`.
-fn find_git_dir() -> Result<PathBuf> {
-    let output = std::process::Command::new("git")
-        .args(["rev-parse", "--git-dir"])
-        .output()
-        .context(IoSnafu)?;
-
-    if output.status.success() {
-        let dir = String::from_utf8_lossy(&output.stdout).trim().to_string();
-        let path = PathBuf::from(&dir);
-        if path.is_relative() {
-            let cwd = std::env::current_dir().context(IoSnafu)?;
-            Ok(cwd.join(path))
-        } else {
-            Ok(path)
-        }
-    } else {
-        let cwd = std::env::current_dir().context(IoSnafu)?;
-        Err(crate::error::chronicle_error::NotARepositorySnafu { path: cwd }.build())
-    }
-}

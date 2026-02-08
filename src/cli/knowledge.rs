@@ -55,22 +55,37 @@ pub fn run_list(json: bool) -> Result<()> {
     Ok(())
 }
 
+pub struct KnowledgeAddArgs {
+    pub entry_type: String,
+    pub id: Option<String>,
+    pub scope: Option<String>,
+    pub rule: Option<String>,
+    pub module: Option<String>,
+    pub owns: Option<String>,
+    pub boundary: Option<String>,
+    pub pattern: Option<String>,
+    pub instead: Option<String>,
+    pub stability: Option<String>,
+    pub decided_in: Option<String>,
+    pub learned_from: Option<String>,
+}
+
 /// Run `git chronicle knowledge add`.
-#[allow(clippy::too_many_arguments)]
-pub fn run_add(
-    entry_type: String,
-    id: Option<String>,
-    scope: Option<String>,
-    rule: Option<String>,
-    module: Option<String>,
-    owns: Option<String>,
-    boundary: Option<String>,
-    pattern: Option<String>,
-    instead: Option<String>,
-    stability: Option<String>,
-    decided_in: Option<String>,
-    learned_from: Option<String>,
-) -> Result<()> {
+pub fn run_add(args: KnowledgeAddArgs) -> Result<()> {
+    let KnowledgeAddArgs {
+        entry_type,
+        id,
+        scope,
+        rule,
+        module,
+        owns,
+        boundary,
+        pattern,
+        instead,
+        stability,
+        decided_in,
+        learned_from,
+    } = args;
     let repo_dir = std::env::current_dir().map_err(|e| crate::error::ChronicleError::Io {
         source: e,
         location: snafu::Location::default(),

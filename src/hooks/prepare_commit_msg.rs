@@ -34,7 +34,7 @@ pub fn handle_prepare_commit_msg(git_dir: &Path, commit_source: Option<&str>) ->
     write_pending_squash(git_dir, &pending)?;
     tracing::info!(
         "Wrote pending-squash.json with {} source commits",
-        pending.source_commits.len() // borrow after move avoided since we moved pending above; this is wrong
+        pending.source_commits.len()
     );
 
     Ok(())
