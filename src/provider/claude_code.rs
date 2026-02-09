@@ -241,19 +241,17 @@ impl LlmProvider for ClaudeCodeProvider {
 
         // Write prompt to stdin, then drop to close the pipe
         if let Some(mut stdin) = child.stdin.take() {
-            stdin.write_all(prompt.as_bytes()).map_err(|e| {
-                ProviderError::Api {
+            stdin
+                .write_all(prompt.as_bytes())
+                .map_err(|e| ProviderError::Api {
                     message: format!("Failed to write to claude CLI stdin: {e}"),
                     location: snafu::Location::default(),
-                }
-            })?;
+                })?;
         }
 
-        let output = child.wait_with_output().map_err(|e| {
-            ProviderError::Api {
-                message: format!("Failed to wait for claude CLI: {e}"),
-                location: snafu::Location::default(),
-            }
+        let output = child.wait_with_output().map_err(|e| ProviderError::Api {
+            message: format!("Failed to wait for claude CLI: {e}"),
+            location: snafu::Location::default(),
         })?;
 
         if !output.status.success() {
@@ -270,8 +268,7 @@ impl LlmProvider for ClaudeCodeProvider {
         let all_calls = extract_tool_calls(&response_text);
         let batch = first_batch(&all_calls, &response_text);
         let mut counter = 0u32;
-        let (content, stop_reason) =
-            build_content_blocks(&response_text, &batch, &mut counter);
+        let (content, stop_reason) = build_content_blocks(&response_text, &batch, &mut counter);
 
         Ok(CompletionResponse {
             content,
@@ -419,7 +416,9 @@ Now I'll emit the narrative and a decision.
         let mut counter = 0;
         let (blocks, reason) = build_content_blocks(text, &batch, &mut counter);
         assert_eq!(blocks.len(), 1);
-        assert!(matches!(&blocks[0], ContentBlock::Text { text } if text == "Just a plain response."));
+        assert!(
+            matches!(&blocks[0], ContentBlock::Text { text } if text == "Just a plain response.")
+        );
         assert_eq!(reason, StopReason::EndTurn);
     }
 

@@ -12,11 +12,39 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  ci-gate:
+    name: CI Gate
+    runs-on: ubuntu-latest
+    if: "!startsWith(github.event.head_commit.message, 'chore(release):')"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        run: rustup show
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+
+      - name: Clippy
+        run: cargo clippy --all-targets --all-features -- -D warnings
+
+      - name: Install cargo-nextest
+        uses: taiki-e/install-action@nextest
+
+      - name: Configure git for tests
+        run: |
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config --global user.name "github-actions[bot]"
+
+      - name: Run tests
+        run: cargo nextest run --all-features --profile ci
+
   release:
     name: Release
+    needs: ci-gate
     runs-on: ubuntu-latest
-    # Defense-in-depth: [skip ci] on the release commit is the primary guard;
-    # this condition is a fallback in case the commit message is edited manually.
     if: "!startsWith(github.event.head_commit.message, 'chore(release):')"
     permissions:
       contents: write
