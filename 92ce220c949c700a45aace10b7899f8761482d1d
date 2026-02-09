@@ -1,0 +1,22 @@
+{
+  "schema": "chronicle/v3",
+  "commit": "92ce220c949c700a45aace10b7899f8761482d1d",
+  "timestamp": "2026-02-09T22:55:20.774574+00:00",
+  "summary": "README docs for squash merge workflow and simplified the repo's own workflow by removing redundant clone step.",
+  "wisdom": [
+    {
+      "category": "insight",
+      "content": "The README example uses 'cargo install git-chronicle' while the repo's own workflow builds from source — these are intentionally different since the repo IS chronicle.",
+      "file": "README.md"
+    },
+    {
+      "category": "gotcha",
+      "content": "The detect step originally did a redundant git clone before the checkout step — moving detect after checkout eliminates the wasted clone.",
+      "file": ".github/workflows/squash-annotate.yml"
+    }
+  ],
+  "provenance": {
+    "source": "live",
+    "author": "Aaron Gotwalt"
+  }
+}
