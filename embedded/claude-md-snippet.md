@@ -34,9 +34,9 @@ Annotations are context for future agents — write what the diff cannot tell yo
 Do NOT restate the commit message. Every annotation is a single Bash command:
 
 ```bash
-# Default (any non-trivial commit — include rejected_alternatives, decisions, markers as relevant):
+# Default (any non-trivial commit — include wisdom entries):
 git chronicle annotate --live << 'EOF'
-{"commit":"HEAD","summary":"WHY this approach","rejected_alternatives":[...],"decisions":[{"what":"...","why":"...","stability":"provisional"}]}
+{"commit":"HEAD","summary":"WHY this approach","wisdom":[{"category":"dead_end","content":"...","file":"src/foo.rs"},{"category":"gotcha","content":"..."}]}
 EOF
 
 # Summary-only (trivial changes — typos, renames, dep bumps):
@@ -60,9 +60,4 @@ git chronicle knowledge add --type convention --scope "src/" --rule "..." --stab
 ```
 
 See the annotate skill for when to capture knowledge.
-
-### Backfilling annotations
-
-To annotate historical commits that lack annotations, see
-the backfill skill.
 <!-- chronicle-setup-end -->

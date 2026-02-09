@@ -44,7 +44,6 @@ pub fn run_doctor(git_ops: &dyn GitOps, git_dir: &Path) -> Result<DoctorReport> 
         check_version(),
         check_notes_ref(git_ops),
         check_hooks(git_dir),
-        check_credentials(),
         check_config(git_ops),
     ];
     checks.extend(check_global_setup());
@@ -127,102 +126,9 @@ fn check_hooks(git_dir: &Path) -> DoctorCheck {
     }
 }
 
-/// Check: API credentials available.
-fn check_credentials() -> DoctorCheck {
-    use crate::config::user_config::{ProviderType, UserConfig};
-
-    // Check user config first
-    if let Ok(Some(config)) = UserConfig::load() {
-        match config.provider.provider_type {
-            ProviderType::ClaudeCode => {
-                return DoctorCheck {
-                    name: "credentials".to_string(),
-                    status: DoctorStatus::Pass,
-                    message: "provider: claude-code (uses Claude Code auth)".to_string(),
-                    fix_hint: None,
-                };
-            }
-            ProviderType::Anthropic => {
-                if std::env::var("ANTHROPIC_API_KEY").is_ok() {
-                    return DoctorCheck {
-                        name: "credentials".to_string(),
-                        status: DoctorStatus::Pass,
-                        message: "provider: anthropic, ANTHROPIC_API_KEY found".to_string(),
-                        fix_hint: None,
-                    };
-                } else {
-                    return DoctorCheck {
-                        name: "credentials".to_string(),
-                        status: DoctorStatus::Fail,
-                        message: "provider: anthropic, but ANTHROPIC_API_KEY not set".to_string(),
-                        fix_hint: Some(
-                            "Set the ANTHROPIC_API_KEY environment variable.".to_string(),
-                        ),
-                    };
-                }
-            }
-            ProviderType::None => {}
-        }
-    }
-
-    // Fall back to env var check
-    if std::env::var("ANTHROPIC_API_KEY").is_ok() {
-        DoctorCheck {
-            name: "credentials".to_string(),
-            status: DoctorStatus::Pass,
-            message: "ANTHROPIC_API_KEY found".to_string(),
-            fix_hint: None,
-        }
-    } else {
-        DoctorCheck {
-            name: "credentials".to_string(),
-            status: DoctorStatus::Fail,
-            message: "no LLM provider configured".to_string(),
-            fix_hint: Some("Run `git chronicle setup` to configure a provider.".to_string()),
-        }
-    }
-}
-
-/// Check: global setup (user config, skills, hooks).
+/// Check: global setup (skills, hooks).
 fn check_global_setup() -> Vec<DoctorCheck> {
-    use crate::config::user_config::UserConfig;
-
     let mut checks = Vec::new();
-
-    // Check user config exists
-    match UserConfig::load() {
-        Ok(Some(config)) => {
-            checks.push(DoctorCheck {
-                name: "global_config".to_string(),
-                status: DoctorStatus::Pass,
-                message: format!(
-                    "~/.git-chronicle.toml exists (provider: {})",
-                    config.provider.provider_type
-                ),
-                fix_hint: None,
-            });
-        }
-        Ok(None) => {
-            checks.push(DoctorCheck {
-                name: "global_config".to_string(),
-                status: DoctorStatus::Warn,
-                message: "~/.git-chronicle.toml not found".to_string(),
-                fix_hint: Some(
-                    "Run `git chronicle setup` to configure Chronicle globally.".to_string(),
-                ),
-            });
-        }
-        Err(e) => {
-            checks.push(DoctorCheck {
-                name: "global_config".to_string(),
-                status: DoctorStatus::Fail,
-                message: format!("~/.git-chronicle.toml parse error: {e}"),
-                fix_hint: Some(
-                    "Run `git chronicle setup --force` to recreate the config file.".to_string(),
-                ),
-            });
-        }
-    }
 
     // Check skills directory
     if let Ok(home) = std::env::var("HOME") {

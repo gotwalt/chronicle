@@ -30,8 +30,6 @@ fn print_report(report: &SetupReport, dry_run: bool) {
     eprintln!();
     eprintln!("Chronicle setup complete!");
     eprintln!();
-    eprintln!("  Provider:    {}", report.provider_type);
-    eprintln!("  Config:      {}", report.config_path.display());
 
     if !report.skills_installed.is_empty() {
         eprintln!(

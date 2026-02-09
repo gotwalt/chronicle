@@ -2,7 +2,7 @@
 
 ## Project
 
-Rust CLI tool (`git-chronicle`) for AI-powered commit annotations stored as git notes. Installed as a git extension -- users type `git chronicle <command>`.
+Rust CLI tool (`git-chronicle`) for structured commit annotations stored as git notes. Installed as a git extension -- users type `git chronicle <command>`. All annotations are provided by the caller (live path) — no LLM calls.
 
 ## Build & test
 
@@ -16,12 +16,11 @@ cargo clippy         # lint
 
 ## Architecture
 
-- `GitOps` trait in `src/git/mod.rs` abstracts git operations. MVP uses `CliOps` (shells out to git). Do not add `GixOps` yet.
-- `LlmProvider` trait in `src/provider/mod.rs`. MVP uses `AnthropicProvider`. Do not add other providers yet.
+- `GitOps` trait in `src/git/mod.rs` abstracts git operations. Uses `CliOps` (shells out to git).
 - Error handling uses **snafu 0.8** with `#[snafu(module(...))]` to scope context selectors. Variant names must NOT end in "Error".
-- Annotation schema is `chronicle/v2` (canonical type in `src/schema/v2.rs`). All internal code uses `schema::Annotation` (a type alias to `v2::Annotation`). Old `chronicle/v1` notes are migrated on read via `schema::parse_annotation()`.
+- Annotation schema is `chronicle/v3` (canonical type in `src/schema/v3.rs`). Old `chronicle/v1` and `chronicle/v2` notes are migrated on read via `schema::parse_annotation()`.
 - Single deserialization chokepoint: `schema::parse_annotation(json) -> Result<Annotation>` detects version and migrates. Never deserialize annotations directly with `serde_json::from_str`.
-- Two annotation paths: **batch** (LLM agent loop in `src/annotate/`) and **live** (handler in `src/annotate/live.rs`, zero LLM cost).
+- All annotations are provided by the caller via the **live path** (handler in `src/annotate/live.rs`). No LLM calls.
 - `git chronicle schema <name>` makes the CLI self-documenting — agents can query input/output formats at runtime.
 
 ## Key conventions
@@ -36,16 +35,15 @@ cargo clippy         # lint
 |--------|---------|
 | `cli/` | Clap CLI commands (includes `schema.rs` for self-documenting CLI) |
 | `git/` | `GitOps` trait + `CliOps` |
-| `schema/` | v1 types (`v1.rs`), v2 canonical types (`v2.rs`), shared types (`common.rs`), migration (`migrate.rs`), `parse_annotation()` |
-| `annotate/` | Batch annotation agent + live handler (`live.rs`) + squash synthesis |
+| `schema/` | v1 types (`v1.rs`), v2 types (`v2.rs`), v3 canonical types (`v3.rs`), migration (`migrate.rs`), `parse_annotation()` |
+| `annotate/` | Live handler (`live.rs`) + squash synthesis + staging |
 | `read/` | Read pipeline: `retrieve`, `contracts`, `decisions`, `deps`, `history`, `summary` |
 | `hooks/` | Git hook handlers |
-| `provider/` | LLM provider trait + Anthropic |
-| `agent/` | Agent conversation loop (narrative-first v2 tools) |
+| `knowledge/` | Knowledge store (conventions, boundaries, anti-patterns) |
 | `sync/` | Notes sync with remotes |
 | `config/` | Config management |
 | `doctor.rs` | Diagnostic checks |
-| `export.rs` | JSONL export (handles v1 and v2) |
+| `export.rs` | JSONL export |
 | `import.rs` | JSONL import (validates via `parse_annotation()`) |
 
 ## Working with Chronicle annotations
@@ -92,9 +90,9 @@ Annotations are context for future agents — write what the diff cannot tell yo
 Do NOT restate the commit message. Every annotation is a single Bash command:
 
 ```bash
-# Default (any non-trivial commit — include rejected_alternatives, decisions, markers as relevant):
+# Default (any non-trivial commit — include wisdom entries):
 ./target/debug/git-chronicle annotate --live << 'EOF'
-{"commit":"HEAD","summary":"WHY this approach","rejected_alternatives":[...],"decisions":[{"what":"...","why":"...","stability":"provisional"}]}
+{"commit":"HEAD","summary":"WHY this approach","wisdom":[{"category":"dead_end","content":"...","file":"src/foo.rs"},{"category":"gotcha","content":"..."}]}
 EOF
 
 # Summary-only (trivial changes — typos, renames, dep bumps):
@@ -119,11 +117,6 @@ boundaries, and anti-patterns that apply across the repo:
 
 See `.claude/skills/annotate/SKILL.md` for when to capture knowledge.
 
-### Backfilling annotations
-
-To annotate historical commits that lack annotations, see
-`.claude/skills/backfill/SKILL.md`.
-
 
 ## Keeping `.claude/` and `embedded/` in sync
 
@@ -134,11 +127,12 @@ live copy used when developing this repo. They must stay in sync:
 | `embedded/` (shipped to users) | `.claude/` (this repo's dev copy) |
 |--------------------------------|-----------------------------------|
 | `skills/annotate/SKILL.md` | `.claude/skills/annotate/SKILL.md` |
-| `skills/backfill/SKILL.md` | `.claude/skills/backfill/SKILL.md` |
 | `skills/context/SKILL.md` | `.claude/skills/context/SKILL.md` |
 | `hooks/chronicle-annotate-reminder.sh` | `.claude/hooks/post-tool-use/annotate-reminder.sh` |
 | `hooks/chronicle-read-context-hint.sh` | `.claude/hooks/pre-tool-use/read-context-hint.sh` |
 | `claude-md-snippet.md` | "Working with Chronicle annotations" section above |
+
+Note: The backfill skill was removed — there is no batch/backfill path.
 
 **Rules:**
 - Skills files must be identical between `embedded/` and `.claude/`.

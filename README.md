@@ -54,7 +54,7 @@ Node.js 22+ and npm for building the web viewer assets.
 ## Getting started
 
 ```bash
-# One-time machine setup (configures your LLM provider, installs Claude Code skills)
+# One-time machine setup (installs Claude Code skills and hooks)
 git chronicle setup
 
 # Initialize Chronicle in a repository
@@ -91,11 +91,11 @@ EOF
 git chronicle annotate --summary "Pin serde to 1.0.193 — 1.0.194 has a regression with flattened enums."
 ```
 
-**Batch path** — an LLM reads the diff and produces annotations automatically.
-Useful for backfilling history. Requires an API key (`ANTHROPIC_API_KEY`).
+**Auto path** — uses the commit message as the summary. Useful for the
+post-commit hook to ensure every commit gets at least a basic annotation.
 
 ```bash
-git chronicle annotate --commit HEAD
+git chronicle annotate --auto --commit HEAD
 ```
 
 ### What goes in an annotation
@@ -211,6 +211,86 @@ git chronicle export > annotations.jsonl
 git chronicle import annotations.jsonl
 ```
 
+## Preserving annotations across squash merges
+
+When a PR is squash-merged on GitHub, the server creates a new commit with a
+new SHA. The original branch commits — and their annotations — become orphaned.
+Chronicle can automatically synthesize a merged annotation on the squash commit.
+
+### How it works
+
+Chronicle's `--squash-sources` flag takes the original commit SHAs and merges
+their wisdom entries into a single v3 annotation on the squash commit:
+
+```bash
+git chronicle annotate --squash-sources abc123,def456,ghi789 --commit <squash-sha>
+```
+
+Wisdom entries are deduplicated by exact `(category, content)` match. Provenance
+tracks all source SHAs and records which commits had annotations.
+
+### GitHub Actions setup
+
+Add this workflow to `.github/workflows/squash-annotate.yml` to run synthesis
+automatically when PRs are squash-merged:
+
+```yaml
+name: Preserve annotations on squash merge
+
+on:
+  pull_request:
+    types: [closed]
+
+jobs:
+  squash-annotate:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect squash merge
+        id: detect
+        run: |
+          MERGE_SHA="${{ github.event.pull_request.merge_commit_sha }}"
+          PARENT_COUNT=$(git cat-file -p "$MERGE_SHA" | grep -c '^parent ')
+          if [ "$PARENT_COUNT" -eq 1 ]; then
+            echo "is_squash=true" >> "$GITHUB_OUTPUT"
+            echo "merge_sha=$MERGE_SHA" >> "$GITHUB_OUTPUT"
+          else
+            echo "is_squash=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Get PR source commits
+        if: steps.detect.outputs.is_squash == 'true'
+        id: commits
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          SHAS=$(gh api "repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/commits" \
+            --jq '[.[].sha] | join(",")')
+          echo "source_shas=$SHAS" >> "$GITHUB_OUTPUT"
+
+      - name: Install chronicle
+        if: steps.detect.outputs.is_squash == 'true'
+        run: cargo install git-chronicle
+
+      - name: Synthesize and push
+        if: steps.detect.outputs.is_squash == 'true'
+        run: |
+          git fetch origin refs/notes/chronicle:refs/notes/chronicle 2>/dev/null || true
+          git-chronicle annotate \
+            --squash-sources "${{ steps.commits.outputs.source_shas }}" \
+            --commit "${{ steps.detect.outputs.merge_sha }}"
+          git push origin refs/notes/chronicle
+```
+
+The workflow only needs the default `GITHUB_TOKEN` — no API keys required.
+Regular merges (2 parents) are skipped since original commits stay reachable.
+
 ## Browsing annotations
 
 ```bash
@@ -247,7 +327,7 @@ from your commit history. Each commit gets a structured JSON annotation
 
 - **Summary** — why this approach, not what changed
 - **Wisdom** — categorized lessons learned (`dead_end`, `gotcha`, `insight`, `unfinished_thread`), each optionally grounded to a file and line range
-- **Provenance** — how the annotation was produced (live, batch, backfill, squash, amend) and by whom
+- **Provenance** — how the annotation was produced (live, auto, squash, amend) and by whom
 
 Older annotations (`chronicle/v1`, `chronicle/v2`) are migrated transparently
 on read — no bulk rewrite needed.
@@ -264,12 +344,10 @@ to build — it's just git.
 | Command | Description |
 |---------|-------------|
 | **Setup** | |
-| `git chronicle setup` | One-time machine-wide setup (LLM provider, skills, hooks) |
+| `git chronicle setup` | One-time machine-wide setup (skills, hooks, CLAUDE.md) |
 | `git chronicle init` | Initialize Chronicle in the current repository |
-| `git chronicle reconfigure` | Rerun LLM provider selection |
 | **Writing** | |
-| `git chronicle annotate` | Annotate a commit (`--live`, `--summary`, `--commit <sha>`) |
-| `git chronicle backfill` | Annotate historical commits that lack annotations |
+| `git chronicle annotate` | Annotate a commit (`--live`, `--summary`, `--auto`, `--json`) |
 | `git chronicle note` | Stage a note to include in the next annotation |
 | `git chronicle flag` | Flag an annotation as potentially inaccurate |
 | `git chronicle correct` | Apply a correction to a specific annotation field |
@@ -296,7 +374,6 @@ to build — it's just git.
 | `git chronicle doctor` | Run diagnostic checks |
 | **Developer** | |
 | `git chronicle schema` | Print JSON Schema for annotation types |
-| `git chronicle context` | Manage pending context (`set`, `show`, `clear`) |
 
 ## License
 

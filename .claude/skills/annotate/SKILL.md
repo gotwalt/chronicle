@@ -11,8 +11,8 @@ it from the diff.
 
 - The **commit message** says what changed
 - The **diff** shows how
-- The **annotation** explains *why this way*, what constraints to respect,
-  and what was already tried and failed
+- The **annotation** explains *why this way*, what was already tried and
+  failed, and what the next agent should watch out for
 
 **Do not restate the commit message.** If your summary could be written from
 the diff alone, it has no value. Write what the diff cannot tell you.
@@ -26,38 +26,37 @@ lockfiles, generated files, vendored deps, or no-conflict merge commits.
 
 Every annotation is a **single Bash command** — do NOT write temp files.
 
-### Default: rich annotation
+### Default: rich annotation with wisdom
 
 Before annotating, think about what you know now that will be lost:
-- Chose between approaches? → `rejected_alternatives` (saves the next
-  agent from the same dead ends)
-- Made a design choice? → `decisions` (records what's load-bearing vs.
-  provisional)
-- Non-obvious invariants? → `markers` (protects the next agent from
+- Tried something that didn't work? → `dead_end` (saves the next agent
+  from the same mistakes)
+- Non-obvious trap or constraint? → `gotcha` (protects the next agent from
   invisible breakage)
-- Part of a larger effort? → `effort`
+- Key insight or mental model? → `insight` (transfers your understanding)
+- Work left unfinished? → `unfinished_thread` (tells the next agent what
+  to pick up)
 
 ```bash
 git chronicle annotate --live << 'EOF'
 {
   "commit": "HEAD",
   "summary": "Use exponential backoff for MQTT reconnect — the broker rate-limits reconnects, so rapid retries cause longer lockouts than patient ones.",
-  "motivation": "Production logs showed 30s lockouts during network blips.",
-  "rejected_alternatives": [
-    {"approach": "Jittered fixed interval", "reason": "Still triggers rate limiter when multiple clients reconnect after an outage"}
-  ],
-  "decisions": [
-    {"what": "Cap backoff at 60s", "why": "Balances recovery time vs. user-perceived downtime; matches broker's rate-limit window", "stability": "provisional", "revisit_when": "Broker config becomes tunable"}
-  ],
-  "markers": [
+  "wisdom": [
     {
-      "file": "src/mqtt/reconnect.rs",
-      "anchor": {"unit_type": "function", "name": "next_delay"},
-      "kind": {"type": "contract", "description": "Return value must not exceed MAX_BACKOFF_SECS; callers sleep on this without validation"}
+      "category": "dead_end",
+      "content": "Tried jittered fixed interval but it still triggers the broker rate limiter when multiple clients reconnect after an outage.",
+      "file": "src/mqtt/reconnect.rs"
+    },
+    {
+      "category": "gotcha",
+      "content": "Return value of next_delay() must not exceed MAX_BACKOFF_SECS; callers sleep on this without validation.",
+      "file": "src/mqtt/reconnect.rs"
+    },
+    {
+      "category": "unfinished_thread",
+      "content": "The backoff cap interacts with the broker's rate-limit window in ways that aren't fully tested under multi-client reconnect storms."
     }
-  ],
-  "sentiments": [
-    {"feeling": "unease", "detail": "The backoff cap interacts with the broker's rate-limit window in ways that aren't fully tested under multi-client reconnect storms"}
   ]
 }
 EOF
@@ -72,70 +71,39 @@ git chronicle annotate --summary "Pin serde to 1.0.193 — 1.0.194 has a regress
 **Bad** (restates the diff): "Add exponential backoff to reconnect logic"
 **Good** (explains why): "Use exponential backoff because the broker rate-limits fixed-interval reconnects, causing longer outages than patient retries"
 
-### JSON field reference (exact structure — do not deviate)
+### JSON field reference (v3 LiveInput — exact structure)
 
 ```
 {
   "commit": "HEAD",                              // default HEAD
   "summary": "...",                              // REQUIRED — why, not what
-  "motivation": "...",                           // what triggered this change
-  "rejected_alternatives": [                     // highest-value field
-    {"approach": "...", "reason": "..."}         //   or just a string (auto-converted)
-  ],
-  "follow_up": "...",                            // expected next steps
-  "decisions": [
+  "wisdom": [                                    // optional, default []
     {
-      "what": "...",                             // REQUIRED per decision
-      "why": "...",                              // REQUIRED per decision
-      "stability": "permanent",                  // permanent | provisional | experimental
-      "revisit_when": "...",                     // optional
-      "scope": ["src/foo.rs"]                    // optional
+      "category": "dead_end",                    // REQUIRED per entry
+      "content": "...",                          // REQUIRED per entry
+      "file": "src/foo.rs",                      // optional — grounds to file
+      "lines": {"start": 10, "end": 25}          // optional — line range
     }
-  ],
-  "markers": [
-    {
-      "file": "src/foo.rs",                      // REQUIRED per marker
-      "anchor": {"unit_type": "function", "name": "bar"},  // optional
-      "kind": {"type": "contract", "description": "..."}   // REQUIRED
-    }
-  ],
-  "effort": {
-    "id": "ticket-123",                          // REQUIRED in effort
-    "description": "...",                        // REQUIRED in effort
-    "phase": "in_progress"                       // start | in_progress | complete
-  },
-  "sentiments": [                                // optional — your intuitions
-    {"feeling": "worry", "detail": "..."},       //   feeling: free string
-    {"feeling": "confidence", "detail": "..."}   //   detail: what specifically and why
   ]
 }
 ```
 
-Marker `kind.type` values: `contract`, `hazard`, `dependency`, `unstable`,
-`security`, `performance`, `deprecated`, `tech_debt`, `test_coverage`.
+Wisdom categories:
 
-Decision stability: `permanent` (load-bearing), `provisional` (check
-`revisit_when`), `experimental` (expect replacement).
-
-Suggested sentiment feelings: `worry`, `confidence`, `uncertainty`, `pride`,
-`unease`, `curiosity`, `frustration`, `surprise`, `doubt` — but any string
-works. Feelings resist rigid categorization.
+| Category | What it captures |
+|----------|-----------------|
+| `dead_end` | Approaches tried and abandoned — saves future agents from rediscovering failures |
+| `gotcha` | Non-obvious traps invisible in the code — constraints, hazards, security boundaries |
+| `insight` | Mental models, key relationships, architecture decisions |
+| `unfinished_thread` | Incomplete work, suspected better approaches, tech debt |
 
 ## Field Guidance
 
 - **summary**: The *why* behind this approach. Must add information beyond
   the diff and commit message.
-- **rejected_alternatives**: Most valuable field. Every dead end you
-  document is one the next agent doesn't have to rediscover.
-- **markers**: Only where non-obvious. Contracts, hazards, cross-module
-  dependencies, security boundaries, performance-critical paths.
-- **decisions**: Choices a future agent might question. Tag stability so
-  they know how carefully to tread.
-- **sentiments**: Your intuitions are data. If you felt worried about
-  concurrency, uneasy about a heuristic, or confident in a particular
-  module — say so. The next agent benefits from knowing "the previous
-  agent was worried about the race condition here" just as much as
-  knowing the formal contract.
+- **wisdom**: Each entry captures one piece of knowledge that would be lost
+  when your session ends. `dead_end` is the highest-value category — every
+  dead end you document is one the next agent doesn't have to rediscover.
 
 ## Schema Lookup
 
@@ -153,14 +121,14 @@ this one commit? If yes, record it in the knowledge store.
 
 | Signal in your annotation | Knowledge type | Command |
 |---------------------------|---------------|---------|
-| A permanent decision that states a general rule for a scope | Convention | `git chronicle knowledge add --type convention --scope "src/" --rule "..." --stability permanent --decided-in "$(git rev-parse HEAD)"` |
-| A rejected alternative whose reason is a general pitfall | Anti-pattern | `git chronicle knowledge add --type anti-pattern --pattern "..." --instead "..." --learned-from "$(git rev-parse HEAD)"` |
-| You enforced or discovered a module ownership boundary | Boundary | `git chronicle knowledge add --type boundary --module "src/git/" --owns "..." --boundary "..."` |
+| A pattern that applies repo-wide (e.g., all errors use snafu) | Convention | `git chronicle knowledge add --type convention --scope "src/" --rule "..." --stability permanent --decided-in "$(git rev-parse HEAD)"` |
+| An approach that should never be used | Anti-pattern | `git chronicle knowledge add --type anti-pattern --pattern "..." --instead "..." --learned-from "$(git rev-parse HEAD)"` |
+| A module ownership boundary you enforced or discovered | Boundary | `git chronicle knowledge add --type boundary --module "src/git/" --owns "..." --boundary "..."` |
 
 ### When NOT to add knowledge
 
-- One-off design choices → keep as annotation decisions
-- Case-specific tradeoffs → keep as rejected_alternatives
+- One-off design choices → keep as wisdom entries
+- Case-specific tradeoffs → keep as dead_end wisdom
 - Anything experimental → wait until it proves stable
 
 ### Managing knowledge

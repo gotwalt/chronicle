@@ -2,9 +2,8 @@ pub mod embedded;
 
 use std::path::{Path, PathBuf};
 
-use crate::config::user_config::{ProviderConfig, ProviderType, UserConfig};
 use crate::error::setup_error::{
-    BinaryNotFoundSnafu, InteractiveInputSnafu, NoHomeDirectorySnafu, ReadFileSnafu, WriteFileSnafu,
+    BinaryNotFoundSnafu, NoHomeDirectorySnafu, ReadFileSnafu, WriteFileSnafu,
 };
 use crate::error::SetupError;
 use snafu::ResultExt;
@@ -25,8 +24,6 @@ pub struct SetupOptions {
 /// Report of what setup did.
 #[derive(Debug)]
 pub struct SetupReport {
-    pub provider_type: ProviderType,
-    pub config_path: PathBuf,
     pub skills_installed: Vec<PathBuf>,
     pub hooks_installed: Vec<PathBuf>,
     pub claude_md_updated: bool,
@@ -39,44 +36,19 @@ pub fn run_setup(options: &SetupOptions) -> Result<SetupReport, SetupError> {
     // 1. Verify binary on PATH
     verify_binary_on_path()?;
 
-    // 2. Prompt for provider selection
-    let provider_config = if options.dry_run {
-        eprintln!("[dry-run] Would prompt for provider selection");
-        ProviderConfig {
-            provider_type: ProviderType::ClaudeCode,
-            model: None,
-            api_key_env: None,
-        }
-    } else {
-        prompt_provider_selection()?
-    };
-
-    let provider_type = provider_config.provider_type.clone();
-
-    // 3. Write user config
-    let config_path = UserConfig::path()?;
-    let user_config = UserConfig {
-        provider: provider_config,
-    };
-    if options.dry_run {
-        eprintln!("[dry-run] Would write {}", config_path.display());
-    } else {
-        user_config.save()?;
-    }
-
-    // 4. Install skills
+    // 2. Install skills
     let mut skills_installed = Vec::new();
     if !options.skip_skills {
         skills_installed = install_skills(&home, options)?;
     }
 
-    // 5. Install hooks
+    // 3. Install hooks
     let mut hooks_installed = Vec::new();
     if !options.skip_hooks {
         hooks_installed = install_hooks(&home, options)?;
     }
 
-    // 6. Update CLAUDE.md
+    // 4. Update CLAUDE.md
     let claude_md_updated = if !options.skip_claude_md {
         update_claude_md(&home, options)?
     } else {
@@ -84,8 +56,6 @@ pub fn run_setup(options: &SetupOptions) -> Result<SetupReport, SetupError> {
     };
 
     Ok(SetupReport {
-        provider_type,
-        config_path,
         skills_installed,
         hooks_installed,
         claude_md_updated,
@@ -111,73 +81,11 @@ fn verify_binary_on_path() -> Result<(), SetupError> {
     }
 }
 
-/// Interactive provider selection prompt.
-pub fn prompt_provider_selection() -> Result<ProviderConfig, SetupError> {
-    eprintln!();
-    eprintln!("Select LLM provider for batch annotation:");
-    eprintln!("  [1] Claude Code (recommended) — uses existing Claude Code auth");
-    eprintln!("  [2] Anthropic API key — uses ANTHROPIC_API_KEY env var");
-    eprintln!("  [3] None — skip for now, live path still works");
-    eprintln!();
-    eprint!("Choice [1]: ");
-
-    let mut input = String::new();
-    std::io::stdin()
-        .read_line(&mut input)
-        .context(InteractiveInputSnafu)?;
-    let choice = input.trim();
-
-    match choice {
-        "" | "1" => {
-            // Validate claude CLI exists
-            let claude_ok = std::process::Command::new("claude")
-                .arg("--version")
-                .output()
-                .map(|o| o.status.success())
-                .unwrap_or(false);
-
-            if !claude_ok {
-                eprintln!("warning: `claude` CLI not found on PATH. Install Claude Code to use this provider.");
-            }
-
-            Ok(ProviderConfig {
-                provider_type: ProviderType::ClaudeCode,
-                model: None,
-                api_key_env: None,
-            })
-        }
-        "2" => {
-            if std::env::var("ANTHROPIC_API_KEY").is_err() {
-                eprintln!("warning: ANTHROPIC_API_KEY is not currently set.");
-            }
-            Ok(ProviderConfig {
-                provider_type: ProviderType::Anthropic,
-                model: None,
-                api_key_env: Some("ANTHROPIC_API_KEY".to_string()),
-            })
-        }
-        "3" => Ok(ProviderConfig {
-            provider_type: ProviderType::None,
-            model: None,
-            api_key_env: None,
-        }),
-        _ => {
-            eprintln!("Invalid choice, defaulting to Claude Code");
-            Ok(ProviderConfig {
-                provider_type: ProviderType::ClaudeCode,
-                model: None,
-                api_key_env: None,
-            })
-        }
-    }
-}
-
 /// Install skill files to ~/.claude/skills/chronicle/.
 fn install_skills(home: &Path, options: &SetupOptions) -> Result<Vec<PathBuf>, SetupError> {
     let skills = [
         ("context/SKILL.md", embedded::SKILL_CONTEXT),
         ("annotate/SKILL.md", embedded::SKILL_ANNOTATE),
-        ("backfill/SKILL.md", embedded::SKILL_BACKFILL),
     ];
 
     let base = home.join(".claude").join("skills").join("chronicle");

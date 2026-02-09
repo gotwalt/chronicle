@@ -1,13 +1,10 @@
 pub mod post_rewrite;
 pub mod prepare_commit_msg;
 
-use serde::{Deserialize, Serialize};
-use std::path::Path;
-
-use crate::annotate::gather::AuthorContext;
-use crate::error::chronicle_error::{IoSnafu, JsonSnafu};
+use crate::error::chronicle_error::IoSnafu;
 use crate::error::Result;
 use snafu::ResultExt;
+use std::path::Path;
 
 const HOOK_BEGIN_MARKER: &str = "# --- chronicle hook begin ---";
 const HOOK_END_MARKER: &str = "# --- chronicle hook end ---";
@@ -15,7 +12,7 @@ const HOOK_END_MARKER: &str = "# --- chronicle hook end ---";
 const POST_COMMIT_SCRIPT: &str = r#"# --- chronicle hook begin ---
 # Installed by chronicle. Do not edit between these markers.
 if command -v git-chronicle >/dev/null 2>&1; then
-    git-chronicle annotate --commit HEAD --sync &
+    git-chronicle annotate --auto --commit HEAD &
 fi
 # --- chronicle hook end ---"#;
 
@@ -32,65 +29,6 @@ if command -v git-chronicle >/dev/null 2>&1; then
     git-chronicle hook post-rewrite "$@"
 fi
 # --- chronicle hook end ---"#;
-
-/// Pending context stored in .git/chronicle/pending-context.json.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PendingContext {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub task: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub reasoning: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub dependencies: Option<String>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub tags: Vec<String>,
-}
-
-impl PendingContext {
-    pub fn to_author_context(&self) -> AuthorContext {
-        AuthorContext {
-            task: self.task.clone(),
-            reasoning: self.reasoning.clone(),
-            dependencies: self.dependencies.clone(),
-            tags: self.tags.clone(),
-        }
-    }
-}
-
-fn pending_context_path(git_dir: &Path) -> std::path::PathBuf {
-    git_dir.join("chronicle").join("pending-context.json")
-}
-
-/// Read pending context from .git/chronicle/pending-context.json.
-pub fn read_pending_context(git_dir: &Path) -> Result<Option<PendingContext>> {
-    let path = pending_context_path(git_dir);
-    if !path.exists() {
-        return Ok(None);
-    }
-    let contents = std::fs::read_to_string(&path).context(IoSnafu)?;
-    let ctx: PendingContext = serde_json::from_str(&contents).context(JsonSnafu)?;
-    Ok(Some(ctx))
-}
-
-/// Write pending context to .git/chronicle/pending-context.json.
-pub fn write_pending_context(git_dir: &Path, ctx: &PendingContext) -> Result<()> {
-    let path = pending_context_path(git_dir);
-    if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent).context(IoSnafu)?;
-    }
-    let json = serde_json::to_string_pretty(ctx).context(JsonSnafu)?;
-    std::fs::write(&path, json).context(IoSnafu)?;
-    Ok(())
-}
-
-/// Delete the pending context file.
-pub fn delete_pending_context(git_dir: &Path) -> Result<()> {
-    let path = pending_context_path(git_dir);
-    if path.exists() {
-        std::fs::remove_file(&path).context(IoSnafu)?;
-    }
-    Ok(())
-}
 
 /// Install a single hook script into the hooks directory.
 fn install_single_hook(hooks_dir: &Path, hook_name: &str, script: &str) -> Result<()> {

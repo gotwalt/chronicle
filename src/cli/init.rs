@@ -10,13 +10,7 @@ use snafu::ResultExt;
 
 use super::util::find_git_dir;
 
-pub fn run(
-    no_sync: bool,
-    no_hooks: bool,
-    provider: Option<String>,
-    model: Option<String>,
-    backfill: bool,
-) -> Result<()> {
+pub fn run(no_sync: bool, no_hooks: bool) -> Result<()> {
     // Find the git directory
     let git_dir = find_git_dir()?;
 
@@ -30,14 +24,6 @@ pub fn run(
 
     ops.config_set("chronicle.enabled", "true")
         .context(GitSnafu)?;
-
-    if let Some(ref p) = provider {
-        ops.config_set("chronicle.provider", p).context(GitSnafu)?;
-    }
-
-    if let Some(ref m) = model {
-        ops.config_set("chronicle.model", m).context(GitSnafu)?;
-    }
 
     // Install hooks unless --no-hooks
     if !no_hooks {
@@ -57,18 +43,6 @@ pub fn run(
 
     eprintln!("chronicle initialized in {}", chronicle_dir.display());
 
-    // --- Enhanced post-init checks ---
-
-    // Count unannotated commits
-    let unannotated = count_unannotated(&ops);
-    if unannotated > 0 {
-        eprintln!();
-        eprintln!(
-            "Found {} unannotated commits (of last 100). Run `git chronicle backfill --limit 20` to annotate recent history.",
-            unannotated
-        );
-    }
-
     // Check if global skills are installed
     if let Ok(home) = std::env::var("HOME") {
         let skills_dir = PathBuf::from(&home)
@@ -81,39 +55,5 @@ pub fn run(
         }
     }
 
-    // Run backfill if requested
-    if backfill {
-        eprintln!();
-        eprintln!("Running backfill (limit 20)...");
-        if let Err(e) = crate::cli::backfill::run(20, false) {
-            eprintln!("warning: backfill failed: {e}");
-        }
-    }
-
     Ok(())
-}
-
-/// Count unannotated commits in the last 100.
-fn count_unannotated(ops: &dyn GitOps) -> usize {
-    let output = match std::process::Command::new("git")
-        .args(["log", "--format=%H", "-100"])
-        .output()
-    {
-        Ok(o) if o.status.success() => o,
-        _ => return 0,
-    };
-
-    let shas: Vec<String> = String::from_utf8_lossy(&output.stdout)
-        .lines()
-        .map(|s| s.to_string())
-        .filter(|s| !s.is_empty())
-        .collect();
-
-    let mut unannotated = 0;
-    for sha in &shas {
-        if let Ok(false) = ops.note_exists(sha) {
-            unannotated += 1;
-        }
-    }
-    unannotated
 }
