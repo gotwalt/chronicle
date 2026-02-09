@@ -739,4 +739,341 @@ mod tests {
         // Regions preserved from original (MVP doesn't re-analyze)
         assert_eq!(result.regions.len(), 1);
     }
+
+    // -----------------------------------------------------------------------
+    // V3 squash synthesis tests
+    // -----------------------------------------------------------------------
+
+    fn make_v3_annotation(commit: &str, wisdom: Vec<v3::WisdomEntry>) -> v3::Annotation {
+        v3::Annotation {
+            schema: "chronicle/v3".to_string(),
+            commit: commit.to_string(),
+            timestamp: Utc::now().to_rfc3339(),
+            summary: format!("Commit {commit}"),
+            wisdom,
+            provenance: v3::Provenance {
+                source: v3::ProvenanceSource::Live,
+                author: None,
+                derived_from: Vec::new(),
+                notes: None,
+            },
+        }
+    }
+
+    fn wisdom(category: v3::WisdomCategory, content: &str) -> v3::WisdomEntry {
+        v3::WisdomEntry {
+            category,
+            content: content.to_string(),
+            file: None,
+            lines: None,
+        }
+    }
+
+    fn wisdom_with_file(
+        category: v3::WisdomCategory,
+        content: &str,
+        file: &str,
+    ) -> v3::WisdomEntry {
+        v3::WisdomEntry {
+            category,
+            content: content.to_string(),
+            file: Some(file.to_string()),
+            lines: None,
+        }
+    }
+
+    #[test]
+    fn test_synthesize_squash_v3_merges_wisdom() {
+        let ann1 = make_v3_annotation(
+            "abc123",
+            vec![
+                wisdom(v3::WisdomCategory::DeadEnd, "Tried approach X"),
+                wisdom_with_file(
+                    v3::WisdomCategory::Gotcha,
+                    "Must validate input",
+                    "src/input.rs",
+                ),
+            ],
+        );
+        let ann2 = make_v3_annotation(
+            "def456",
+            vec![
+                wisdom(v3::WisdomCategory::Insight, "HashMap is O(1)"),
+                wisdom_with_file(
+                    v3::WisdomCategory::Gotcha,
+                    "Connection can timeout",
+                    "src/net.rs",
+                ),
+            ],
+        );
+
+        let ctx = SquashSynthesisContextV3 {
+            squash_commit: "squash001".to_string(),
+            squash_message: "Squash merge PR #42".to_string(),
+            source_annotations: vec![ann1, ann2],
+            source_messages: vec![
+                ("abc123".to_string(), "First commit".to_string()),
+                ("def456".to_string(), "Second commit".to_string()),
+            ],
+        };
+
+        let result = synthesize_squash_annotation_v3(&ctx);
+
+        assert_eq!(result.schema, "chronicle/v3");
+        assert_eq!(result.commit, "squash001");
+        assert_eq!(result.summary, "Squash merge PR #42");
+        assert_eq!(result.wisdom.len(), 4);
+        assert!(result
+            .wisdom
+            .iter()
+            .any(|w| w.category == v3::WisdomCategory::DeadEnd && w.content == "Tried approach X"));
+        assert!(result
+            .wisdom
+            .iter()
+            .any(|w| w.category == v3::WisdomCategory::Gotcha
+                && w.content == "Must validate input"
+                && w.file.as_deref() == Some("src/input.rs")));
+    }
+
+    #[test]
+    fn test_synthesize_squash_v3_deduplicates_wisdom() {
+        // Same (category, content) across two annotations should be deduplicated
+        let shared_wisdom = wisdom(v3::WisdomCategory::Gotcha, "Must validate input");
+        let ann1 = make_v3_annotation("abc123", vec![shared_wisdom.clone()]);
+        let ann2 = make_v3_annotation(
+            "def456",
+            vec![
+                shared_wisdom,
+                wisdom(v3::WisdomCategory::Insight, "Unique to ann2"),
+            ],
+        );
+
+        let ctx = SquashSynthesisContextV3 {
+            squash_commit: "squash001".to_string(),
+            squash_message: "Squash".to_string(),
+            source_annotations: vec![ann1, ann2],
+            source_messages: vec![
+                ("abc123".to_string(), "First".to_string()),
+                ("def456".to_string(), "Second".to_string()),
+            ],
+        };
+
+        let result = synthesize_squash_annotation_v3(&ctx);
+
+        // Should have 2 entries (1 deduplicated + 1 unique), not 3
+        assert_eq!(result.wisdom.len(), 2);
+        let gotcha_count = result
+            .wisdom
+            .iter()
+            .filter(|w| {
+                w.category == v3::WisdomCategory::Gotcha && w.content == "Must validate input"
+            })
+            .count();
+        assert_eq!(gotcha_count, 1);
+    }
+
+    #[test]
+    fn test_synthesize_squash_v3_no_annotations() {
+        let ctx = SquashSynthesisContextV3 {
+            squash_commit: "squash001".to_string(),
+            squash_message: "Squash merge".to_string(),
+            source_annotations: vec![],
+            source_messages: vec![
+                ("abc123".to_string(), "First".to_string()),
+                ("def456".to_string(), "Second".to_string()),
+            ],
+        };
+
+        let result = synthesize_squash_annotation_v3(&ctx);
+
+        assert_eq!(result.schema, "chronicle/v3");
+        assert!(result.wisdom.is_empty());
+        assert_eq!(result.provenance.source, v3::ProvenanceSource::Squash);
+        assert_eq!(result.provenance.derived_from.len(), 2);
+        assert!(result
+            .provenance
+            .notes
+            .as_ref()
+            .unwrap()
+            .contains("none had annotations"));
+    }
+
+    #[test]
+    fn test_synthesize_squash_v3_partial_annotations() {
+        let ann1 = make_v3_annotation(
+            "abc123",
+            vec![wisdom(v3::WisdomCategory::Insight, "Only this one")],
+        );
+
+        let ctx = SquashSynthesisContextV3 {
+            squash_commit: "squash001".to_string(),
+            squash_message: "Squash merge".to_string(),
+            source_annotations: vec![ann1],
+            source_messages: vec![
+                ("abc123".to_string(), "First".to_string()),
+                ("def456".to_string(), "Second".to_string()),
+                ("ghi789".to_string(), "Third".to_string()),
+            ],
+        };
+
+        let result = synthesize_squash_annotation_v3(&ctx);
+
+        assert_eq!(result.wisdom.len(), 1);
+        assert!(result.provenance.notes.as_ref().unwrap().contains("1 of 3"));
+        // All 3 source SHAs should be in derived_from
+        assert_eq!(result.provenance.derived_from.len(), 3);
+    }
+
+    #[test]
+    fn test_synthesize_squash_v3_provenance() {
+        let ann1 = make_v3_annotation(
+            "abc12345678",
+            vec![wisdom(v3::WisdomCategory::DeadEnd, "Dead end")],
+        );
+        let ann2 = make_v3_annotation(
+            "def45678901",
+            vec![wisdom(v3::WisdomCategory::Insight, "Insight")],
+        );
+
+        let ctx = SquashSynthesisContextV3 {
+            squash_commit: "squash001".to_string(),
+            squash_message: "Squash merge".to_string(),
+            source_annotations: vec![ann1, ann2],
+            source_messages: vec![
+                ("abc12345678".to_string(), "First".to_string()),
+                ("def45678901".to_string(), "Second".to_string()),
+            ],
+        };
+
+        let result = synthesize_squash_annotation_v3(&ctx);
+
+        assert_eq!(result.provenance.source, v3::ProvenanceSource::Squash);
+        assert_eq!(
+            result.provenance.derived_from,
+            vec!["abc12345678".to_string(), "def45678901".to_string()]
+        );
+        let notes = result.provenance.notes.unwrap();
+        assert!(notes.contains("Synthesized from 2 commits"));
+        assert!(notes.contains("2 of 2 had annotations"));
+        // Source summaries should be included
+        assert!(notes.contains("abc12345: Commit abc12345678"));
+        assert!(notes.contains("def45678: Commit def45678901"));
+    }
+
+    #[test]
+    fn test_collect_source_annotations_v3_handles_all_versions() {
+        use crate::error::GitError;
+        use crate::git::diff::FileDiff;
+        use crate::git::CommitInfo;
+        use std::collections::HashMap;
+
+        struct MockGitOpsForNotes {
+            notes: HashMap<String, String>,
+        }
+
+        impl GitOps for MockGitOpsForNotes {
+            fn diff(&self, _: &str) -> std::result::Result<Vec<FileDiff>, GitError> {
+                Ok(vec![])
+            }
+            fn note_read(&self, commit: &str) -> std::result::Result<Option<String>, GitError> {
+                Ok(self.notes.get(commit).cloned())
+            }
+            fn note_write(&self, _: &str, _: &str) -> std::result::Result<(), GitError> {
+                Ok(())
+            }
+            fn note_exists(&self, _: &str) -> std::result::Result<bool, GitError> {
+                Ok(false)
+            }
+            fn file_at_commit(
+                &self,
+                _: &std::path::Path,
+                _: &str,
+            ) -> std::result::Result<String, GitError> {
+                Ok(String::new())
+            }
+            fn commit_info(&self, _: &str) -> std::result::Result<CommitInfo, GitError> {
+                Ok(CommitInfo {
+                    sha: String::new(),
+                    message: String::new(),
+                    author_name: String::new(),
+                    author_email: String::new(),
+                    timestamp: String::new(),
+                    parent_shas: Vec::new(),
+                })
+            }
+            fn resolve_ref(&self, _: &str) -> std::result::Result<String, GitError> {
+                Ok(String::new())
+            }
+            fn config_get(&self, _: &str) -> std::result::Result<Option<String>, GitError> {
+                Ok(None)
+            }
+            fn config_set(&self, _: &str, _: &str) -> std::result::Result<(), GitError> {
+                Ok(())
+            }
+            fn log_for_file(&self, _: &str) -> std::result::Result<Vec<String>, GitError> {
+                Ok(vec![])
+            }
+            fn list_annotated_commits(&self, _: u32) -> std::result::Result<Vec<String>, GitError> {
+                Ok(vec![])
+            }
+        }
+
+        let v1_json = r#"{
+            "schema": "chronicle/v1",
+            "commit": "v1sha",
+            "timestamp": "2025-01-01T00:00:00Z",
+            "summary": "V1 annotation",
+            "context_level": "enhanced",
+            "regions": [],
+            "provenance": {
+                "operation": "initial",
+                "derived_from": [],
+                "original_annotations_preserved": false
+            }
+        }"#;
+
+        let v3_json = r#"{
+            "schema": "chronicle/v3",
+            "commit": "v3sha",
+            "timestamp": "2025-06-01T00:00:00Z",
+            "summary": "V3 annotation",
+            "wisdom": [{"category": "gotcha", "content": "Watch out"}],
+            "provenance": {"source": "live"}
+        }"#;
+
+        let mut notes = HashMap::new();
+        notes.insert("v1sha".to_string(), v1_json.to_string());
+        notes.insert("v3sha".to_string(), v3_json.to_string());
+        // no_ann_sha has no note
+
+        let mock = MockGitOpsForNotes { notes };
+        let shas = vec![
+            "v1sha".to_string(),
+            "v3sha".to_string(),
+            "no_ann_sha".to_string(),
+        ];
+
+        let results = collect_source_annotations_v3(&mock, &shas);
+
+        assert_eq!(results.len(), 3);
+
+        // v1 annotation should be parsed and migrated to v3
+        let (sha, ann) = &results[0];
+        assert_eq!(sha, "v1sha");
+        let ann = ann.as_ref().unwrap();
+        assert_eq!(ann.schema, "chronicle/v3");
+        assert_eq!(ann.summary, "V1 annotation");
+
+        // v3 annotation should parse directly
+        let (sha, ann) = &results[1];
+        assert_eq!(sha, "v3sha");
+        let ann = ann.as_ref().unwrap();
+        assert_eq!(ann.schema, "chronicle/v3");
+        assert_eq!(ann.wisdom.len(), 1);
+
+        // Missing annotation should be None
+        let (sha, ann) = &results[2];
+        assert_eq!(sha, "no_ann_sha");
+        assert!(ann.is_none());
+    }
 }
