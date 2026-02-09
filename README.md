@@ -211,6 +211,86 @@ git chronicle export > annotations.jsonl
 git chronicle import annotations.jsonl
 ```
 
+## Preserving annotations across squash merges
+
+When a PR is squash-merged on GitHub, the server creates a new commit with a
+new SHA. The original branch commits — and their annotations — become orphaned.
+Chronicle can automatically synthesize a merged annotation on the squash commit.
+
+### How it works
+
+Chronicle's `--squash-sources` flag takes the original commit SHAs and merges
+their wisdom entries into a single v3 annotation on the squash commit:
+
+```bash
+git chronicle annotate --squash-sources abc123,def456,ghi789 --commit <squash-sha>
+```
+
+Wisdom entries are deduplicated by exact `(category, content)` match. Provenance
+tracks all source SHAs and records which commits had annotations.
+
+### GitHub Actions setup
+
+Add this workflow to `.github/workflows/squash-annotate.yml` to run synthesis
+automatically when PRs are squash-merged:
+
+```yaml
+name: Preserve annotations on squash merge
+
+on:
+  pull_request:
+    types: [closed]
+
+jobs:
+  squash-annotate:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect squash merge
+        id: detect
+        run: |
+          MERGE_SHA="${{ github.event.pull_request.merge_commit_sha }}"
+          PARENT_COUNT=$(git cat-file -p "$MERGE_SHA" | grep -c '^parent ')
+          if [ "$PARENT_COUNT" -eq 1 ]; then
+            echo "is_squash=true" >> "$GITHUB_OUTPUT"
+            echo "merge_sha=$MERGE_SHA" >> "$GITHUB_OUTPUT"
+          else
+            echo "is_squash=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Get PR source commits
+        if: steps.detect.outputs.is_squash == 'true'
+        id: commits
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          SHAS=$(gh api "repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/commits" \
+            --jq '[.[].sha] | join(",")')
+          echo "source_shas=$SHAS" >> "$GITHUB_OUTPUT"
+
+      - name: Install chronicle
+        if: steps.detect.outputs.is_squash == 'true'
+        run: cargo install git-chronicle
+
+      - name: Synthesize and push
+        if: steps.detect.outputs.is_squash == 'true'
+        run: |
+          git fetch origin refs/notes/chronicle:refs/notes/chronicle 2>/dev/null || true
+          git-chronicle annotate \
+            --squash-sources "${{ steps.commits.outputs.source_shas }}" \
+            --commit "${{ steps.detect.outputs.merge_sha }}"
+          git push origin refs/notes/chronicle
+```
+
+The workflow only needs the default `GITHUB_TOKEN` — no API keys required.
+Regular merges (2 parents) are skipped since original commits stay reachable.
+
 ## Browsing annotations
 
 ```bash
