@@ -1,6 +1,6 @@
 use crate::annotate::squash::{
-    collect_source_annotations, collect_source_messages, migrate_amend_annotation,
-    synthesize_squash_annotation, AmendMigrationContext, SquashSynthesisContext,
+    collect_source_annotations_v3, collect_source_messages, migrate_amend_annotation,
+    synthesize_squash_annotation_v3, AmendMigrationContext, SquashSynthesisContextV3,
 };
 use crate::error::chronicle_error::{GitSnafu, JsonSnafu};
 use crate::error::Result;
@@ -122,8 +122,8 @@ fn run_squash_synthesis(git_ops: &CliOps, commit: &str, sources: &str) -> Result
     // Resolve the commit SHA
     let resolved_commit = git_ops.resolve_ref(commit).context(GitSnafu)?;
 
-    // Collect source annotations and messages
-    let source_ann_pairs = collect_source_annotations(git_ops, &source_shas);
+    // Collect source annotations (v3-normalized) and messages
+    let source_ann_pairs = collect_source_annotations_v3(git_ops, &source_shas);
     let source_annotations: Vec<_> = source_ann_pairs
         .into_iter()
         .filter_map(|(_, ann)| ann)
@@ -133,15 +133,14 @@ fn run_squash_synthesis(git_ops: &CliOps, commit: &str, sources: &str) -> Result
     // Get squash commit info
     let commit_info = git_ops.commit_info(&resolved_commit).context(GitSnafu)?;
 
-    let ctx = SquashSynthesisContext {
+    let ctx = SquashSynthesisContextV3 {
         squash_commit: resolved_commit.clone(),
-        diff: String::new(), // MVP: not used for deterministic merge
         source_annotations,
         source_messages,
         squash_message: commit_info.message,
     };
 
-    let annotation = synthesize_squash_annotation(&ctx);
+    let annotation = synthesize_squash_annotation_v3(&ctx);
 
     // Write as git note
     let json = serde_json::to_string_pretty(&annotation).context(JsonSnafu)?;
