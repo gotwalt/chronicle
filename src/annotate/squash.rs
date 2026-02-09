@@ -9,6 +9,7 @@ use crate::git::GitOps;
 use crate::schema::v1::{
     self, ContextLevel, CrossCuttingConcern, Provenance, ProvenanceOperation, RegionAnnotation,
 };
+use crate::schema::{self, v3};
 type Annotation = v1::Annotation;
 use snafu::ResultExt;
 
@@ -287,6 +288,112 @@ pub fn collect_source_messages(
                 .commit_info(sha)
                 .ok()
                 .map(|info| (sha.clone(), info.message))
+        })
+        .collect()
+}
+
+// ===========================================================================
+// V3 squash synthesis
+// ===========================================================================
+
+/// Context for v3 squash synthesis.
+#[derive(Debug, Clone)]
+pub struct SquashSynthesisContextV3 {
+    /// The squash commit's SHA.
+    pub squash_commit: String,
+    /// The squash commit's own commit message.
+    pub squash_message: String,
+    /// V3 annotations from source commits (normalized via parse_annotation).
+    pub source_annotations: Vec<v3::Annotation>,
+    /// Commit messages from source commits: (sha, message).
+    pub source_messages: Vec<(String, String)>,
+}
+
+/// Synthesize a v3 annotation from multiple source annotations (squash merge).
+///
+/// Merges wisdom entries (deduplicated by exact category+content match),
+/// sets provenance with all source SHAs.
+pub fn synthesize_squash_annotation_v3(ctx: &SquashSynthesisContextV3) -> v3::Annotation {
+    let mut all_wisdom: Vec<v3::WisdomEntry> = Vec::new();
+    let mut source_shas: Vec<String> = Vec::new();
+
+    for ann in &ctx.source_annotations {
+        source_shas.push(ann.commit.clone());
+
+        for entry in &ann.wisdom {
+            let already_exists = all_wisdom
+                .iter()
+                .any(|w| w.category == entry.category && w.content == entry.content);
+            if !already_exists {
+                all_wisdom.push(entry.clone());
+            }
+        }
+    }
+
+    // Add source SHAs from source_messages for commits that had no annotations
+    for (sha, _) in &ctx.source_messages {
+        if !source_shas.contains(sha) {
+            source_shas.push(sha.clone());
+        }
+    }
+
+    let annotations_count = ctx.source_annotations.len();
+    let total_sources = ctx.source_messages.len();
+
+    // Build provenance notes with synthesis metadata and source summaries
+    let mut notes_parts: Vec<String> = Vec::new();
+    if !ctx.source_annotations.is_empty() {
+        notes_parts.push(format!(
+            "Synthesized from {} commits ({} of {} had annotations).",
+            total_sources, annotations_count, total_sources,
+        ));
+    } else {
+        notes_parts.push(format!(
+            "Synthesized from {} commits (none had annotations).",
+            total_sources,
+        ));
+    }
+
+    // Include source summaries for traceability
+    for ann in &ctx.source_annotations {
+        let short_sha = if ann.commit.len() > 8 {
+            &ann.commit[..8]
+        } else {
+            &ann.commit
+        };
+        notes_parts.push(format!("{}: {}", short_sha, ann.summary));
+    }
+
+    v3::Annotation {
+        schema: "chronicle/v3".to_string(),
+        commit: ctx.squash_commit.clone(),
+        timestamp: Utc::now().to_rfc3339(),
+        summary: ctx.squash_message.clone(),
+        wisdom: all_wisdom,
+        provenance: v3::Provenance {
+            source: v3::ProvenanceSource::Squash,
+            author: None,
+            derived_from: source_shas,
+            notes: Some(notes_parts.join("\n")),
+        },
+    }
+}
+
+/// Collect annotations from source commits, normalizing all versions to v3
+/// via `schema::parse_annotation()`.
+pub fn collect_source_annotations_v3(
+    git_ops: &dyn GitOps,
+    source_shas: &[String],
+) -> Vec<(String, Option<v3::Annotation>)> {
+    source_shas
+        .iter()
+        .map(|sha| {
+            let annotation = git_ops
+                .note_read(sha)
+                .ok()
+                .flatten()
+                .and_then(|json| schema::parse_annotation(&json).ok());
+            (sha.clone(), annotation)
         })
         .collect()
 }
