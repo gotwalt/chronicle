@@ -538,7 +538,7 @@ dependencies = [
 
 [[package]]
 name = "git-chronicle"
-version = "0.1.8"
+version = "0.1.11"
 dependencies = [
  "chrono",
  "clap",
