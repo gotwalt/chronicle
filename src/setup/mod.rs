@@ -177,7 +177,6 @@ fn install_skills(home: &Path, options: &SetupOptions) -> Result<Vec<PathBuf>, S
     let skills = [
         ("context/SKILL.md", embedded::SKILL_CONTEXT),
         ("annotate/SKILL.md", embedded::SKILL_ANNOTATE),
-        ("backfill/SKILL.md", embedded::SKILL_BACKFILL),
     ];
 
     let base = home.join(".claude").join("skills").join("chronicle");

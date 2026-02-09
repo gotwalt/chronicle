@@ -1,5 +1,4 @@
 pub mod annotate;
-pub mod backfill;
 pub mod context;
 pub mod contracts;
 pub mod correct;
@@ -67,17 +66,6 @@ pub enum Commands {
     /// Rerun the LLM provider selection prompt
     Reconfigure,
 
-    /// Annotate historical commits that lack Chronicle annotations
-    Backfill {
-        /// Maximum number of commits to annotate
-        #[arg(long, default_value = "20")]
-        limit: usize,
-
-        /// List commits that would be annotated without calling the LLM
-        #[arg(long)]
-        dry_run: bool,
-    },
-
     /// Initialize chronicle in the current repository
     Init {
         /// Disable notes sync (sync is enabled by default)
@@ -95,10 +83,6 @@ pub enum Commands {
         /// LLM model to use
         #[arg(long)]
         model: Option<String>,
-
-        /// Run backfill after init (annotate last 20 commits)
-        #[arg(long)]
-        backfill: bool,
     },
 
     /// Manage annotation context

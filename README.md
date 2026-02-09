@@ -92,7 +92,7 @@ git chronicle annotate --summary "Pin serde to 1.0.193 — 1.0.194 has a regress
 ```
 
 **Batch path** — an LLM reads the diff and produces annotations automatically.
-Useful for backfilling history. Requires an API key (`ANTHROPIC_API_KEY`).
+Requires an API key (`ANTHROPIC_API_KEY`).
 
 ```bash
 git chronicle annotate --commit HEAD
@@ -247,7 +247,7 @@ from your commit history. Each commit gets a structured JSON annotation
 
 - **Summary** — why this approach, not what changed
 - **Wisdom** — categorized lessons learned (`dead_end`, `gotcha`, `insight`, `unfinished_thread`), each optionally grounded to a file and line range
-- **Provenance** — how the annotation was produced (live, batch, backfill, squash, amend) and by whom
+- **Provenance** — how the annotation was produced (live, batch, squash, amend) and by whom
 
 Older annotations (`chronicle/v1`, `chronicle/v2`) are migrated transparently
 on read — no bulk rewrite needed.
@@ -269,7 +269,6 @@ to build — it's just git.
 | `git chronicle reconfigure` | Rerun LLM provider selection |
 | **Writing** | |
 | `git chronicle annotate` | Annotate a commit (`--live`, `--summary`, `--commit <sha>`) |
-| `git chronicle backfill` | Annotate historical commits that lack annotations |
 | `git chronicle note` | Stage a note to include in the next annotation |
 | `git chronicle flag` | Flag an annotation as potentially inaccurate |
 | `git chronicle correct` | Apply a correction to a specific annotation field |

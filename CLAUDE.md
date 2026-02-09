@@ -119,11 +119,6 @@ boundaries, and anti-patterns that apply across the repo:
 
 See `.claude/skills/annotate/SKILL.md` for when to capture knowledge.
 
-### Backfilling annotations
-
-To annotate historical commits that lack annotations, see
-`.claude/skills/backfill/SKILL.md`.
-
 
 ## Keeping `.claude/` and `embedded/` in sync
 
@@ -134,7 +129,6 @@ live copy used when developing this repo. They must stay in sync:
 | `embedded/` (shipped to users) | `.claude/` (this repo's dev copy) |
 |--------------------------------|-----------------------------------|
 | `skills/annotate/SKILL.md` | `.claude/skills/annotate/SKILL.md` |
-| `skills/backfill/SKILL.md` | `.claude/skills/backfill/SKILL.md` |
 | `skills/context/SKILL.md` | `.claude/skills/context/SKILL.md` |
 | `hooks/chronicle-annotate-reminder.sh` | `.claude/hooks/post-tool-use/annotate-reminder.sh` |
 | `hooks/chronicle-read-context-hint.sh` | `.claude/hooks/pre-tool-use/read-context-hint.sh` |

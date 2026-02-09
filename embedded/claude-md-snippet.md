@@ -60,9 +60,4 @@ git chronicle knowledge add --type convention --scope "src/" --rule "..." --stab
 ```
 
 See the annotate skill for when to capture knowledge.
-
-### Backfilling annotations
-
-To annotate historical commits that lack annotations, see
-the backfill skill.
 <!-- chronicle-setup-end -->

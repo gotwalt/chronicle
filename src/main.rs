@@ -15,14 +15,12 @@ fn main() {
             skip_claude_md,
         } => chronicle::cli::setup::run(force, dry_run, skip_skills, skip_hooks, skip_claude_md),
         Commands::Reconfigure => chronicle::cli::reconfigure::run(),
-        Commands::Backfill { limit, dry_run } => chronicle::cli::backfill::run(limit, dry_run),
         Commands::Init {
             no_sync,
             no_hooks,
             provider,
             model,
-            backfill,
-        } => chronicle::cli::init::run(no_sync, no_hooks, provider, model, backfill),
+        } => chronicle::cli::init::run(no_sync, no_hooks, provider, model),
         Commands::Context { action } => chronicle::cli::context::run(action),
         Commands::Annotate {
             commit,
