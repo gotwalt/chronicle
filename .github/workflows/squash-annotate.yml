@@ -1,0 +1,88 @@
+name: Preserve annotations on squash merge
+
+on:
+  pull_request:
+    types: [closed]
+
+jobs:
+  squash-annotate:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Detect merge type
+        id: detect
+        run: |
+          MERGE_SHA="${{ github.event.pull_request.merge_commit_sha }}"
+          PARENT_COUNT=$(git ls-remote --refs origin "$MERGE_SHA" 2>/dev/null | wc -l || echo "0")
+
+          # Clone just enough to check parent count
+          git clone --filter=blob:none --no-checkout --single-branch \
+            "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" repo
+          cd repo
+          git fetch origin "$MERGE_SHA" --depth=2
+          PARENT_COUNT=$(git cat-file -p "$MERGE_SHA" | grep -c '^parent ')
+
+          if [ "$PARENT_COUNT" -ne 1 ]; then
+            echo "Not a squash merge (parent_count=$PARENT_COUNT), skipping."
+            echo "is_squash=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "Squash merge detected."
+            echo "is_squash=true" >> "$GITHUB_OUTPUT"
+            echo "merge_sha=$MERGE_SHA" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Checkout
+        if: steps.detect.outputs.is_squash == 'true'
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get PR source commits
+        if: steps.detect.outputs.is_squash == 'true'
+        id: commits
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PR_NUMBER="${{ github.event.pull_request.number }}"
+          SHAS=$(gh api "repos/${{ github.repository }}/pulls/${PR_NUMBER}/commits" \
+            --jq '[.[].sha] | join(",")')
+          echo "source_shas=$SHAS" >> "$GITHUB_OUTPUT"
+          echo "Found source commits: $SHAS"
+
+      - name: Install Rust toolchain
+        if: steps.detect.outputs.is_squash == 'true'
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        if: steps.detect.outputs.is_squash == 'true'
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Build chronicle
+        if: steps.detect.outputs.is_squash == 'true'
+        run: cargo build --release
+
+      - name: Fetch notes and synthesize
+        if: steps.detect.outputs.is_squash == 'true'
+        run: |
+          # Fetch existing chronicle notes (may not exist yet)
+          git fetch origin refs/notes/chronicle:refs/notes/chronicle 2>/dev/null || true
+
+          MERGE_SHA="${{ steps.detect.outputs.merge_sha }}"
+          SOURCE_SHAS="${{ steps.commits.outputs.source_shas }}"
+
+          echo "Synthesizing annotation for $MERGE_SHA from sources: $SOURCE_SHAS"
+          ./target/release/git-chronicle annotate \
+            --squash-sources "$SOURCE_SHAS" \
+            --commit "$MERGE_SHA"
+
+      - name: Push notes
+        if: steps.detect.outputs.is_squash == 'true'
+        run: git push origin refs/notes/chronicle
