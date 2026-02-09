@@ -1,5 +1,4 @@
 pub mod annotate;
-pub mod context;
 pub mod contracts;
 pub mod correct;
 pub mod decisions;
@@ -14,7 +13,6 @@ pub mod knowledge;
 pub mod lookup;
 pub mod note;
 pub mod read;
-pub mod reconfigure;
 pub mod schema;
 pub mod setup;
 pub mod show;
@@ -63,9 +61,6 @@ pub enum Commands {
         skip_claude_md: bool,
     },
 
-    /// Rerun the LLM provider selection prompt
-    Reconfigure,
-
     /// Initialize chronicle in the current repository
     Init {
         /// Disable notes sync (sync is enabled by default)
@@ -75,20 +70,6 @@ pub enum Commands {
         /// Skip hook installation
         #[arg(long)]
         no_hooks: bool,
-
-        /// LLM provider to use
-        #[arg(long)]
-        provider: Option<String>,
-
-        /// LLM model to use
-        #[arg(long)]
-        model: Option<String>,
-    },
-
-    /// Manage annotation context
-    Context {
-        #[command(subcommand)]
-        action: ContextAction,
     },
 
     /// Read annotations for a file
@@ -476,28 +457,4 @@ pub enum SyncAction {
         #[arg(long, default_value = "origin")]
         remote: String,
     },
-}
-
-#[derive(Subcommand)]
-pub enum ContextAction {
-    /// Set pending context for the next commit
-    Set {
-        #[arg(long)]
-        task: Option<String>,
-
-        #[arg(long)]
-        reasoning: Option<String>,
-
-        #[arg(long)]
-        dependencies: Option<String>,
-
-        #[arg(long)]
-        tags: Vec<String>,
-    },
-
-    /// Show current pending context
-    Show,
-
-    /// Clear pending context
-    Clear,
 }

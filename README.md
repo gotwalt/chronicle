@@ -54,7 +54,7 @@ Node.js 22+ and npm for building the web viewer assets.
 ## Getting started
 
 ```bash
-# One-time machine setup (configures your LLM provider, installs Claude Code skills)
+# One-time machine setup (installs Claude Code skills and hooks)
 git chronicle setup
 
 # Initialize Chronicle in a repository
@@ -91,11 +91,11 @@ EOF
 git chronicle annotate --summary "Pin serde to 1.0.193 — 1.0.194 has a regression with flattened enums."
 ```
 
-**Batch path** — an LLM reads the diff and produces annotations automatically.
-Requires an API key (`ANTHROPIC_API_KEY`).
+**Auto path** — uses the commit message as the summary. Useful for the
+post-commit hook to ensure every commit gets at least a basic annotation.
 
 ```bash
-git chronicle annotate --commit HEAD
+git chronicle annotate --auto --commit HEAD
 ```
 
 ### What goes in an annotation
@@ -247,7 +247,7 @@ from your commit history. Each commit gets a structured JSON annotation
 
 - **Summary** — why this approach, not what changed
 - **Wisdom** — categorized lessons learned (`dead_end`, `gotcha`, `insight`, `unfinished_thread`), each optionally grounded to a file and line range
-- **Provenance** — how the annotation was produced (live, batch, squash, amend) and by whom
+- **Provenance** — how the annotation was produced (live, auto, squash, amend) and by whom
 
 Older annotations (`chronicle/v1`, `chronicle/v2`) are migrated transparently
 on read — no bulk rewrite needed.
@@ -264,11 +264,10 @@ to build — it's just git.
 | Command | Description |
 |---------|-------------|
 | **Setup** | |
-| `git chronicle setup` | One-time machine-wide setup (LLM provider, skills, hooks) |
+| `git chronicle setup` | One-time machine-wide setup (skills, hooks, CLAUDE.md) |
 | `git chronicle init` | Initialize Chronicle in the current repository |
-| `git chronicle reconfigure` | Rerun LLM provider selection |
 | **Writing** | |
-| `git chronicle annotate` | Annotate a commit (`--live`, `--summary`, `--commit <sha>`) |
+| `git chronicle annotate` | Annotate a commit (`--live`, `--summary`, `--auto`, `--json`) |
 | `git chronicle note` | Stage a note to include in the next annotation |
 | `git chronicle flag` | Flag an annotation as potentially inaccurate |
 | `git chronicle correct` | Apply a correction to a specific annotation field |
@@ -295,7 +294,6 @@ to build — it's just git.
 | `git chronicle doctor` | Run diagnostic checks |
 | **Developer** | |
 | `git chronicle schema` | Print JSON Schema for annotation types |
-| `git chronicle context` | Manage pending context (`set`, `show`, `clear`) |
 
 ## License
 

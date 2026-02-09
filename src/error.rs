@@ -24,20 +24,6 @@ pub enum ChronicleError {
         location: snafu::Location,
     },
 
-    #[snafu(display("provider error: {source}"))]
-    Provider {
-        source: ProviderError,
-        #[snafu(implicit)]
-        location: snafu::Location,
-    },
-
-    #[snafu(display("agent error: {source}"))]
-    Agent {
-        source: AgentError,
-        #[snafu(implicit)]
-        location: snafu::Location,
-    },
-
     #[snafu(display("config error: {message}"))]
     Config {
         message: String,
@@ -122,109 +108,6 @@ pub enum GitError {
 }
 
 #[derive(Debug, Snafu)]
-#[snafu(visibility(pub), module(provider_error))]
-pub enum ProviderError {
-    #[snafu(display("no credentials found for any provider"))]
-    NoCredentials {
-        #[snafu(implicit)]
-        location: snafu::Location,
-    },
-
-    #[snafu(display("authentication failed: {message}"))]
-    AuthFailed {
-        message: String,
-        #[snafu(implicit)]
-        location: snafu::Location,
-    },
-
-    #[snafu(display("rate limited, retry after {retry_after_secs}s"))]
-    RateLimited {
-        retry_after_secs: u64,
-        #[snafu(implicit)]
-        location: snafu::Location,
-    },
-
-    #[snafu(display("request timeout"))]
-    Timeout {
-        #[snafu(implicit)]
-        location: snafu::Location,
-    },
-
-    #[snafu(display("API error: {message}"))]
-    Api {
-        message: String,
-        #[snafu(implicit)]
-        location: snafu::Location,
-    },
-
-    #[snafu(display("failed to parse response: {message}"))]
-    ParseResponse {
-        message: String,
-        #[snafu(implicit)]
-        location: snafu::Location,
-    },
-
-    #[snafu(display("HTTP error: {source}, at {location}"))]
-    Http {
-        source: Box<ureq::Error>,
-        #[snafu(implicit)]
-        location: snafu::Location,
-    },
-
-    #[snafu(display("retries exhausted after {attempts} attempts"))]
-    RetriesExhausted {
-        attempts: u32,
-        #[snafu(implicit)]
-        location: snafu::Location,
-    },
-}
-
-#[derive(Debug, Snafu)]
-#[snafu(visibility(pub), module(agent_error))]
-pub enum AgentError {
-    #[snafu(display("provider error: {source}"))]
-    Provider {
-        source: ProviderError,
-        #[snafu(implicit)]
-        location: snafu::Location,
-    },
-
-    #[snafu(display("no annotations emitted by agent"))]
-    NoAnnotations {
-        #[snafu(implicit)]
-        location: snafu::Location,
-    },
-
-    #[snafu(display("max turns exceeded ({turns})"))]
-    MaxTurnsExceeded {
-        turns: u32,
-        #[snafu(implicit)]
-        location: snafu::Location,
-    },
-
-    #[snafu(display("invalid annotation: {message}"))]
-    InvalidAnnotation {
-        message: String,
-        #[snafu(implicit)]
-        location: snafu::Location,
-    },
-
-    #[snafu(display("git error: {source}"))]
-    Git {
-        source: GitError,
-        #[snafu(implicit)]
-        location: snafu::Location,
-    },
-
-    #[snafu(display("JSON error: {source}"))]
-    Json {
-        source: serde_json::Error,
-        #[snafu(implicit)]
-        location: snafu::Location,
-    },
-}
-
-#[derive(Debug, Snafu)]
 #[snafu(visibility(pub), module(setup_error))]
 pub enum SetupError {
     #[snafu(display("home directory not found, at {location}"))]
@@ -269,28 +152,6 @@ pub enum SetupError {
     WriteConfig {
         #[snafu(source)]
         source: toml::ser::Error,
-        #[snafu(implicit)]
-        location: snafu::Location,
-    },
-
-    #[snafu(display(
-        "Claude CLI not found — install Claude Code or select a different provider, at {location}"
-    ))]
-    ClaudeCliNotFound {
-        #[snafu(implicit)]
-        location: snafu::Location,
-    },
-
-    #[snafu(display("ANTHROPIC_API_KEY environment variable not set, at {location}"))]
-    ApiKeyNotSet {
-        #[snafu(implicit)]
-        location: snafu::Location,
-    },
-
-    #[snafu(display("interactive input error: {source}, at {location}"))]
-    InteractiveInput {
-        #[snafu(source)]
-        source: std::io::Error,
         #[snafu(implicit)]
         location: snafu::Location,
     },

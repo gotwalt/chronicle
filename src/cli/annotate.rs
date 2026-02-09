@@ -98,24 +98,10 @@ pub fn run(args: AnnotateArgs) -> Result<()> {
         return run_amend_migration(&git_ops, &commit, &old_sha);
     }
 
-    let provider = crate::provider::discover_provider().map_err(|e| {
-        crate::error::ChronicleError::Provider {
-            source: e,
-            location: snafu::Location::default(),
-        }
-    })?;
-
-    let annotation = crate::annotate::run(&git_ops, provider.as_ref(), &commit)?;
-
-    let json = serde_json::to_string_pretty(&annotation).map_err(|e| {
-        crate::error::ChronicleError::Json {
-            source: e,
-            location: snafu::Location::default(),
-        }
-    })?;
-    println!("{json}");
-
-    Ok(())
+    Err(crate::error::ChronicleError::Validation {
+        message: "no annotation mode specified; use --live, --summary, --json, --auto, --squash-sources, or --amend-source".to_string(),
+        location: snafu::Location::default(),
+    })
 }
 
 /// Run squash synthesis from explicit source SHAs (for CI).

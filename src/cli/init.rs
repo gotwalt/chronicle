@@ -10,12 +10,7 @@ use snafu::ResultExt;
 
 use super::util::find_git_dir;
 
-pub fn run(
-    no_sync: bool,
-    no_hooks: bool,
-    provider: Option<String>,
-    model: Option<String>,
-) -> Result<()> {
+pub fn run(no_sync: bool, no_hooks: bool) -> Result<()> {
     // Find the git directory
     let git_dir = find_git_dir()?;
 
@@ -29,14 +24,6 @@ pub fn run(
 
     ops.config_set("chronicle.enabled", "true")
         .context(GitSnafu)?;
-
-    if let Some(ref p) = provider {
-        ops.config_set("chronicle.provider", p).context(GitSnafu)?;
-    }
-
-    if let Some(ref m) = model {
-        ops.config_set("chronicle.model", m).context(GitSnafu)?;
-    }
 
     // Install hooks unless --no-hooks
     if !no_hooks {
