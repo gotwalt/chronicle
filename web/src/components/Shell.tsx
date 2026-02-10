@@ -44,10 +44,13 @@ export function Shell() {
   useEffect(() => {
     fetchTree()
       .then((res) => setFiles(res.files))
-      .catch((err) => setError(err.message));
+      .catch((err) => {
+        console.error("Failed to fetch tree:", err);
+        setError(err.message);
+      });
     fetchStatus()
       .then((s) => setStatus(s))
-      .catch(() => {}); // non-critical
+      .catch((err) => console.error("Failed to fetch status:", err));
   }, []);
 
   // Load file data when path changes
@@ -64,6 +67,7 @@ export function Shell() {
         setLoading(false);
       })
       .catch((err) => {
+        console.error(`Failed to fetch file view for ${selectedPath}:`, err);
         setError(err.message);
         setFileData(null);
         setLoading(false);

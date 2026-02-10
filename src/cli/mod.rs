@@ -351,13 +351,13 @@ pub enum Commands {
     /// Launch web viewer for browsing annotations
     #[cfg(feature = "web")]
     Web {
-        /// Port to listen on
-        #[arg(long, default_value = "3000")]
-        port: u16,
-
-        /// Open browser automatically
+        /// Port to listen on (auto-selects an open port if not specified)
         #[arg(long)]
-        open: bool,
+        port: Option<u16>,
+
+        /// Don't open browser automatically
+        #[arg(long)]
+        no_open: bool,
     },
 
     /// Manage repo-level knowledge (conventions, boundaries, anti-patterns)

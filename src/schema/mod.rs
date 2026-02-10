@@ -53,6 +53,13 @@ struct SchemaVersion {
     schema: String,
 }
 
+/// Peek at the schema version string from raw annotation JSON without full parsing.
+pub fn peek_version(json: &str) -> Option<String> {
+    serde_json::from_str::<SchemaVersion>(json)
+        .ok()
+        .map(|sv| sv.schema)
+}
+
 /// Errors from `parse_annotation`.
 #[derive(Debug)]
 pub enum ParseAnnotationError {

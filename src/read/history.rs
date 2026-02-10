@@ -19,6 +19,8 @@ pub struct TimelineEntry {
     pub context_level: String,
     pub provenance: String,
     pub intent: String,
+    /// Original schema version (e.g. "chronicle/v1", "chronicle/v2", "chronicle/v3").
+    pub original_schema: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reasoning: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -97,6 +99,7 @@ pub fn build_timeline(git: &dyn GitOps, query: &HistoryQuery) -> Result<HistoryO
         let risk_notes: Option<String> = None;
 
         let context_level = annotation.provenance.source.to_string();
+        let original_schema = schema::peek_version(&note).unwrap_or_else(|| "unknown".to_string());
 
         entries.push(TimelineEntry {
             commit: sha.clone(),
@@ -105,6 +108,7 @@ pub fn build_timeline(git: &dyn GitOps, query: &HistoryQuery) -> Result<HistoryO
             context_level: context_level.clone(),
             provenance: context_level,
             intent: annotation.summary.clone(),
+            original_schema,
             reasoning: None,
             constraints,
             risk_notes,
