@@ -12,6 +12,12 @@
       "scope": "src/web/",
       "rule": "Annotations from --auto and --summary modes have empty wisdom arrays with no file references. Endpoints that derive file lists from annotations must fall back to git diff-tree --name-only to get the commit's changed files.",
       "stability": "permanent"
+    },
+    {
+      "id": "conv-3",
+      "scope": "src/schema/",
+      "rule": "parse_annotation() migrates all annotations to v3, losing the original schema version. Use schema::peek_version() to extract the original version string from raw JSON when the original version matters (e.g. display, diagnostics).",
+      "stability": "permanent"
     }
   ],
   "boundaries": [],
