@@ -6,6 +6,12 @@
       "scope": "src/web/",
       "rule": "Any endpoint returning file paths from annotations must filter against files at HEAD (via list_files) to exclude references to deleted files. Wisdom entries and diff-tree results both need this filter.",
       "stability": "permanent"
+    },
+    {
+      "id": "conv-2",
+      "scope": "src/web/",
+      "rule": "Annotations from --auto and --summary modes have empty wisdom arrays with no file references. Endpoints that derive file lists from annotations must fall back to git diff-tree --name-only to get the commit's changed files.",
+      "stability": "permanent"
     }
   ],
   "boundaries": [],
