@@ -57,23 +57,41 @@ def extract_annotations(repo_dir: Path, chronicle_binary: str) -> list[Annotatio
     return annotations
 
 
+def _agent_base_tag(repo_dir: Path) -> str:
+    """Return the best base tag for extraction.
+
+    Prefers eval-agent-start (after chronicle install) over
+    eval-setup-complete (before chronicle install).
+    """
+    result = subprocess.run(
+        ["git", "tag", "-l", "eval-agent-start"],
+        cwd=repo_dir,
+        capture_output=True,
+        text=True,
+    )
+    if "eval-agent-start" in result.stdout:
+        return "eval-agent-start"
+    return "eval-setup-complete"
+
+
 def extract_commit_messages(repo_dir: Path) -> list[str]:
-    """Get commit messages after the eval-setup-complete tag."""
+    """Get commit messages for agent commits (after chronicle install)."""
+    tag = _agent_base_tag(repo_dir)
     output = run_git(
-        ["log", "eval-setup-complete..HEAD", "--format=%B", "--reverse"],
+        ["log", f"{tag}..HEAD", "--format=%B%x00", "--reverse"],
         repo_dir,
     )
     if not output:
         return []
-    # Split on double-newline boundaries between commits
-    messages = [m.strip() for m in output.split("\n\n") if m.strip()]
+    messages = [m.strip() for m in output.split("\x00") if m.strip()]
     return messages
 
 
 def extract_files_changed(repo_dir: Path) -> list[str]:
-    """Get files changed in commits after eval-setup-complete."""
+    """Get files changed by agent commits (after chronicle install)."""
+    tag = _agent_base_tag(repo_dir)
     output = run_git(
-        ["diff", "--name-only", "eval-setup-complete..HEAD"],
+        ["diff", "--name-only", f"{tag}..HEAD"],
         repo_dir,
     )
     if not output:
@@ -82,5 +100,6 @@ def extract_files_changed(repo_dir: Path) -> list[str]:
 
 
 def extract_diff_text(repo_dir: Path) -> str:
-    """Get the full diff from eval-setup-complete to HEAD."""
-    return run_git(["diff", "eval-setup-complete..HEAD"], repo_dir)
+    """Get the full diff of agent commits (after chronicle install)."""
+    tag = _agent_base_tag(repo_dir)
+    return run_git(["diff", f"{tag}..HEAD"], repo_dir)

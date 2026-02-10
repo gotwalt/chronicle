@@ -159,12 +159,24 @@ def install_chronicle(
         },
     )
 
+    # Tag after chronicle install so extraction skips setup commits
+    subprocess.run(
+        ["git", "tag", "eval-agent-start"],
+        cwd=repo_dir,
+        capture_output=True,
+    )
+
 
 def _rewrite_binary_refs(text: str, abs_binary: str) -> str:
-    """Replace `git chronicle` and `git-chronicle` with the absolute binary path."""
-    text = re.sub(r"git chronicle\b", abs_binary, text)
-    text = re.sub(r"git-chronicle\b", abs_binary, text)
-    return text
+    """Replace `git chronicle` and `git-chronicle` with the absolute binary path.
+
+    Uses a placeholder to avoid cascading replacements (the abs_binary path
+    itself contains 'git-chronicle', which would get re-matched).
+    """
+    placeholder = "\x00CHRONICLE_BINARY\x00"
+    text = re.sub(r"(?<![/\w])git chronicle\b", placeholder, text)
+    text = re.sub(r"(?<![/\w])git-chronicle\b", placeholder, text)
+    return text.replace(placeholder, abs_binary)
 
 
 def build_agent_prompt(task_config: TaskConfig, chronicle_binary: str) -> str:
