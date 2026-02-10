@@ -1,0 +1,37 @@
+{
+  "schema": "chronicle/v3",
+  "commit": "b0048574814097fe1004f8d0d98cc95bbf52d3a6",
+  "timestamp": "2026-02-10T05:14:53.805014+00:00",
+  "summary": "Redesigned web overview to center on annotated commits rather than bare unannotated SHAs, added schema version visibility to help users distinguish legacy v1/v2 annotations from native v3",
+  "wisdom": [
+    {
+      "category": "gotcha",
+      "content": "CSS line-clamp-2 can visually truncate text while the element's actual height remains unconstrained — long multi-line summaries with newlines create huge invisible gaps. Truncate in JS instead.",
+      "file": "web/src/components/OverviewPage.tsx"
+    },
+    {
+      "category": "gotcha",
+      "content": "Annotations from --auto and --summary modes have no wisdom entries with file references, so filtering wisdom.file produces an empty list even though the commit clearly touched files. Must fall back to git diff-tree --name-only for the commit's changed files.",
+      "file": "src/web/api.rs"
+    },
+    {
+      "category": "gotcha",
+      "content": "Old annotations reference files that were later deleted (e.g. src/provider/anthropic.rs). Any endpoint returning file paths from annotations must filter against files that exist at HEAD to avoid dead links that cause 500s.",
+      "file": "src/web/api.rs"
+    },
+    {
+      "category": "dead_end",
+      "content": "Tried accordion expand/collapse for showing file lists under annotation entries — single-expanded-at-a-time UX confused users. Switched to always-visible inline file chips which is simpler and more scannable.",
+      "file": "web/src/components/OverviewPage.tsx"
+    },
+    {
+      "category": "insight",
+      "content": "parse_annotation() migrates all annotations to v3, losing the original schema version. Added schema::peek_version() to extract the original version from raw JSON for display purposes without changing the migration pipeline.",
+      "file": "src/schema/mod.rs"
+    }
+  ],
+  "provenance": {
+    "source": "live",
+    "author": "Aaron Gotwalt"
+  }
+}
