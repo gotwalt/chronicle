@@ -3,4 +3,4 @@ name = "chronicle-eval"
 version = "0.1.0"
 description = "Wisdom extraction evaluation framework for Chronicle"
 requires-python = ">=3.11"
-dependencies = []
+dependencies = ["anthropic>=0.40.0"]

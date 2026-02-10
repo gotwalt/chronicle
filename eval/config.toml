@@ -10,3 +10,9 @@ binary = "./target/debug/git-chronicle"
 [eval]
 prompt_variant = "v1-baseline"
 tasks = ["circular-config", "cache-invalidation", "retry-backoff"]
+
+[judge]
+enabled = false
+model = "claude-sonnet-4-5"
+max_retries = 3
+diff_max_chars = 4000
