@@ -5,6 +5,7 @@ import type {
   DecisionsOutput,
   SentimentsOutput,
   KnowledgeStore,
+  RecentAnnotation,
 } from "./types";
 
 const BASE = "/api";
@@ -40,6 +41,13 @@ export async function fetchSentiments(path?: string): Promise<SentimentsOutput> 
   const res = await fetch(`${BASE}/sentiments${params}`);
   if (!res.ok)
     throw new Error(`Failed to fetch sentiments: ${res.statusText}`);
+  return res.json();
+}
+
+export async function fetchRecentAnnotations(): Promise<RecentAnnotation[]> {
+  const res = await fetch(`${BASE}/recent-annotations`);
+  if (!res.ok)
+    throw new Error(`Failed to fetch recent annotations: ${res.statusText}`);
   return res.json();
 }
 

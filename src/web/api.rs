@@ -16,6 +16,7 @@ pub fn handle(git_ops: &CliOps, url: &str) -> crate::error::Result<Response> {
     match path {
         "/api/status" => handle_status(git_ops),
         "/api/tree" => handle_tree(git_ops),
+        "/api/recent-annotations" => handle_recent_annotations(git_ops),
         "/api/decisions" => handle_decisions(git_ops, query),
         "/api/sentiments" => handle_sentiments(git_ops, query),
         "/api/knowledge" => handle_knowledge(git_ops),
@@ -112,12 +113,21 @@ fn handle_file(git_ops: &CliOps, file_path: &str) -> crate::error::Result<Respon
 }
 
 fn handle_file_view(git_ops: &CliOps, file_path: &str) -> crate::error::Result<Response> {
-    let content = git_ops
-        .file_at_commit(Path::new(file_path), "HEAD")
-        .map_err(|e| ChronicleError::Git {
-            source: e,
-            location: snafu::Location::default(),
-        })?;
+    let content = match git_ops.file_at_commit(Path::new(file_path), "HEAD") {
+        Ok(c) => c,
+        Err(GitError::FileNotFound { .. }) => {
+            return Ok(json_response(
+                404,
+                &serde_json::json!({"error": format!("file not found: {file_path}")}),
+            ));
+        }
+        Err(e) => {
+            return Err(ChronicleError::Git {
+                source: e,
+                location: snafu::Location::default(),
+            });
+        }
+    };
     let language = detect_language(file_path);
 
     let lookup_result =
@@ -231,7 +241,83 @@ fn handle_knowledge(git_ops: &CliOps) -> crate::error::Result<Response> {
     Ok(json_response(200, &store))
 }
 
+fn handle_recent_annotations(git_ops: &CliOps) -> crate::error::Result<Response> {
+    let annotated = git_ops
+        .list_annotated_commits(20)
+        .map_err(|e| ChronicleError::Git {
+            source: e,
+            location: snafu::Location::default(),
+        })?;
+
+    let existing_files: std::collections::HashSet<String> =
+        list_files(git_ops)?.into_iter().collect();
+
+    let mut entries = Vec::new();
+    for sha in &annotated {
+        let info = git_ops.commit_info(sha).map_err(|e| ChronicleError::Git {
+            source: e,
+            location: snafu::Location::default(),
+        })?;
+
+        let note = match git_ops.note_read(sha) {
+            Ok(Some(n)) => n,
+            _ => continue,
+        };
+
+        let ann = match crate::schema::parse_annotation(&note) {
+            Ok(a) => a,
+            Err(_) => continue,
+        };
+
+        let mut files: Vec<String> = ann
+            .wisdom
+            .iter()
+            .filter_map(|w| w.file.clone())
+            .filter(|f| existing_files.contains(f))
+            .collect::<std::collections::BTreeSet<_>>()
+            .into_iter()
+            .collect();
+
+        // Fall back to the commit's changed files when wisdom has no file refs
+        if files.is_empty() {
+            files = commit_changed_files(git_ops, sha)
+                .unwrap_or_default()
+                .into_iter()
+                .filter(|f| existing_files.contains(f))
+                .collect();
+        }
+
+        entries.push(serde_json::json!({
+            "commit": &sha,
+            "message": info.message,
+            "timestamp": info.timestamp,
+            "summary": ann.summary,
+            "files": files,
+        }));
+    }
+
+    Ok(json_response(200, &entries))
+}
+
 // --- Helpers ---
+
+fn commit_changed_files(git_ops: &CliOps, sha: &str) -> Result<Vec<String>, ChronicleError> {
+    let output = std::process::Command::new("git")
+        .args(["diff-tree", "--no-commit-id", "--name-only", "-r", sha])
+        .current_dir(&git_ops.repo_dir)
+        .output()
+        .map_err(|e| ChronicleError::Io {
+            source: e,
+            location: snafu::Location::default(),
+        })?;
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    Ok(stdout
+        .lines()
+        .filter(|l| !l.is_empty())
+        .map(|s| s.to_string())
+        .collect())
+}
 
 fn json_response(status: u16, body: &impl serde::Serialize) -> Response {
     let json = serde_json::to_string(body).unwrap_or_else(|_| "{}".to_string());

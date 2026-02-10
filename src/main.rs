@@ -140,7 +140,7 @@ fn main() {
         },
         Commands::Status { format } => chronicle::cli::status::run(format),
         #[cfg(feature = "web")]
-        Commands::Web { port, open } => chronicle::cli::web::run(port, open),
+        Commands::Web { port, no_open } => chronicle::cli::web::run(port, !no_open),
     };
 
     if let Err(e) = result {

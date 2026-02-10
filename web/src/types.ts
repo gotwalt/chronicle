@@ -79,6 +79,7 @@ export interface TimelineEntry {
   context_level: string;
   provenance: string;
   intent: string;
+  original_schema: string;
   reasoning?: string;
   constraints: string[];
   risk_notes?: string;
@@ -169,6 +170,16 @@ export interface SentimentEntry {
 export interface SentimentsOutput {
   schema: string;
   sentiments: SentimentEntry[];
+}
+
+// --- Recent Annotations ---
+
+export interface RecentAnnotation {
+  commit: string;
+  message: string;
+  timestamp: string;
+  summary: string;
+  files: string[];
 }
 
 // --- Decisions (repo-wide) ---

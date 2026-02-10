@@ -33,6 +33,7 @@ export function AnnotationSidebar({
                   <code className="text-xs text-zinc-500">
                     {entry.commit.slice(0, 7)}
                   </code>
+                  <SchemaBadge schema={entry.original_schema} />
                   <span className="text-xs text-zinc-500">
                     {formatTimestamp(entry.timestamp)}
                   </span>
@@ -284,6 +285,23 @@ function isKnowledgeEmpty(k: {
     k.conventions.length === 0 &&
     k.boundaries.length === 0 &&
     k.anti_patterns.length === 0
+  );
+}
+
+function SchemaBadge({ schema }: { schema?: string }) {
+  if (!schema) return null;
+  const short = schema.replace("chronicle/", "");
+  const colors: Record<string, string> = {
+    v1: "bg-zinc-800 text-zinc-500",
+    v2: "bg-zinc-800 text-zinc-400",
+    v3: "bg-emerald-900/50 text-emerald-400",
+  };
+  return (
+    <span
+      className={`rounded px-1 py-0.5 text-[10px] font-mono ${colors[short] ?? "bg-zinc-800 text-zinc-500"}`}
+    >
+      {short}
+    </span>
   );
 }
 
