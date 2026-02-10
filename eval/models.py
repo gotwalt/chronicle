@@ -115,3 +115,20 @@ class ScoreReport:
     annotation_count: int
     wisdom_count: int
     judge: Optional[LLMJudgeScores] = None
+
+
+@dataclass
+class VariantSummary:
+    variant: str
+    tasks_run: int
+    mean_wisdom_count: float
+    mean_quality: dict[str, float]  # {redundancy, specificity, actionability, depth, accuracy}
+    classification_counts: dict[str, int]  # {high_value, moderate_value, low_value, noise}
+    coverage_by_tier: dict[str, dict[str, int]]  # {surface: {full, partial, missed}, ...}
+
+
+@dataclass
+class ComparisonReport:
+    baseline: VariantSummary
+    experiment: VariantSummary
+    coverage_delta: dict[str, float]  # {surface, standard, deep} — experiment minus baseline

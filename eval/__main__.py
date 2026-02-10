@@ -145,7 +145,33 @@ def main():
         "--judge-model",
         help="Override judge model (default: from config)",
     )
+    parser.add_argument(
+        "--compare",
+        nargs=2,
+        metavar=("BASELINE_JSONL", "EXPERIMENT_JSONL"),
+        help="Compare two result sets and print report",
+    )
     args = parser.parse_args()
+
+    # --compare mode: compare two result sets and exit
+    if args.compare:
+        from eval.analysis import (
+            compare_variants,
+            print_comparison,
+            print_per_task_comparison,
+        )
+
+        baseline_path = Path(args.compare[0])
+        experiment_path = Path(args.compare[1])
+        for p in (baseline_path, experiment_path):
+            if not p.exists():
+                print(f"Error: file not found: {p}")
+                sys.exit(1)
+
+        report = compare_variants(baseline_path, experiment_path)
+        print_comparison(report)
+        print_per_task_comparison(baseline_path, experiment_path)
+        return
 
     config = load_eval_config(Path(args.config))
     judge_enabled, judge_config = _resolve_judge_config(args, config)
