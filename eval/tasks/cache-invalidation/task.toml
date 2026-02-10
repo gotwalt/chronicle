@@ -1,0 +1,57 @@
+[task]
+id = "cache-invalidation"
+name = "Fix stale cache responses in HTTP client"
+difficulty = "medium"
+
+[setup]
+init_script = "setup.sh"
+
+[instructions]
+prompt = """
+The `CachedHttpClient` class is returning stale responses. When the
+application's `output_format` config changes from "json" to "xml",
+cached responses still return the old format. Fix the cache so it
+correctly invalidates when configuration changes affect response format.
+
+Run the test suite with `python -m pytest tests/` to verify your fix.
+All tests should pass including the stale-cache tests.
+"""
+
+# Surface wisdom
+[[ground_truth]]
+category = "gotcha"
+content = "The cache key is built from URL + method only, but the server returns different content based on the Accept header, which is derived from output_format config. Changing config doesn't invalidate existing cache entries."
+tier = "surface"
+discoverable_via = "code_reading"
+
+[[ground_truth]]
+category = "gotcha"
+content = "The cache TTL is set per-entry at insertion time. There's no global invalidation mechanism — you must either include format in the key or version the entire cache."
+tier = "surface"
+discoverable_via = "code_reading"
+
+# Standard wisdom
+[[ground_truth]]
+category = "dead_end"
+content = "Adding output_format to the cache key works but causes cache misses on every format toggle. The real fix requires invalidating only entries whose responses depend on the format header."
+tier = "standard"
+discoverable_via = "attempted_fix"
+
+[[ground_truth]]
+category = "insight"
+content = "The Vary header from the server indicates which request headers affect the response. Entries with Vary: Accept should include the Accept value in the cache key; others should not."
+tier = "standard"
+discoverable_via = "code_reading"
+
+# Deep wisdom
+[[ground_truth]]
+category = "invisible_coupling"
+content = "output_format in AppConfig is read by build_headers() to set Accept header. The cache has no reference to AppConfig but its correctness depends on it. Changing AppConfig without cache awareness silently corrupts responses."
+tier = "deep"
+discoverable_via = "reasoning"
+
+[[ground_truth]]
+category = "confidence_gradient"
+content = "The fix correctly handles format changes but may have issues with concurrent requests during a config change — one request could cache a response with the old format while another reads it expecting the new format."
+tier = "deep"
+discoverable_via = "reasoning"

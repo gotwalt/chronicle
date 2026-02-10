@@ -1,0 +1,57 @@
+[task]
+id = "retry-backoff"
+name = "Fix retry mechanism failing under thundering herd"
+difficulty = "medium"
+
+[setup]
+init_script = "setup.sh"
+
+[instructions]
+prompt = """
+The `RetryExecutor` class adds random jitter to retry delays to prevent
+thundering herd problems, but load tests show all clients still retry
+at nearly the same time after a server outage. Fix the retry mechanism
+so that clients genuinely spread out their retry attempts.
+
+Run the test suite with `python -m pytest tests/` to verify your fix.
+All tests should pass including the thundering-herd tests.
+"""
+
+# Surface wisdom
+[[ground_truth]]
+category = "gotcha"
+content = "The jitter is added per-retry but all clients share the same initial delay (INITIAL_DELAY_MS = 100). After a simultaneous failure, every client's first retry fires at ~100ms ± small jitter, which doesn't spread them out."
+tier = "surface"
+discoverable_via = "code_reading"
+
+[[ground_truth]]
+category = "gotcha"
+content = "The test_retry_spacing test uses time.sleep with tight tolerances. Any fix that changes delay magnitudes must also update the test expectations."
+tier = "surface"
+discoverable_via = "code_reading"
+
+# Standard wisdom
+[[ground_truth]]
+category = "dead_end"
+content = "Increasing the jitter range helps but doesn't solve the fundamental problem: jitter on top of a shared base still clusters. Need to randomize the base delay itself, not just add noise on top."
+tier = "standard"
+discoverable_via = "attempted_fix"
+
+[[ground_truth]]
+category = "insight"
+content = "The 'decorrelated jitter' algorithm (next_delay = random(base, prev_delay * 3)) produces much better spread than 'full jitter' (random(0, base * 2^attempt)) because each client's trajectory diverges after the first retry."
+tier = "standard"
+discoverable_via = "code_reading"
+
+# Deep wisdom
+[[ground_truth]]
+category = "reasoning_shortcut"
+content = "Before tuning jitter parameters, check whether clients share a starting point. If all clients fail at the same instant, per-retry jitter is treating a symptom — the disease is correlated initial failures."
+tier = "deep"
+discoverable_via = "reasoning"
+
+[[ground_truth]]
+category = "pre_emptive_avoidance"
+content = "Adding a random initial delay before the first retry (not just between retries) is simpler and more effective than complex jitter algorithms. It breaks the correlation at the source."
+tier = "deep"
+discoverable_via = "reasoning"

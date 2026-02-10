@@ -1,0 +1,58 @@
+[task]
+id = "circular-config"
+name = "Fix circular dependency in configuration loading"
+difficulty = "medium"
+
+[setup]
+init_script = "setup.sh"
+
+[instructions]
+prompt = """
+The `Config.load()` method panics when a config file references itself
+via `include: ./config.toml`. Fix it to detect circular includes and
+raise `ConfigError` instead of recursing forever.
+
+Run the test suite with `python -m pytest tests/` to verify your fix.
+All tests should pass including the new circular-include tests.
+"""
+
+# --- Ground truth: what an ideal agent would capture ---
+
+# Surface wisdom — any agent should find these
+[[ground_truth]]
+category = "gotcha"
+content = "Config.load() is called from two code paths: startup (where crash is acceptable) and hot-reload (where it must not crash). The fix must handle both."
+tier = "surface"
+discoverable_via = "code_reading"
+
+[[ground_truth]]
+category = "gotcha"
+content = "The include path is resolved relative to the including file's directory, not the working directory. Using os.path.join naively breaks nested includes."
+tier = "surface"
+discoverable_via = "code_reading"
+
+# Standard wisdom — good agents should find these
+[[ground_truth]]
+category = "dead_end"
+content = "Tracking visited paths with a set fails because symlinks can create circular includes without repeating the same path string. Must resolve to real paths first."
+tier = "standard"
+discoverable_via = "attempted_fix"
+
+[[ground_truth]]
+category = "insight"
+content = "The override semantics mean later includes shadow earlier ones. Circular detection must happen before merging, otherwise partial config state leaks."
+tier = "standard"
+discoverable_via = "code_reading"
+
+# Deep wisdom — the knowledge types we're trying to unlock
+[[ground_truth]]
+category = "pre_emptive_avoidance"
+content = "The recursive approach fights Python's default recursion limit. An iterative approach with an explicit stack avoids the sys.setrecursionlimit hack entirely."
+tier = "deep"
+discoverable_via = "reasoning"
+
+[[ground_truth]]
+category = "cognitive_load_map"
+content = "Understanding Config.load() requires simultaneously holding: include resolution order, override semantics, the two caller contexts, and the error propagation strategy."
+tier = "deep"
+discoverable_via = "reflection"

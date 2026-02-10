@@ -1,0 +1,12 @@
+[agent]
+runner = "claude-code"
+model = "claude-sonnet-4-5"
+max_budget_usd = 1.00
+timeout_seconds = 1800
+
+[chronicle]
+binary = "./target/debug/git-chronicle"
+
+[eval]
+prompt_variant = "v1-baseline"
+tasks = ["circular-config", "cache-invalidation", "retry-backoff"]
