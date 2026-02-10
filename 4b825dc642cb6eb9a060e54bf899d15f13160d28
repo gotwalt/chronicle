@@ -18,6 +18,12 @@
       "scope": "src/schema/",
       "rule": "parse_annotation() migrates all annotations to v3, losing the original schema version. Use schema::peek_version() to extract the original version string from raw JSON when the original version matters (e.g. display, diagnostics).",
       "stability": "permanent"
+    },
+    {
+      "id": "conv-5",
+      "scope": "web/src/",
+      "rule": "All fetch error handlers must log to console.error() with the request context before updating UI state. Server-side errors in the web server loop must log to stderr with the request URL.",
+      "stability": "permanent"
     }
   ],
   "boundaries": [],
