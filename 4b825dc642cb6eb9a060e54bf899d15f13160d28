@@ -21,5 +21,11 @@
     }
   ],
   "boundaries": [],
-  "anti_patterns": []
+  "anti_patterns": [
+    {
+      "id": "ap-4",
+      "pattern": "Using CSS line-clamp-N to constrain height of text that may contain newlines",
+      "instead": "Truncate the text in JS (collapse newlines, cap length) before rendering. CSS line-clamp visually truncates but does not constrain element height when content has embedded newlines."
+    }
+  ]
 }
