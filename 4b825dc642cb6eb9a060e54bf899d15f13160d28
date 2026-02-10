@@ -1,0 +1,13 @@
+{
+  "schema": "chronicle/knowledge-v1",
+  "conventions": [
+    {
+      "id": "conv-1",
+      "scope": "src/web/",
+      "rule": "Any endpoint returning file paths from annotations must filter against files at HEAD (via list_files) to exclude references to deleted files. Wisdom entries and diff-tree results both need this filter.",
+      "stability": "permanent"
+    }
+  ],
+  "boundaries": [],
+  "anti_patterns": []
+}
